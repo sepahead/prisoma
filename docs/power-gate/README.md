@@ -75,7 +75,7 @@ futility behavior of current H1.
   cover any current EC1/H1–H4 primary endpoint.
 - The simulation models retired statistical procedures with a binormal signal model whose injected
   incremental effect is exact by construction. It omits the current nested design and PID/SSI
-  measurement error; estimator-level behavior remains a separate S1/§7 concern.
+  measurement error; estimator-level behavior remains a separate D1/§7 concern.
 - The artifact's `NOT PASSED` verdict applies to its retired dual criterion. Current capture
   readiness is independently `NOT READY / NOT PASSED` because no protocol-specific replacement
   simulation exists.

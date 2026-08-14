@@ -13,9 +13,12 @@ from __future__ import annotations
 
 import argparse
 import csv
+import errno
 import hashlib
+import io
 import json
 import math
+import os
 import re
 import stat
 import sys
@@ -30,7 +33,7 @@ PREREGISTRATION_PATH = PROTOCOLS / "m0_preregistration_skeleton_v1.json"
 HISTORICAL_PREREGISTRATION_SHA256 = (
     "dd916a3f1819d38f8e19cb8f30d2eaeaa2fcb9895360fcf028c2f40b455bb6e7"
 )
-SUCCESSOR_PATH = PROTOCOLS / "m0_preregistration_successor_draft_v2.json"
+SUCCESSOR_PATH = PROTOCOLS / "m0_preregistration_successor_draft_v3.json"
 HOLDOUT_REGISTRY_PATH = PROTOCOLS / "holdout_registry_v1.json"
 HOLDOUT_LEDGER_PATH = PROTOCOLS / "holdout_access_ledger_v1.jsonl"
 TRANSPORT_PATH = PROTOCOLS / "transport_contamination_ledger_v1.json"
@@ -97,7 +100,7 @@ SEMANTIC_SNAPSHOT_SHA256 = {
     "claim_registry_scope": (
         "3d0c81c164f99b491aea8f2ddae889ffceef93bf52956f1f251e15db7944e638"
     ),
-    "claim_snapshots": "b9ad19dc6412e51b006ebe3000c2e8f2404f79e95fdfbc24d1cb384905b43cae",
+    "claim_snapshots": "8ab704bfaef456b7240a1ad608f0f5031c1e84caf02b8d03e02fca25b864cf16",
 }
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -107,6 +110,10 @@ PLACEHOLDER_RE = re.compile(
 )
 HOLDOUT_HASH_DOMAIN = b"prisoma-holdout-access-v1\0"
 FREEZE_BLOCKED_EXIT = 3
+MAX_GOVERNANCE_FILE_BYTES = 2 * 1024 * 1024
+MAX_BOUND_CONTENT_BYTES = 64 * 1024 * 1024
+MAX_BOUND_CONTENT_TOTAL_BYTES = 256 * 1024 * 1024
+MAX_REPOSITORY_PATH_BYTES = 4096
 
 
 class GovernanceError(ValueError):
@@ -262,47 +269,204 @@ def _date(value: Any, *, context: str) -> date:
     return parsed
 
 
-def _safe_file(root: Path, relative: Path | str, *, context: str) -> Path:
-    raw = relative.as_posix() if isinstance(relative, Path) else relative
-    if not isinstance(raw, str) or not raw:
-        raise GovernanceError(f"{context} must be a repository-relative path")
+def _validated_relative_parts(relative: Any, *, context: str) -> tuple[str, ...]:
+    raw = _string(relative, context=context)
     if any(ord(character) < 32 or ord(character) == 127 for character in raw):
         raise GovernanceError(f"{context} contains a forbidden ASCII control character")
+    if len(raw.encode("utf-8")) > MAX_REPOSITORY_PATH_BYTES:
+        raise GovernanceError(
+            f"{context} exceeds the {MAX_REPOSITORY_PATH_BYTES}-byte path limit"
+        )
     if "\\" in raw:
         raise GovernanceError(f"{context} must use POSIX path separators")
     pure = PurePosixPath(raw)
-    if pure.is_absolute() or not pure.parts or ".." in pure.parts or "." in pure.parts:
-        raise GovernanceError(f"{context} escapes the repository: {raw!r}")
-
-    root_resolved = root.resolve(strict=True)
-    current = root
-    for part in pure.parts:
-        current /= part
-        try:
-            mode = current.lstat().st_mode
-        except FileNotFoundError as error:
-            raise GovernanceError(f"{context} does not exist: {raw!r}") from error
-        if stat.S_ISLNK(mode):
-            raise GovernanceError(f"{context} may not traverse a symlink: {raw!r}")
-
-    resolved = current.resolve(strict=True)
-    try:
-        resolved.relative_to(root_resolved)
-    except ValueError as error:
+    if (
+        pure.is_absolute()
+        or not pure.parts
+        or ".." in pure.parts
+        or "." in pure.parts
+        or pure.as_posix() != raw
+    ):
         raise GovernanceError(
-            f"{context} resolves outside the repository: {raw!r}"
+            f"{context} escapes the repository or is not canonical: {raw!r}"
+        )
+    return pure.parts
+
+
+def _snapshot_identity(value: os.stat_result) -> tuple[int, int, int, int, int, int]:
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
+
+
+def _node_identity(value: os.stat_result) -> tuple[int, int, int]:
+    return (value.st_dev, value.st_ino, value.st_mode)
+
+
+def _read_bounded_repo_file(
+    root: Path,
+    relative: Any,
+    *,
+    max_bytes: int,
+    context: str,
+) -> bytes:
+    """Read one stable regular file through descriptor-relative traversal."""
+
+    if max_bytes < 0:
+        raise GovernanceError(f"{context} has an invalid negative byte limit")
+    required_flags = ("O_NOFOLLOW", "O_NONBLOCK", "O_DIRECTORY")
+    missing_flags = [name for name in required_flags if not hasattr(os, name)]
+    if missing_flags:
+        raise GovernanceError(
+            f"{context} requires unavailable descriptor flags: {missing_flags}"
+        )
+    parts = _validated_relative_parts(relative, context=context)
+    root = root.resolve(strict=True)
+    directory_flags = (
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+    )
+    file_flags = (
+        os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | getattr(os, "O_CLOEXEC", 0)
+    )
+    descriptors: list[int] = []
+    directory_identities: list[tuple[int, int, int]] = []
+    try:
+        descriptors.append(os.open(root, directory_flags))
+        root_metadata = os.fstat(descriptors[-1])
+        if not stat.S_ISDIR(root_metadata.st_mode):
+            raise GovernanceError(f"{context} repository root is not a directory")
+        directory_identities.append(_node_identity(root_metadata))
+        for part in parts[:-1]:
+            descriptor = os.open(part, directory_flags, dir_fd=descriptors[-1])
+            descriptors.append(descriptor)
+            directory_metadata = os.fstat(descriptor)
+            if not stat.S_ISDIR(directory_metadata.st_mode):
+                raise GovernanceError(f"{context} may traverse only real directories")
+            directory_identities.append(_node_identity(directory_metadata))
+
+        descriptor = os.open(parts[-1], file_flags, dir_fd=descriptors[-1])
+        descriptors.append(descriptor)
+        opened = os.fstat(descriptor)
+        if not stat.S_ISREG(opened.st_mode):
+            raise GovernanceError(f"{context} must identify a regular non-symlink file")
+        if opened.st_size < 0 or opened.st_size > max_bytes:
+            raise GovernanceError(f"{context} exceeds the {max_bytes}-byte limit")
+
+        raw = bytearray()
+        while len(raw) <= max_bytes:
+            chunk = os.read(descriptor, min(1024 * 1024, max_bytes + 1 - len(raw)))
+            if not chunk:
+                break
+            raw.extend(chunk)
+        if len(raw) > max_bytes:
+            raise GovernanceError(f"{context} exceeds the {max_bytes}-byte limit")
+
+        opened_after = os.fstat(descriptor)
+        named_after = os.stat(parts[-1], dir_fd=descriptors[-2], follow_symlinks=False)
+        if (
+            not stat.S_ISREG(named_after.st_mode)
+            or _snapshot_identity(opened) != _snapshot_identity(opened_after)
+            or _snapshot_identity(opened_after) != _snapshot_identity(named_after)
+            or len(raw) != opened_after.st_size
+        ):
+            raise GovernanceError(f"{context} changed while it was read")
+
+        verification_descriptors: list[int] = []
+        try:
+            verification_descriptors.append(os.open(root, directory_flags))
+            if (
+                _node_identity(os.fstat(verification_descriptors[-1]))
+                != (directory_identities[0])
+            ):
+                raise GovernanceError(
+                    f"{context} repository path changed while it was read"
+                )
+            for index, part in enumerate(parts[:-1], start=1):
+                directory = os.open(
+                    part,
+                    directory_flags,
+                    dir_fd=verification_descriptors[-1],
+                )
+                verification_descriptors.append(directory)
+                if _node_identity(os.fstat(directory)) != directory_identities[index]:
+                    raise GovernanceError(
+                        f"{context} repository path changed while it was read"
+                    )
+            current_file = os.open(
+                parts[-1], file_flags, dir_fd=verification_descriptors[-1]
+            )
+            verification_descriptors.append(current_file)
+            if _snapshot_identity(os.fstat(current_file)) != _snapshot_identity(
+                opened_after
+            ):
+                raise GovernanceError(
+                    f"{context} repository path changed while it was read"
+                )
+        finally:
+            for verification_descriptor in reversed(verification_descriptors):
+                try:
+                    os.close(verification_descriptor)
+                except OSError:
+                    pass
+        return bytes(raw)
+    except GovernanceError:
+        raise
+    except OSError as error:
+        if error.errno == errno.ELOOP:
+            raise GovernanceError(
+                f"{context} must identify a regular non-symlink file"
+            ) from error
+        raise GovernanceError(
+            f"cannot read stable repository file for {context}: {error}"
         ) from error
-    if not resolved.is_file():
-        raise GovernanceError(f"{context} must resolve to a regular file: {raw!r}")
-    return resolved
+    finally:
+        for descriptor in reversed(descriptors):
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        while chunk := stream.read(1024 * 1024):
-            digest.update(chunk)
-    return digest.hexdigest()
+class _ContentSnapshotReader:
+    """Cache content snapshots so validation never hashes and parses different bytes."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root.resolve(strict=True)
+        self._cache: dict[str, bytes] = {}
+        self._aggregate_bytes = 0
+
+    def read(
+        self,
+        relative: Any,
+        *,
+        context: str,
+        max_bytes: int = MAX_BOUND_CONTENT_BYTES,
+    ) -> bytes:
+        raw = _string(relative, context=context)
+        cached = self._cache.get(raw)
+        if cached is not None:
+            if len(cached) > max_bytes:
+                raise GovernanceError(f"{context} exceeds the {max_bytes}-byte limit")
+            return cached
+        payload = _read_bounded_repo_file(
+            self.root,
+            raw,
+            max_bytes=max_bytes,
+            context=context,
+        )
+        if self._aggregate_bytes + len(payload) > MAX_BOUND_CONTENT_TOTAL_BYTES:
+            raise GovernanceError(
+                "content bindings exceed the "
+                f"{MAX_BOUND_CONTENT_TOTAL_BYTES}-byte aggregate limit"
+            )
+        self._aggregate_bytes += len(payload)
+        self._cache[raw] = payload
+        return payload
 
 
 def _canonical_json_bytes(value: Any) -> bytes:
@@ -323,17 +487,28 @@ def _require_semantic_snapshot(value: Any, *, snapshot: str, context: str) -> No
         )
 
 
-def _read_json(root: Path, relative: Path) -> tuple[dict[str, Any], Path]:
-    path = _safe_file(root, relative, context=relative.as_posix())
-    value = _parse_json_bytes(path.read_bytes(), context=relative.as_posix())
+def _read_json(
+    reader: _ContentSnapshotReader, relative: Path
+) -> tuple[dict[str, Any], bytes]:
+    raw = reader.read(
+        relative.as_posix(),
+        context=relative.as_posix(),
+        max_bytes=MAX_GOVERNANCE_FILE_BYTES,
+    )
+    value = _parse_json_bytes(raw, context=relative.as_posix())
     if not isinstance(value, dict):
         raise GovernanceError(f"{relative.as_posix()} must contain one JSON object")
-    return value, path
+    return value, raw
 
 
-def _read_jsonl(root: Path, relative: Path) -> tuple[list[dict[str, Any]], Path]:
-    path = _safe_file(root, relative, context=relative.as_posix())
-    raw = path.read_bytes()
+def _read_jsonl(
+    reader: _ContentSnapshotReader, relative: Path
+) -> tuple[list[dict[str, Any]], bytes]:
+    raw = reader.read(
+        relative.as_posix(),
+        context=relative.as_posix(),
+        max_bytes=MAX_GOVERNANCE_FILE_BYTES,
+    )
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError as error:
@@ -356,7 +531,7 @@ def _read_jsonl(root: Path, relative: Path) -> tuple[list[dict[str, Any]], Path]
                 f"{relative.as_posix()} line {index} must contain one JSON object"
             )
         records.append(value)
-    return records, path
+    return records, raw
 
 
 def _validate_sha(value: Any, *, context: str) -> str:
@@ -367,17 +542,17 @@ def _validate_sha(value: Any, *, context: str) -> str:
 
 
 def _validate_bound_file(
-    root: Path,
+    reader: _ContentSnapshotReader,
     *,
     raw_path: Any,
     raw_sha256: Any,
     context: str,
     raw_byte_count: Any | None = None,
-) -> Path:
+) -> bytes:
     relative = _string(raw_path, context=f"{context}.path")
-    path = _safe_file(root, relative, context=f"{context}.path")
+    payload = reader.read(relative, context=f"{context}.path")
     expected_sha256 = _validate_sha(raw_sha256, context=f"{context}.sha256")
-    actual_sha256 = _sha256(path)
+    actual_sha256 = hashlib.sha256(payload).hexdigest()
     if actual_sha256 != expected_sha256:
         raise GovernanceError(
             f"{context} SHA-256 mismatch: declared {expected_sha256}, "
@@ -389,13 +564,13 @@ def _validate_bound_file(
             context=f"{context}.byte_count",
             minimum=0,
         )
-        actual_bytes = path.stat().st_size
+        actual_bytes = len(payload)
         if actual_bytes != expected_bytes:
             raise GovernanceError(
                 f"{context} byte count mismatch: declared {expected_bytes}, "
                 f"computed {actual_bytes}"
             )
-    return path
+    return payload
 
 
 HOLDOUT_REGISTRY_KEYS = {
@@ -490,9 +665,10 @@ def _holdout_event_digest(event: dict[str, Any]) -> str:
 
 def _validate_holdout_bundle(
     root: Path,
+    reader: _ContentSnapshotReader,
     registry: dict[str, Any],
     ledger: list[dict[str, Any]],
-    ledger_path: Path,
+    ledger_bytes: bytes,
 ) -> None:
     context = HOLDOUT_REGISTRY_PATH.as_posix()
     registry = _exact_keys(registry, HOLDOUT_REGISTRY_KEYS, context=context)
@@ -510,9 +686,9 @@ def _validate_holdout_bundle(
     )
     if canonical != {"path": "grandplan.md", "version": "12.5"}:
         raise GovernanceError(
-            f"{context}.canonical_spec must identify grandplan.md v12.5"
+            f"{context}.canonical_spec must identify the historical grandplan.md v12.5 locator"
         )
-    _safe_file(root, canonical["path"], context=f"{context}.canonical_spec.path")
+    reader.read(canonical["path"], context=f"{context}.canonical_spec.path")
     if registry["scope"] != HOLDOUT_SCOPE:
         raise GovernanceError(f"{context}.scope loses the holdout honesty boundary")
     status_value = _enum(
@@ -566,7 +742,7 @@ def _validate_holdout_bundle(
     declared_file_sha = _validate_sha(
         metadata["file_sha256"], context=f"{metadata_context}.file_sha256"
     )
-    if declared_file_sha != _sha256(ledger_path):
+    if declared_file_sha != hashlib.sha256(ledger_bytes).hexdigest():
         raise GovernanceError(
             f"{metadata_context}.file_sha256 does not bind ledger bytes"
         )
@@ -575,7 +751,7 @@ def _validate_holdout_bundle(
         context=f"{metadata_context}.file_byte_count",
         minimum=1,
     )
-    if declared_file_bytes != ledger_path.stat().st_size:
+    if declared_file_bytes != len(ledger_bytes):
         raise GovernanceError(
             f"{metadata_context}.file_byte_count does not bind ledger bytes"
         )
@@ -952,7 +1128,11 @@ PID_GATE_KEYS = {"status", "regime_hash", "evidence_bindings"}
 CONTENT_BINDING_KEYS = {"path", "sha256"}
 
 
-def _validate_preregistration(root: Path, artifact: dict[str, Any]) -> None:
+def _validate_preregistration(
+    root: Path,
+    reader: _ContentSnapshotReader,
+    artifact: dict[str, Any],
+) -> None:
     context = PREREGISTRATION_PATH.as_posix()
     artifact = _exact_keys(artifact, PREREGISTRATION_KEYS, context=context)
     if _integer(artifact["schema_version"], context=f"{context}.schema_version") != 1:
@@ -972,9 +1152,9 @@ def _validate_preregistration(root: Path, artifact: dict[str, Any]) -> None:
     )
     if canonical != {"path": "grandplan.md", "version": "12.5"}:
         raise GovernanceError(
-            f"{context}.canonical_spec must identify grandplan.md v12.5"
+            f"{context}.canonical_spec must identify the historical grandplan.md v12.5 locator"
         )
-    _safe_file(root, canonical["path"], context=f"{context}.canonical_spec.path")
+    reader.read(canonical["path"], context=f"{context}.canonical_spec.path")
 
     freeze_status = _string(
         artifact["freeze_status"], context=f"{context}.freeze_status"
@@ -1165,7 +1345,7 @@ def _validate_preregistration(root: Path, artifact: dict[str, Any]) -> None:
                     raw_binding, CONTENT_BINDING_KEYS, context=binding_context
                 )
                 _validate_bound_file(
-                    root,
+                    reader,
                     raw_path=binding["path"],
                     raw_sha256=binding["sha256"],
                     context=binding_context,
@@ -1204,7 +1384,7 @@ def _validate_preregistration(root: Path, artifact: dict[str, Any]) -> None:
             f"{context}.freeze_requirements must not derive useful effects from pilots"
         )
     _validate_bound_file(
-        root,
+        reader,
         raw_path=PREREGISTRATION_PATH.as_posix(),
         raw_sha256=HISTORICAL_PREREGISTRATION_SHA256,
         context=f"{context} historical identity",
@@ -1399,9 +1579,10 @@ ASSESSMENT_RECORD_SCHEMAS = {
 
 def _validate_transport(
     root: Path,
+    reader: _ContentSnapshotReader,
     artifact: dict[str, Any],
     holdout_registry: dict[str, Any],
-    ledger_path: Path,
+    ledger_bytes: bytes,
 ) -> None:
     context = TRANSPORT_PATH.as_posix()
     artifact = _exact_keys(artifact, TRANSPORT_KEYS, context=context)
@@ -1420,9 +1601,9 @@ def _validate_transport(
     )
     if canonical["path"] != "grandplan.md" or canonical["version"] != "12.5":
         raise GovernanceError(
-            f"{context}.canonical_spec must identify grandplan.md v12.5"
+            f"{context}.canonical_spec must identify the historical grandplan.md v12.5 locator"
         )
-    _safe_file(root, canonical["path"], context=f"{context}.canonical_spec.path")
+    reader.read(canonical["path"], context=f"{context}.canonical_spec.path")
     sections = _string_array(
         canonical["relevant_sections"],
         context=f"{context}.canonical_spec.relevant_sections",
@@ -1449,12 +1630,10 @@ def _validate_transport(
         raise GovernanceError(f"{governance_context}.registry_path drifted")
     if governance["ledger_path"] != HOLDOUT_LEDGER_PATH.as_posix():
         raise GovernanceError(f"{governance_context}.ledger_path drifted")
-    _safe_file(
-        root, governance["registry_path"], context=f"{governance_context}.registry_path"
+    reader.read(
+        governance["registry_path"], context=f"{governance_context}.registry_path"
     )
-    _safe_file(
-        root, governance["ledger_path"], context=f"{governance_context}.ledger_path"
-    )
+    reader.read(governance["ledger_path"], context=f"{governance_context}.ledger_path")
     if governance["registry_status"] != holdout_registry["registry_status"]:
         raise GovernanceError(
             f"{governance_context}.registry_status disagrees with registry"
@@ -1463,7 +1642,7 @@ def _validate_transport(
         governance["ledger_file_sha256"],
         context=f"{governance_context}.ledger_file_sha256",
     )
-    if ledger_sha != _sha256(ledger_path):
+    if ledger_sha != hashlib.sha256(ledger_bytes).hexdigest():
         raise GovernanceError(f"{governance_context}.ledger_file_sha256 drifted")
     head = _validate_sha(
         governance["ledger_head_event_sha256"],
@@ -1601,8 +1780,8 @@ M0_STATUS_KEYS = {
 EXPECTED_M0_STATUSES = {
     "overall": "not_freeze_ready",
     "preregistration_skeleton": (
-        "implemented_unfrozen_v1_scaffold_plus_revised_unreviewed_typed_v2_"
-        "successor_neither_is_a_preregistration"
+        "implemented_unfrozen_v1_scaffold_plus_superseded_v2_and_revised_"
+        "unreviewed_typed_v3_successor_none_is_a_preregistration"
     ),
     "causal_graph": "unfrozen_pending_policy_environment_and_intervention_selection",
     "variable_dictionary": "partial_software_contracts_only",
@@ -1748,7 +1927,14 @@ EXPECTED_CLAIM_STATES = {
 }
 
 
-def _validate_claim_registry(root: Path, registry: dict[str, Any]) -> None:
+def _validate_claim_registry(
+    root: Path,
+    registry: dict[str, Any],
+    *,
+    reader: _ContentSnapshotReader | None = None,
+) -> None:
+    if reader is None:
+        reader = _ContentSnapshotReader(root)
     context = CLAIM_REGISTRY_PATH.as_posix()
     registry = _exact_keys(registry, CLAIM_REGISTRY_KEYS, context=context)
     if _integer(registry["schema_version"], context=f"{context}.schema_version") != 1:
@@ -1764,11 +1950,11 @@ def _validate_claim_registry(root: Path, registry: dict[str, Any]) -> None:
     )
     if (
         canonical["path"] != "grandplan.md"
-        or canonical["version"] != "12.5"
-        or canonical["status"] != "living_post_review_reconciliation"
+        or canonical["version"] != "13.0"
+        or canonical["status"] != "living_v13_preserved_diagnostic_claim_family"
     ):
         raise GovernanceError(f"{context}.canonical_spec drifted")
-    _safe_file(root, canonical["path"], context=f"{context}.canonical_spec.path")
+    reader.read(canonical["path"], context=f"{context}.canonical_spec.path")
 
     successor_context = f"{context}.m0_successor_binding"
     successor_binding = _exact_keys(
@@ -1778,16 +1964,16 @@ def _validate_claim_registry(root: Path, registry: dict[str, Any]) -> None:
     )
     if successor_binding["path"] != SUCCESSOR_PATH.as_posix():
         raise GovernanceError(
-            f"{successor_context}.path must identify the typed v2 successor"
+            f"{successor_context}.path must identify the typed v3 successor"
         )
-    successor_path = _validate_bound_file(
-        root,
+    successor_bytes = _validate_bound_file(
+        reader,
         raw_path=successor_binding["path"],
         raw_sha256=successor_binding["sha256"],
         context=successor_context,
     )
     successor = _parse_json_bytes(
-        successor_path.read_bytes(),
+        successor_bytes,
         context=SUCCESSOR_PATH.as_posix(),
     )
     if not isinstance(successor, dict):
@@ -1818,7 +2004,7 @@ def _validate_claim_registry(root: Path, registry: dict[str, Any]) -> None:
     ):
         raise GovernanceError(
             f"{successor_context} date/status does not match the current registry "
-            "and typed v2 successor"
+            "and typed v3 successor"
         )
 
     m0 = _exact_keys(
@@ -2105,7 +2291,11 @@ EXPECTED_COMPARATOR_FAMILIES = [
 ]
 
 
-def _validate_literature(root: Path, artifact: dict[str, Any]) -> None:
+def _validate_literature(
+    root: Path,
+    reader: _ContentSnapshotReader,
+    artifact: dict[str, Any],
+) -> None:
     context = LITERATURE_PATH.as_posix()
     artifact = _exact_keys(artifact, LITERATURE_KEYS, context=context)
     if _integer(artifact["schema_version"], context=f"{context}.schema_version") != 1:
@@ -2123,9 +2313,9 @@ def _validate_literature(root: Path, artifact: dict[str, Any]) -> None:
     )
     if canonical != {"path": "grandplan.md", "version": "12.5"}:
         raise GovernanceError(
-            f"{context}.canonical_spec must identify grandplan.md v12.5"
+            f"{context}.canonical_spec must identify the historical grandplan.md v12.5 locator"
         )
-    _safe_file(root, canonical["path"], context=f"{context}.canonical_spec.path")
+    reader.read(canonical["path"], context=f"{context}.canonical_spec.path")
     _enum(
         artifact["status"],
         {"legacy_dated_reference_inventory_only"},
@@ -2136,8 +2326,8 @@ def _validate_literature(root: Path, artifact: dict[str, Any]) -> None:
     inventory = _exact_keys(
         artifact["inventory_artifact"], INVENTORY_KEYS, context=inventory_context
     )
-    inventory_path = _validate_bound_file(
-        root,
+    inventory_bytes = _validate_bound_file(
+        reader,
         raw_path=inventory["path"],
         raw_sha256=inventory["sha256"],
         raw_byte_count=inventory["byte_count"],
@@ -2146,8 +2336,11 @@ def _validate_literature(root: Path, artifact: dict[str, Any]) -> None:
     row_count = _integer(
         inventory["row_count"], context=f"{inventory_context}.row_count", minimum=0
     )
-    with inventory_path.open(encoding="utf-8", newline="") as stream:
-        rows = list(csv.reader(stream))
+    try:
+        inventory_text = inventory_bytes.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise GovernanceError(f"{inventory_context}.path is not UTF-8") from error
+    rows = list(csv.reader(io.StringIO(inventory_text, newline="")))
     actual_row_count = max(0, len(rows) - 1)
     if not rows or row_count != actual_row_count:
         raise GovernanceError(
@@ -2332,26 +2525,34 @@ def _validate_literature(root: Path, artifact: dict[str, Any]) -> None:
 
 
 def audit_bundle(root: Path = ROOT, *, require_freeze_ready: bool = False) -> list[str]:
-    """Audit the five-file bundle and return stable freeze-readiness blocker codes."""
+    """Audit the preserved governance bundle and return stable blocker codes."""
 
     root = root.resolve(strict=True)
-    preregistration, _ = _read_json(root, PREREGISTRATION_PATH)
-    holdout_registry, _ = _read_json(root, HOLDOUT_REGISTRY_PATH)
-    holdout_ledger, holdout_ledger_path = _read_jsonl(root, HOLDOUT_LEDGER_PATH)
-    transport, _ = _read_json(root, TRANSPORT_PATH)
-    literature, _ = _read_json(root, LITERATURE_PATH)
-    claim_registry, _ = _read_json(root, CLAIM_REGISTRY_PATH)
+    reader = _ContentSnapshotReader(root)
+    preregistration, _ = _read_json(reader, PREREGISTRATION_PATH)
+    holdout_registry, _ = _read_json(reader, HOLDOUT_REGISTRY_PATH)
+    holdout_ledger, holdout_ledger_bytes = _read_jsonl(reader, HOLDOUT_LEDGER_PATH)
+    transport, _ = _read_json(reader, TRANSPORT_PATH)
+    literature, _ = _read_json(reader, LITERATURE_PATH)
+    claim_registry, _ = _read_json(reader, CLAIM_REGISTRY_PATH)
 
-    _validate_preregistration(root, preregistration)
+    _validate_preregistration(root, reader, preregistration)
     _validate_holdout_bundle(
         root,
+        reader,
         holdout_registry,
         holdout_ledger,
-        holdout_ledger_path,
+        holdout_ledger_bytes,
     )
-    _validate_transport(root, transport, holdout_registry, holdout_ledger_path)
-    _validate_literature(root, literature)
-    _validate_claim_registry(root, claim_registry)
+    _validate_transport(
+        root,
+        reader,
+        transport,
+        holdout_registry,
+        holdout_ledger_bytes,
+    )
+    _validate_literature(root, reader, literature)
+    _validate_claim_registry(root, claim_registry, reader=reader)
 
     historical_dated_artifacts = {
         PREREGISTRATION_PATH.as_posix(): preregistration["as_of_date"],

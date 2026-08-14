@@ -56,7 +56,7 @@ GITLEAKS_REVISION = "83d9cd684c87d95d656c1458ef04895a7f1cbd8e"
 CREBAIN_REVIEW_REVISION = "7f6b3bdf4d20aba1b351b3ceacb259bd123c93a6"
 ENGRAM_PLACEHOLDER_REVISION = "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd"
 PAPER2BRAIN_REVIEW_REVISION = "2648caf18d24075c4a36af81a6bb032bb551244e"
-PID_RS_UPSTREAM_REVISION = "bbdfda40f0a49a2260b10eafdcb438fc61ae94e9"
+PID_RS_UPSTREAM_REVISION = "7473e62acef6077c2c1147e09d5d1297f2a2874b"
 NCP_LEGACY_TAG = "v0.8.0"
 NCP_LEGACY_VERSION = "0.8.0"
 NCP_LEGACY_REVISION = "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e"
@@ -79,6 +79,9 @@ GOVERNANCE_SUCCESSOR_CI_BLOCKERS = (
     "M0_SUCCESSOR_DRAFT_UNFROZEN",
     "M0_SUCCESSOR_H3_INCREMENTAL_VALUE_AND_WARNING_CONTRACT_UNFROZEN",
     "M0_SUCCESSOR_H4_TARGET_TRANSPORT_TUPLE_INFERENCE_POWER_UNFROZEN",
+)
+WORLD_MODEL_CLAIM_REGISTRY_SHA256 = (
+    "b4dd640a51de51529124f987d9977b241411368acb3ca8143aeec32ebebebffb"
 )
 
 
@@ -1066,6 +1069,444 @@ def precommit_reproducibility_problems() -> list[str]:
     return problems
 
 
+def world_model_claim_registry_problems() -> list[str]:
+    """Validate the unfrozen W1-W3 registry without promoting it to evidence."""
+
+    problems: list[str] = []
+    registry_path = ROOT / "protocols/world_model_claim_registry_v1.json"
+    if not _is_regular_file(registry_path):
+        return ["current world-model claim registry is missing"]
+
+    registry = _json_object(
+        registry_path,
+        label="protocols/world_model_claim_registry_v1.json",
+    )
+    canonical_registry = json.dumps(
+        registry,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    if (
+        hashlib.sha256(canonical_registry).hexdigest()
+        != WORLD_MODEL_CLAIM_REGISTRY_SHA256
+    ):
+        problems.append(
+            "world-model claim registry differs from its reviewed claim-contract digest"
+        )
+    expected_top_level = {
+        "schema_version",
+        "as_of_date",
+        "literature_review_cutoff",
+        "canonical_spec",
+        "scope",
+        "overall_status",
+        "claim_family_rule",
+        "holdout_status",
+        "reviewed_external_targets",
+        "claims",
+    }
+    if set(registry) != expected_top_level:
+        problems.append(
+            "world-model claim registry top-level fields do not match schema v1"
+        )
+    if (
+        type(registry.get("schema_version")) is not int
+        or registry.get("schema_version") != 1
+    ):
+        problems.append("world-model claim registry schema_version must be 1")
+    if registry.get("as_of_date") != "2026-08-14":
+        problems.append("world-model claim registry must record its current state date")
+    if registry.get("literature_review_cutoff") != "2026-08-13":
+        problems.append(
+            "world-model claim registry must record the literature-review cutoff"
+        )
+    if registry.get("scope") != (
+        "unfrozen world-model-first claim templates and current software boundaries; "
+        "not a preregistration or scientific result"
+    ):
+        problems.append("world-model claim registry misstates its non-evidence scope")
+    if registry.get("canonical_spec") != {
+        "path": "grandplan.md",
+        "version": "13.0",
+        "sections": [
+            "§4 confirmatory claim-template registry",
+            "§6.3 W1 and W2 analysis",
+            "§10.4 world models and flow",
+            "§12 milestones",
+        ],
+    }:
+        problems.append("world-model claim registry must bind grandplan.md v13.0")
+    if registry.get("overall_status") != "not_freeze_ready":
+        problems.append("world-model claim registry must remain not_freeze_ready")
+    if registry.get("claim_family_rule") != (
+        "W1_and_W2_are_the_only_proposed_primary_scientific_claims_"
+        "W3_is_secondary_or_exploratory"
+    ):
+        problems.append("world-model claim registry misstates the claim-family rule")
+    if registry.get("holdout_status") != (
+        "no_world_model_confirmatory_holdout_registered"
+    ):
+        problems.append("world-model claim registry must disclose the absent holdout")
+
+    if registry.get("reviewed_external_targets") != [
+        {
+            "target_id": "lewm_pusht_cem",
+            "role": (
+                "first_external_m4_candidate_not_dependency_qualification_or_result"
+            ),
+            "code_repository": "Mengarr/lewm",
+            "code_revision": "8a2c595813d0eee85b2dbffa6f58ff0842f9e673",
+            "dependency_lock_sha256": (
+                "1bf638a080ce7717ee000f5b0be9de1ca327624025ba52433c7fbcbcc90d024e"
+            ),
+            "platform_repository": "galilai-group/stable-worldmodel",
+            "platform_package": "stable-worldmodel==0.1.1",
+            "platform_source_tag_revision": (
+                "15a5538d492ae524c64cb18cc56a2d70611e877e"
+            ),
+            "platform_wheel_sha256": (
+                "00eaabd9e046e6364b3d1db47e5b365a0f628aea3a9376d6a407f75cbbbd2ef5"
+            ),
+            "pretraining_package": "stable-pretraining==0.1.7",
+            "pretraining_wheel_sha256": (
+                "60fc8fc3c9490e9a059aa7e038ab62cbe0505841e78c4165c18a99d8f599ec65"
+            ),
+            "incompatible_platform_main_reviewed_separately": (
+                "9a66d7d020043c8efb507f45373e808714f0842d"
+            ),
+            "model_repository": "quentinll/lewm-pusht",
+            "model_revision": "22b330c28c27ead4bfd1888615af1340e3fe9052",
+            "checkpoint_file": "weights.pt",
+            "checkpoint_sha256": (
+                "48938400ae3464c9680731287f583a9cb516f55a8ec64ea13a91be47fb15b607"
+            ),
+            "checkpoint_bytes": 72_290_721,
+            "license_boundary": (
+                "MIT_project_source_and_model_card_platform_wheel_metadata_MIT_"
+                "but_platform_wheel_and_source_tag_license_file_absent_"
+                "pretraining_wheel_includes_MIT_separate_data_and_dependency_"
+                "review_required"
+            ),
+            "planner_contract": (
+                "adaptive_cem_30_rounds_300_samples_per_round_30_elites_horizon_5_"
+                "action_block_5_all_rounds_retained_final_recommendation_separately_"
+                "scored_raw_action_support_checked_after_train_only_inverse_transform"
+            ),
+            "independent_reproduction_boundary": (
+                "arxiv_2608_10145v1_single_seed_tworoom_only_not_pusht_m4_or_"
+                "seed_variance_qualification"
+            ),
+            "protocol_identity_obligation": (
+                "bind_paper_configuration_and_executable_code_for_action_gathering_"
+                "action_encoder_width_pixel_and_action_normalization_nan_handling_"
+                "goal_construction_episode_selection_horizons_budgets_replanning_"
+                "and_cem_settings_before_outcomes"
+            ),
+            "local_status": (
+                "synthetic_predictor_rollout_and_exact_budget_cem_mps_compatibility_"
+                "observed_end_to_end_adapter_and_qualification_unimplemented"
+            ),
+        },
+        {
+            "target_id": "jepa_wm_pusht_cem",
+            "role": (
+                "second_external_planning_benchmark_not_dependency_qualification_"
+                "or_result"
+            ),
+            "code_repository": "facebookresearch/jepa-wms",
+            "code_revision": "13cf1d9c7e476f53c17714d2e0f1dc239a883ce0",
+            "model_repository": "facebook/jepa-wms",
+            "model_revision": "9b9c41ef249466630dbf1a20e78391865d07b3b9",
+            "checkpoint_file": "jepa_wm_pusht.pth.tar",
+            "checkpoint_sha256": (
+                "9beca3eafe0739c3b3adb5d734fa435ccbda0fea8a65d53d4cccec176aaaa0eb"
+            ),
+            "checkpoint_bytes": 211_639_615,
+            "license_boundary": (
+                "CC-BY-NC-4.0_upstream_code_and_model_noncommercial_review_required"
+            ),
+            "planner_contract": (
+                "adaptive_cem_30_rounds_300_trajectories_per_round_10_elites_"
+                "horizon_6_final_mean_must_be_scored_and_committed"
+            ),
+            "local_status": "unimplemented_unqualified_mps_candidate",
+        },
+    ]:
+        problems.append(
+            "world-model claim registry misstates the reviewed external M4 target"
+        )
+
+    claims = _object_list(
+        registry.get("claims"), label="world-model claim registry claims"
+    )
+    claim_ids = [claim.get("claim_id") for claim in claims]
+    if claim_ids != ["W1", "W2", "W3"]:
+        problems.append(
+            "world-model claim registry must contain W1-W3 exactly once in order"
+        )
+    claims_by_id = {
+        claim.get("claim_id"): claim
+        for claim in claims
+        if isinstance(claim.get("claim_id"), str)
+    }
+    if len(claims_by_id) != len(claims):
+        raise TruthAuditError(
+            "world-model claim claim_id values must be unique strings"
+        )
+
+    expected_tiers = {
+        "W1": "proposed_primary",
+        "W2": "proposed_primary",
+        "W3": "secondary_or_exploratory",
+    }
+    expected_roles = {
+        "W1": (
+            "supported_fork_level_forecast_fidelity_with_secondary_candidate_ranking"
+        ),
+        "W2": (
+            "complete_closed_loop_world_model_decision_value_under_a_frozen_"
+            "m4_max_budget"
+        ),
+        "W3": (
+            "linked_fidelity_tomography_across_reference_dynamics_learned_"
+            "prediction_observation_substrate_frozen_policy_and_selection"
+        ),
+    }
+    expected_execution = {
+        "W1": (
+            "native_exact_fork_decision_contract_reference_runnable_"
+            "learned_model_study_unimplemented"
+        ),
+        "W2": (
+            "native_receding_horizon_decision_contract_reference_runnable_"
+            "randomized_complete_policy_study_unimplemented"
+        ),
+        "W3": "specified_only",
+    }
+    expected_commands = {
+        "W1": ["just world-model-reference"],
+        "W2": ["just world-model-reference"],
+        "W3": [],
+    }
+    required_artifacts = {
+        "W1": {
+            "crates/pid-sim/src/world_model.rs",
+            "crates/pid-sim/src/bin/world_model_reference.rs",
+            "docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md",
+        },
+        "W2": {"crates/pid-sim/src/world_model.rs", "grandplan.md"},
+        "W3": {"grandplan.md", "ARCHITECTURE.md"},
+    }
+    expected_artifact_statuses = {
+        "W1": {
+            "crates/pid-sim/src/world_model.rs": (
+                "native_action_conditioned_affine_decision_contract_reference_only"
+            ),
+            "crates/pid-sim/src/bin/world_model_reference.rs": (
+                "zero_model_download_bounded_reference_cli_only"
+            ),
+            "docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md": (
+                "dated_prior_art_and_m4_candidate_review_not_qualification"
+            ),
+        },
+        "W2": {
+            "crates/pid-sim/src/world_model.rs": (
+                "fixed_pool_predict_score_select_and_bridge_execution_"
+                "software_reference_only"
+            ),
+            "grandplan.md": "unfrozen_w2_estimand_resource_and_comparator_contract",
+        },
+        "W3": {
+            "grandplan.md": "linked_matched_panel_specification_only",
+            "ARCHITECTURE.md": "target_architecture_only",
+        },
+    }
+    expected_remaining_artifacts = {
+        "W1": [
+            "frozen_fork_population_plus_declared_proposal_or_executed_action_level_and_supported_randomization_distribution",
+            "qualified_learned_action_conditioned_model_with_exact_code_weight_"
+            "preprocess_evaluation_protocol_and_device_receipts",
+            "one_declared_later_reference_state_outcome_or_separately_measured_"
+            "physical_outcome_and_aligned_proper_score_or_strictly_consistent_loss",
+            "current_only_current_plus_action_kinematic_no_future_action_shuffle_future_shuffle_and_proposal_headroom_controls",
+            "fixed_pool_or_complete_adaptive_search_trace_for_secondary_ranking_with_pre_label_commitment",
+            "heldout_task_and_dynamics_families_with_cluster_aware_uncertainty",
+            "positive_useful_margin_and_non_rescuable_support_calibration_and_m4_resource_gates",
+        ],
+        "W2": [
+            "qualified_multi_replan_m4_world_model_policy",
+            "frozen_episode_level_utility_or_cost_and_positive_useful_margin",
+            "randomized_complete_policy_assignment_across_independent_reset_blocks",
+            "same_budget_direct_multiple_proposal_direct_cost_kinematic_prediction_disabled_and_complete_selector_arms",
+            "exact_lewm_pusht_protocol_concordance_and_cem_reproduction_with_each_"
+            "unresolved_feasible_source_reading_frozen_before_outcomes_then_"
+            "separately_frozen_reduced_budget_arm_if_needed",
+            "adaptive_search_rounds_scores_elites_updates_final_recommendation_and_score_intervention_receipts",
+            "cold_start_and_at_least_1000_steady_decision_p50_p95_p99_with_uncertainty_unified_memory_power_deadline_and_fallback_receipts",
+            "intention_to_treat_result_retaining_crashes_abstentions_fallbacks_and_deadline_misses",
+        ],
+        "W3": [
+            "one_authoritative_state_trajectory_replayed_through_pure_mesh_and_3dgs_render_functions",
+            "body_link_collision_mesh_3dgs_and_rigid_articulated_deformable_background_representation_manifest",
+            "complete_camera_photometric_shutter_frame_timing_synchronization_and_asset_lineage_receipts",
+            "policy_memory_kv_cache_history_and_random_state_reset_receipts_for_matched_queries",
+            "proof_that_renderer_assignment_cannot_change_collision_geometry_or_dynamics",
+            "same_fork_and_action_identity_across_learned_and_reference_predictions",
+            "immediate_common_trajectory_frozen_policy_response_panel",
+            "separate_randomized_complete_policy_renderer_effect_study",
+            "linked_error_localization_without_additive_decomposition_or_global_priority_language",
+        ],
+    }
+    expected_permitted_language = {
+        "W1": (
+            "the native reference verifies exact-fork forecast commitment, bridge-only "
+            "selected execution, post-execution restored-fork candidate labeling, and "
+            "replay for one deterministic software fixture"
+        ),
+        "W2": (
+            "the native reference reconstructs one bounded score-based selection and "
+            "bridge execution path under deterministic software semantics"
+        ),
+        "W3": (
+            "W3 is a proposed linked integration protocol that keeps matched immediate "
+            "response and downstream closed-loop effects separate"
+        ),
+    }
+    expected_prohibited_language = {
+        "W1": (
+            "W1 passed; a learned world model is qualified; the affine fixture establishes "
+            "forecast quality, a causal transition, physical truth, or policy value"
+        ),
+        "W2": (
+            "W2 passed; fork-local candidate regret is deployed-policy regret; the current "
+            "M4 learned-model path is implemented, benchmarked, or deployment ready"
+        ),
+        "W3": (
+            "W3 is implemented, validated, a complete factorial or additive causal "
+            "decomposition, the first such evaluation, or evidence that a Gaussian splat "
+            "is physical truth"
+        ),
+    }
+    expected_claim_fields = {
+        "claim_id",
+        "registered_role",
+        "claim_tier",
+        "execution_status",
+        "scientific_status",
+        "current_artifacts",
+        "proof_commands",
+        "remaining_required_artifacts",
+        "permitted_language",
+        "prohibited_language",
+    }
+    prohibited_needles = {
+        "W1": ("W1 passed", "causal transition"),
+        "W2": ("W2 passed", "deployment ready"),
+        "W3": ("first such evaluation", "Gaussian splat is physical truth"),
+    }
+    for claim_id in ("W1", "W2", "W3"):
+        claim = claims_by_id.get(claim_id, {})
+        if set(claim) != expected_claim_fields:
+            problems.append(
+                f"world-model {claim_id} claim fields do not match schema v1"
+            )
+        if claim.get("registered_role") != expected_roles[claim_id]:
+            problems.append(f"world-model claim registry misstates the {claim_id} role")
+        if claim.get("claim_tier") != expected_tiers[claim_id]:
+            problems.append(f"world-model claim registry misstates the {claim_id} tier")
+        if claim.get("execution_status") != expected_execution[claim_id]:
+            problems.append(
+                f"world-model claim registry misstates the {claim_id} execution boundary"
+            )
+        if claim.get("scientific_status") != "unfrozen_no_empirical_result":
+            problems.append(
+                f"world-model claim registry must keep {claim_id} scientifically unfrozen"
+            )
+        commands = claim.get("proof_commands")
+        if commands != expected_commands[claim_id]:
+            problems.append(
+                f"world-model claim registry misstates the {claim_id} proof commands"
+            )
+        artifact_rows = _object_list(
+            claim.get("current_artifacts"),
+            label=f"world-model {claim_id} current_artifacts",
+        )
+        artifact_paths: set[str] = set()
+        artifact_statuses: dict[str, str] = {}
+        for index, artifact in enumerate(artifact_rows):
+            if set(artifact) != {"path", "status"}:
+                raise TruthAuditError(
+                    f"world-model {claim_id} artifact {index} has unknown fields"
+                )
+            raw_path = artifact.get("path")
+            if not isinstance(raw_path, str) or raw_path in artifact_paths:
+                raise TruthAuditError(
+                    f"world-model {claim_id} artifact paths must be unique strings"
+                )
+            artifact_paths.add(raw_path)
+            resolved_path = _repo_relative_path(
+                raw_path, label=f"world-model {claim_id} artifact path"
+            )
+            if not _is_regular_file(resolved_path):
+                problems.append(
+                    f"world-model claim registry names missing artifact: {raw_path}"
+                )
+            if not isinstance(artifact.get("status"), str) or not artifact["status"]:
+                raise TruthAuditError(
+                    f"world-model {claim_id} artifact status must be non-empty"
+                )
+            artifact_statuses[raw_path] = artifact["status"]
+        if not required_artifacts[claim_id].issubset(artifact_paths):
+            problems.append(
+                f"world-model claim registry omits required {claim_id} artifacts"
+            )
+        if artifact_statuses != expected_artifact_statuses[claim_id]:
+            problems.append(
+                f"world-model claim registry misstates the {claim_id} artifact boundaries"
+            )
+        remaining = claim.get("remaining_required_artifacts")
+        if (
+            not isinstance(remaining, list)
+            or not remaining
+            or len(remaining) > MAX_LEDGER_ITEMS
+            or any(not isinstance(item, str) or not item for item in remaining)
+            or len(set(remaining)) != len(remaining)
+        ):
+            raise TruthAuditError(
+                f"world-model {claim_id} remaining obligations must be a non-empty string list"
+            )
+        if remaining != expected_remaining_artifacts[claim_id]:
+            problems.append(
+                f"world-model {claim_id} remaining obligations differ from the reviewed ledger"
+            )
+        permitted = claim.get("permitted_language")
+        prohibited = claim.get("prohibited_language")
+        if not isinstance(permitted, str) or not permitted:
+            raise TruthAuditError(
+                f"world-model {claim_id} permitted language must be non-empty"
+            )
+        if not isinstance(prohibited, str) or not prohibited:
+            raise TruthAuditError(
+                f"world-model {claim_id} prohibited language must be non-empty"
+            )
+        if permitted != expected_permitted_language[claim_id]:
+            problems.append(
+                f"world-model {claim_id} permitted language differs from the reviewed boundary"
+            )
+        if prohibited != expected_prohibited_language[claim_id]:
+            problems.append(
+                f"world-model {claim_id} prohibited language differs from the reviewed boundary"
+            )
+        for needle in prohibited_needles[claim_id]:
+            if needle not in prohibited:
+                problems.append(
+                    f"world-model {claim_id} prohibited language omits {needle!r}"
+                )
+
+    return problems
+
+
 def _audit() -> int:
     problems: list[str] = []
     if not _is_regular_file(PID_RS / "Cargo.toml"):
@@ -1105,12 +1546,18 @@ def _audit() -> int:
         ROOT / "crates/pid-sim/src/offline_harness.rs",
         label="crates/pid-sim/src/offline_harness.rs",
     )
-    expected_stamp = f"pid-core {version} (pid-rs {short})"
-    if expected_stamp not in harness:
-        problems.append(
-            "offline harness estimator revision stamp does not match "
-            f"{expected_stamp!r}"
-        )
+    expected_routes = (
+        f"pid-rs@{short}/pid-core-{version}::experimental::continuous::raw_scalars::ksg_mi",
+        f"pid-rs@{short}/pid-core-{version}::experimental::continuous::pid2_isx_estimate/ehrlich_ksg",
+        f"pid-rs@{short}/pid-core-{version}::stable::quantized::fitted_quantized_sxpid2_with_budget/marginal_mi",
+        f"pid-rs@{short}/pid-core-{version}::stable::quantized::fitted_quantized_sxpid2_with_budget/mgw_averaged_pid2",
+    )
+    for expected_route in expected_routes:
+        if expected_route not in harness:
+            problems.append(
+                "offline harness estimator route does not match the pinned scientific object: "
+                f"{expected_route!r}"
+            )
 
     observer_version = locked_package_version(
         ROOT / "crates/ncp-observer/Cargo.lock", "pid-runlog"
@@ -1234,6 +1681,7 @@ def _audit() -> int:
     problems.extend(readme_reproducibility_problems())
     problems.extend(flake_reproducibility_problems())
     problems.extend(precommit_reproducibility_problems())
+    problems.extend(world_model_claim_registry_problems())
 
     for relative in ("justfile", ".github/workflows/ci.yml"):
         text = _read_regular_text(ROOT / relative, label=relative)
@@ -1621,6 +2069,10 @@ def _audit() -> int:
             "pid-rs": (
                 "0.9.0 post-tag review source",
                 "additional unadopted scientific-contract and exact-certifier work",
+                "estimator-code anchor cb3f58f0",
+                "full CI run 31724449805 failed",
+                "narrower Push on main run 31724449083 passed",
+                "broader revision-4 KSG repository integration NO-GO",
                 "no 1.x compatibility promise",
                 "fixtures do not establish high-dimensional VLA application validity",
             ),

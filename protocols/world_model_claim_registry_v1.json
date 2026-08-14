@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "as_of_date": "2026-08-14",
+  "literature_review_cutoff": "2026-08-13",
+  "canonical_spec": {
+    "path": "grandplan.md",
+    "version": "13.0",
+    "sections": [
+      "§4 confirmatory claim-template registry",
+      "§6.3 W1 and W2 analysis",
+      "§10.4 world models and flow",
+      "§12 milestones"
+    ]
+  },
+  "scope": "unfrozen world-model-first claim templates and current software boundaries; not a preregistration or scientific result",
+  "overall_status": "not_freeze_ready",
+  "claim_family_rule": "W1_and_W2_are_the_only_proposed_primary_scientific_claims_W3_is_secondary_or_exploratory",
+  "holdout_status": "no_world_model_confirmatory_holdout_registered",
+  "reviewed_external_targets": [
+    {
+      "target_id": "lewm_pusht_cem",
+      "role": "first_external_m4_candidate_not_dependency_qualification_or_result",
+      "code_repository": "Mengarr/lewm",
+      "code_revision": "8a2c595813d0eee85b2dbffa6f58ff0842f9e673",
+      "dependency_lock_sha256": "1bf638a080ce7717ee000f5b0be9de1ca327624025ba52433c7fbcbcc90d024e",
+      "platform_repository": "galilai-group/stable-worldmodel",
+      "platform_package": "stable-worldmodel==0.1.1",
+      "platform_source_tag_revision": "15a5538d492ae524c64cb18cc56a2d70611e877e",
+      "platform_wheel_sha256": "00eaabd9e046e6364b3d1db47e5b365a0f628aea3a9376d6a407f75cbbbd2ef5",
+      "pretraining_package": "stable-pretraining==0.1.7",
+      "pretraining_wheel_sha256": "60fc8fc3c9490e9a059aa7e038ab62cbe0505841e78c4165c18a99d8f599ec65",
+      "incompatible_platform_main_reviewed_separately": "9a66d7d020043c8efb507f45373e808714f0842d",
+      "model_repository": "quentinll/lewm-pusht",
+      "model_revision": "22b330c28c27ead4bfd1888615af1340e3fe9052",
+      "checkpoint_file": "weights.pt",
+      "checkpoint_sha256": "48938400ae3464c9680731287f583a9cb516f55a8ec64ea13a91be47fb15b607",
+      "checkpoint_bytes": 72290721,
+      "license_boundary": "MIT_project_source_and_model_card_platform_wheel_metadata_MIT_but_platform_wheel_and_source_tag_license_file_absent_pretraining_wheel_includes_MIT_separate_data_and_dependency_review_required",
+      "planner_contract": "adaptive_cem_30_rounds_300_samples_per_round_30_elites_horizon_5_action_block_5_all_rounds_retained_final_recommendation_separately_scored_raw_action_support_checked_after_train_only_inverse_transform",
+      "independent_reproduction_boundary": "arxiv_2608_10145v1_single_seed_tworoom_only_not_pusht_m4_or_seed_variance_qualification",
+      "protocol_identity_obligation": "bind_paper_configuration_and_executable_code_for_action_gathering_action_encoder_width_pixel_and_action_normalization_nan_handling_goal_construction_episode_selection_horizons_budgets_replanning_and_cem_settings_before_outcomes",
+      "local_status": "synthetic_predictor_rollout_and_exact_budget_cem_mps_compatibility_observed_end_to_end_adapter_and_qualification_unimplemented"
+    },
+    {
+      "target_id": "jepa_wm_pusht_cem",
+      "role": "second_external_planning_benchmark_not_dependency_qualification_or_result",
+      "code_repository": "facebookresearch/jepa-wms",
+      "code_revision": "13cf1d9c7e476f53c17714d2e0f1dc239a883ce0",
+      "model_repository": "facebook/jepa-wms",
+      "model_revision": "9b9c41ef249466630dbf1a20e78391865d07b3b9",
+      "checkpoint_file": "jepa_wm_pusht.pth.tar",
+      "checkpoint_sha256": "9beca3eafe0739c3b3adb5d734fa435ccbda0fea8a65d53d4cccec176aaaa0eb",
+      "checkpoint_bytes": 211639615,
+      "license_boundary": "CC-BY-NC-4.0_upstream_code_and_model_noncommercial_review_required",
+      "planner_contract": "adaptive_cem_30_rounds_300_trajectories_per_round_10_elites_horizon_6_final_mean_must_be_scored_and_committed",
+      "local_status": "unimplemented_unqualified_mps_candidate"
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "W1",
+      "registered_role": "supported_fork_level_forecast_fidelity_with_secondary_candidate_ranking",
+      "claim_tier": "proposed_primary",
+      "execution_status": "native_exact_fork_decision_contract_reference_runnable_learned_model_study_unimplemented",
+      "scientific_status": "unfrozen_no_empirical_result",
+      "current_artifacts": [
+        {
+          "path": "crates/pid-sim/src/world_model.rs",
+          "status": "native_action_conditioned_affine_decision_contract_reference_only"
+        },
+        {
+          "path": "crates/pid-sim/src/bin/world_model_reference.rs",
+          "status": "zero_model_download_bounded_reference_cli_only"
+        },
+        {
+          "path": "docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md",
+          "status": "dated_prior_art_and_m4_candidate_review_not_qualification"
+        }
+      ],
+      "proof_commands": [
+        "just world-model-reference"
+      ],
+      "remaining_required_artifacts": [
+        "frozen_fork_population_plus_declared_proposal_or_executed_action_level_and_supported_randomization_distribution",
+        "qualified_learned_action_conditioned_model_with_exact_code_weight_preprocess_evaluation_protocol_and_device_receipts",
+        "one_declared_later_reference_state_outcome_or_separately_measured_physical_outcome_and_aligned_proper_score_or_strictly_consistent_loss",
+        "current_only_current_plus_action_kinematic_no_future_action_shuffle_future_shuffle_and_proposal_headroom_controls",
+        "fixed_pool_or_complete_adaptive_search_trace_for_secondary_ranking_with_pre_label_commitment",
+        "heldout_task_and_dynamics_families_with_cluster_aware_uncertainty",
+        "positive_useful_margin_and_non_rescuable_support_calibration_and_m4_resource_gates"
+      ],
+      "permitted_language": "the native reference verifies exact-fork forecast commitment, bridge-only selected execution, post-execution restored-fork candidate labeling, and replay for one deterministic software fixture",
+      "prohibited_language": "W1 passed; a learned world model is qualified; the affine fixture establishes forecast quality, a causal transition, physical truth, or policy value"
+    },
+    {
+      "claim_id": "W2",
+      "registered_role": "complete_closed_loop_world_model_decision_value_under_a_frozen_m4_max_budget",
+      "claim_tier": "proposed_primary",
+      "execution_status": "native_receding_horizon_decision_contract_reference_runnable_randomized_complete_policy_study_unimplemented",
+      "scientific_status": "unfrozen_no_empirical_result",
+      "current_artifacts": [
+        {
+          "path": "crates/pid-sim/src/world_model.rs",
+          "status": "fixed_pool_predict_score_select_and_bridge_execution_software_reference_only"
+        },
+        {
+          "path": "grandplan.md",
+          "status": "unfrozen_w2_estimand_resource_and_comparator_contract"
+        }
+      ],
+      "proof_commands": [
+        "just world-model-reference"
+      ],
+      "remaining_required_artifacts": [
+        "qualified_multi_replan_m4_world_model_policy",
+        "frozen_episode_level_utility_or_cost_and_positive_useful_margin",
+        "randomized_complete_policy_assignment_across_independent_reset_blocks",
+        "same_budget_direct_multiple_proposal_direct_cost_kinematic_prediction_disabled_and_complete_selector_arms",
+        "exact_lewm_pusht_protocol_concordance_and_cem_reproduction_with_each_unresolved_feasible_source_reading_frozen_before_outcomes_then_separately_frozen_reduced_budget_arm_if_needed",
+        "adaptive_search_rounds_scores_elites_updates_final_recommendation_and_score_intervention_receipts",
+        "cold_start_and_at_least_1000_steady_decision_p50_p95_p99_with_uncertainty_unified_memory_power_deadline_and_fallback_receipts",
+        "intention_to_treat_result_retaining_crashes_abstentions_fallbacks_and_deadline_misses"
+      ],
+      "permitted_language": "the native reference reconstructs one bounded score-based selection and bridge execution path under deterministic software semantics",
+      "prohibited_language": "W2 passed; fork-local candidate regret is deployed-policy regret; the current M4 learned-model path is implemented, benchmarked, or deployment ready"
+    },
+    {
+      "claim_id": "W3",
+      "registered_role": "linked_fidelity_tomography_across_reference_dynamics_learned_prediction_observation_substrate_frozen_policy_and_selection",
+      "claim_tier": "secondary_or_exploratory",
+      "execution_status": "specified_only",
+      "scientific_status": "unfrozen_no_empirical_result",
+      "current_artifacts": [
+        {
+          "path": "grandplan.md",
+          "status": "linked_matched_panel_specification_only"
+        },
+        {
+          "path": "ARCHITECTURE.md",
+          "status": "target_architecture_only"
+        }
+      ],
+      "proof_commands": [],
+      "remaining_required_artifacts": [
+        "one_authoritative_state_trajectory_replayed_through_pure_mesh_and_3dgs_render_functions",
+        "body_link_collision_mesh_3dgs_and_rigid_articulated_deformable_background_representation_manifest",
+        "complete_camera_photometric_shutter_frame_timing_synchronization_and_asset_lineage_receipts",
+        "policy_memory_kv_cache_history_and_random_state_reset_receipts_for_matched_queries",
+        "proof_that_renderer_assignment_cannot_change_collision_geometry_or_dynamics",
+        "same_fork_and_action_identity_across_learned_and_reference_predictions",
+        "immediate_common_trajectory_frozen_policy_response_panel",
+        "separate_randomized_complete_policy_renderer_effect_study",
+        "linked_error_localization_without_additive_decomposition_or_global_priority_language"
+      ],
+      "permitted_language": "W3 is a proposed linked integration protocol that keeps matched immediate response and downstream closed-loop effects separate",
+      "prohibited_language": "W3 is implemented, validated, a complete factorial or additive causal decomposition, the first such evaluation, or evidence that a Gaussian splat is physical truth"
+    }
+  ]
+}

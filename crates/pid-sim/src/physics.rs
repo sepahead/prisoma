@@ -432,7 +432,7 @@ pub mod rapier_adapter {
         }
 
         /// Number of contact pairs with at least one active contact after the
-        /// most recent [`step`](PhysicsBackend::step).
+        /// most recent [`PhysicsBackend::step`].
         pub fn last_contact_count(&self) -> usize {
             self.last_contact_count
         }

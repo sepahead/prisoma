@@ -40,7 +40,7 @@ def _catalog() -> dict:
         "as_of_date": "2026-07-13",
         "canonical_spec": {
             "path": "grandplan.md",
-            "version": "12.5",
+            "version": "13.0",
             "sections": ["§8.10"],
         },
         "scope": "unit-test fixture only",
@@ -65,7 +65,7 @@ def _catalog() -> dict:
 
 
 def _write_repo(tmp_path: Path, catalog: dict | None = None) -> Path:
-    (tmp_path / "grandplan.md").write_text("# v12.5\n", encoding="utf-8")
+    (tmp_path / "grandplan.md").write_text("# v13.0\n", encoding="utf-8")
     (tmp_path / "justfile").write_text("fixture:\n    true\n", encoding="utf-8")
     source = tmp_path / "src"
     source.mkdir(exist_ok=True)
@@ -159,6 +159,14 @@ def test_resolved_matrix_binds_source_and_evidence_bytes(tmp_path: Path) -> None
             "exact bounded 40-hex",
         ),
         (lambda row: row.update(test_command="just imaginary"), "unknown just recipe"),
+        (
+            lambda row: row.update(test_command="python scripts/does_not_exist.py"),
+            "exactly one reviewed just recipe",
+        ),
+        (
+            lambda row: row.update(test_command="true"),
+            "exactly one reviewed just recipe",
+        ),
         (lambda row: row.update(extra_field=True), "unknown"),
     ],
 )
@@ -277,6 +285,34 @@ def test_catalog_rejects_duplicate_json_keys(tmp_path: Path) -> None:
             root=tmp_path,
             required_feature_ids=_FIXTURE_REQUIRED,
         )
+
+
+def test_boolean_schema_version_and_raw_markdown_html_are_rejected_or_escaped(
+    tmp_path: Path,
+) -> None:
+    catalog = _catalog()
+    catalog["schema_version"] = True
+    path = _write_repo(tmp_path, catalog)
+    with pytest.raises(CatalogError, match="schema_version must be 1"):
+        load_catalog(path, root=tmp_path, required_feature_ids=_FIXTURE_REQUIRED)
+
+    catalog = _catalog()
+    catalog["rows"][0]["feature"] = '<img src=x onerror="alert(1)"> & proof'
+    artifact = tmp_path / "src" / "evidence `(x).txt"
+    path = _write_repo(tmp_path, catalog)
+    artifact.write_text("evidence\n", encoding="utf-8")
+    catalog["rows"][0]["evidence_artifacts"] = [
+        "src/evidence `(x).txt#fixture fragment"
+    ]
+    path.write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
+    matrix = resolve_catalog(
+        path, root=tmp_path, required_feature_ids=_FIXTURE_REQUIRED
+    )
+    markdown = render_markdown(matrix)
+    assert '<img src=x onerror="alert(1)">' not in markdown
+    assert '&lt;img src=x onerror="alert(1)"&gt; &amp; proof' in markdown
+    assert "[<code>src/evidence &#96;(x).txt</code>]" in markdown
+    assert "../src/evidence%20%60%28x%29.txt#fixture%20fragment" in markdown
 
 
 def test_catalog_rejects_missing_required_capability(tmp_path: Path) -> None:

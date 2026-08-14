@@ -38,6 +38,7 @@ pub mod offline_harness;
 pub mod physics;
 #[cfg(feature = "analysis")]
 pub mod toy_harness;
+pub mod world_model;
 
 use engram_pairing::{BridgePairingGuard, VerifiedPairing};
 pub use engram_pairing::{

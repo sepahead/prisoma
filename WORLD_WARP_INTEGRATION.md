@@ -1,6 +1,6 @@
 # WorldWarp comparator specification
 
-**Docset alignment:** v12.5
+**Docset alignment:** v13.0 (legacy optional comparator, not the W1/W2 critical path)
 
 **Status:** E1 interface specification only
 

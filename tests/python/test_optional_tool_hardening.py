@@ -205,7 +205,14 @@ def _png(
 def test_checked_ui_document_loads_current_parts() -> None:
     root = Path(__file__).resolve().parents[2]
     parts = ui.load_ui_parts(root / "uidesigner" / "UI.md")
-    assert len(parts) == 5
+    assert [part.part_id for part in parts] == [
+        "runs_library",
+        "agent_bridge_panel",
+        "viewer_replay",
+        "world_model_decision",
+        "compare_cross_backend",
+        "gauss_mi_uncertainty",
+    ]
     assert all(ui.UI_PART_ID_RE.fullmatch(part.part_id) for part in parts)
 
 

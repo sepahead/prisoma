@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Offline integrity audit for `grandplan.md` references (docset v12.5 reference ledger).
+Offline integrity audit for `grandplan.md` references (docset v13.0 reference ledger).
 
-Docset v12.5 uses a self-contained `[R1]`..`[R112]` reference ledger (defined under the
+Docset v13.0 uses a self-contained `[R1]`..`[R182]` reference ledger (defined under the
 `# References` section as `- **[R##]** ...`) instead of the older `arXiv:` cache-coverage
 scheme. This audit validates that ledger the way the second-round review validated it:
 

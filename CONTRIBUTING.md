@@ -38,8 +38,10 @@ uv run --no-sync maturin develop --locked --manifest-path pid-rs/crates/pid-pyth
 ## Scientific claim control
 
 A documentation edit cannot change scientific status. Any proposed promotion
-of M0, EC1, H1-A, H1-B, H2, H3, or H4 must update the canonical specification,
-`protocols/research_claim_registry_v1.json`, relevant generated capability
+of W1, W2, or W3 must update the canonical specification and
+`protocols/world_model_claim_registry_v1.json`. Any proposed promotion of M0, EC1, H1-A, H1-B,
+H2, H3, or H4 must update `protocols/research_claim_registry_v1.json`. Each promotion must update
+the relevant generated capability
 views, and content-bound evidence in the same reviewed change. The corresponding
 independent or accountable-human review must actually exist; names, signatures,
 holdout custody, access history, ethics review, and data/model rights must never
@@ -49,15 +51,17 @@ Every H1 result must name H1-A or H1-B. For H2, keep a complete-data proper scor
 complete-data risk estimator, and a proper observed-data score distinct. Freeze one contract that
 binds the prediction object, score, target risk, censoring construction, assumptions, margin, and
 uncertainty method. A right-censored likelihood requires the full event-time-and-type law. The
-revised M0 v2 draft is unreviewed and all-null.
+revised M0 v3 draft is unreviewed and all-null. The superseded v2 bytes remain historical.
 In a future candidate, populate only EC1, H2, the selected H1 protocol, and the selected H3/H4
 branch. Leave every inactive protocol slot null. A post-H3 switch to H4 requires a fresh untouched
 sample and the frozen sequential-error rule.
 
-PID interpretation additionally requires separate population, measure,
-estimator, and application gates. Never pool continuous shared-exclusions atoms
-with discrete Williams–Beer `I_min`, route a failed continuous term to a
-different estimand, or emit a numeric placeholder for an abstention.
+PID interpretation additionally requires separate population, measure, estimator, and application
+gates. Declare the object kind, domain, defining reference, estimand, estimator, units, and
+composition. MGW categorical shared exclusions, Ehrlich continuous shared exclusions,
+finite-sample estimators, Williams–Beer `I_min`, and infomorphic objectives are related but
+non-substitutable objects. Never pool them, auto-route between them, or emit a numeric placeholder
+for an abstention. Do not claim a cross-domain result without an explicit mapping theorem.
 
 Classify every predictive policy by its deployed computation graph. Keep these cases distinct:
 
@@ -72,6 +76,11 @@ success. Causal action-consequence language requires randomized executed actions
 receipts, support checks, proper scores, and calibration. Planning language requires recorded
 candidates, predictions, scores, selection, and a decision-flip test. Follow `grandplan.md`
 section 9.2, "World-model experiments."
+
+For any H3 source, freeze a target-specific prediction landmark before the target becomes
+available. Bind each source's full tensor ancestry to that landmark. Reject a source that contains
+its target or a descendant of that target. If a source consumes a candidate action and the target
+is downstream, give the matched baseline the exact same proposal.
 
 ## Technical writing
 

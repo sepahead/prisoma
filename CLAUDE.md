@@ -5,11 +5,9 @@ file restates the highest-leverage rules and adds Claude-Code-specific notes.
 
 ## What Prisoma is
 
-A gate-driven research toolkit providing **auditable experiment semantics** for
-intervention-grounded diagnosis of Vision-Language-Action (VLA) policies. Partial Information
-Decomposition (shared-exclusions `I^sx_∩`) is one **conditional** candidate diagnostic — central
-only if its measure, estimator, application regime, and incremental value pass frozen
-gates — not the thesis premise. The canonical spec is `grandplan.md` (**docset v12.5**);
+A low-overhead, world-model-first research toolkit for auditable supported decisions and matched
+closed-loop fidelity studies. Partial Information Decomposition is one conditional diagnostic.
+It is not the product or thesis premise. The canonical spec is `grandplan.md` (**docset v13.0**);
 `README.md` is the entry point. The Rust PID estimators live **upstream** in the
 [`pid-rs`](https://github.com/sepahead/pid-rs) submodule (`pid-core`, `pid-runlog`, `pid-python`)
 — **not** vendored here. Edit the estimator core upstream, then bump the submodule; never re-add
@@ -45,10 +43,12 @@ Follow the complete policy and exception list in `AGENTS.md`.
    atom-estimator validation as `blocked`, while the strict band gates analytic MI rather than
    atoms (`findings.md`). It never compares shared-exclusions redundancy with a zero target.
    Sampled-mean δ is descriptive, not a validity gate. One
-   (PID measure, preprocessing, estimator config) tuple = one pre-outcome frozen regime; never pool
-   continuous `I^sx_∩` atoms with discrete `I_min` atoms — `--pid-mode discrete` is Williams–Beer
-   `I_min`, **not** discrete `i^sx_∩` (`grandplan.md` §7.6). Confirmatory claims are bound by the
-   §4 claim-template registry (EC1, H1–H4), the §3.8 PID kill rules, and the §6 statistical
+   (PID measure, preprocessing, estimator config) tuple = one pre-outcome frozen regime. The
+   `categorical-sx` route fits equal-width quantizers and estimates averaged two-source MGW shared
+   exclusions on the resulting empirical laws. It is not Williams–Beer `I_min`, BROJA, continuous
+   Ehrlich shared exclusions, or an infomorphic objective. Never pool or auto-route these objects.
+   Confirmatory claims are bound by the
+   §4 claim-template registries (EC1, H1–H4 and W1–W3), the §3.8 PID kill rules, and the §6 statistical
    analysis plan. Every H1 result must say H1-A or H1-B. H1 success needs a positive useful
    margin and a one-sided lower confidence bound above it. Noninferiority, equivalence,
    nonsignificance, or a secondary endpoint cannot rescue the primary endpoint. For H2, keep a
@@ -57,14 +57,14 @@ Follow the complete policy and exception list in `AGENTS.md`.
    uncertainty as one contract. A forecast-independent censoring-adjusted horizon score can
    target scalar risk only under its exact assumptions. A right-censored likelihood requires the
    full event-time-and-type law.
-   A future v2 freeze candidate populates only the selected H1 and H3/H4 contracts. Keep every
-   inactive protocol slot null. A post-H3 switch to H4 needs a fresh untouched sample and the
-   frozen sequential-error rule.
+   A future v3 freeze candidate populates EC1, H2, one selected H1 contract, and one selected
+   H3-or-H4 contract. Keep every inactive protocol slot null. A post-H3 switch to H4 needs a fresh
+   untouched sample and the frozen sequential-error rule.
 2. **Honesty over roadmap.** Do not claim non-existent crates/scripts/assets are runnable.
    Avoid hard-coded performance/cost claims unless backed by a committed source or a clearly
    labeled in-repo measurement — the doc-audit scripts (`scripts/audit_*.py`) enforce this.
-   Keep the docset version stamps consistent across `README.md` / `AGENTS.md` /
-   `grandplan.md` / `DIAGRAMS.md` / `findings.md` (all **v12.5**).
+   Keep the active docset version stamps consistent across `README.md` / `AGENTS.md` /
+   `grandplan.md` / `DIAGRAMS.md` / `findings.md` (all **v13.0**). Preserve immutable v12.5 intake.
 3. **Run log = source of truth; Agent Bridge = only control plane.** Every sample admitted to an
    artifact must be reconstructable from canonical run-log events. The log governs accepted recorded
    events. It cannot prove an upstream event that the capture boundary never observed. Observers
@@ -74,6 +74,20 @@ Follow the complete policy and exception list in `AGENTS.md`.
    action-conditioned prediction, and candidate planning. A joint sampler is not an
    action-conditioned query by algebra alone. Do not call an action-conditioned predictor causal without the
    randomized executed-action gate. See `grandplan.md` §9.2.
+   Reject target injection. A state conditioned on a candidate action cannot be a PID source when
+   the target is that exact proposal. A downstream command, later declared reference-state
+   outcome, or separately measured physical outcome remains eligible only when the matched
+   baseline receives the same proposal. Command or simulator-state prediction is not physical
+   forecast validity. Freeze a target-specific prediction landmark before target
+   availability. Bind each source to an ancestry receipt at that landmark.
+5. **Low overhead is end-to-end.** Count dependency closure, safe loading, rights review, capture,
+   memory, latency tails, and controller timing. Start with `just world-model-reference`. The first
+   external target is the pinned compact LeWorldModel PushT planner. Its end-to-end upstream
+   evaluator hard-codes CUDA and has no verified MPS path. JEPA-WM is the second planning
+   benchmark. SmolVLA is the direct-policy MPS baseline. VLA-JEPA is a predictive-training
+   comparator whose inference graph drops the predictor. None is a qualified runtime dependency.
+   Treat the one-seed independent TwoRoom reproduction as a protocol-identity warning, not PushT
+   evidence. Bind paper, configuration, and code readings before outcome access.
 
 ## Before you open a PR / commit
 
@@ -96,11 +110,10 @@ subsets of the required local gate.
   currently `v0.8.0`, wire 0.8) and pulls Zenoh, so build it with
   `--manifest-path crates/ncp-observer/Cargo.toml`, never `-p` from the repo root. It is an
   optional, exploratory-only, **read-only** `(V,L,D,A)` source (E2 edge, `grandplan.md` §8.9) —
-  part of the M2 ecosystem-conformance benchmark, not a critical-path dependency. The reference
-  adapter implementation and candidate critical-path real-data producer is
-  `experiments/safe_adapter`; the core must build
-  with NCP disabled and H1/H2 must run without requesting PID atoms (dependency firebreak,
-  §8.9.3).
+  an optional ecosystem-conformance benchmark, not a critical-path dependency. The reference
+  adapter implementation is `experiments/safe_adapter`. It belongs to the preserved EC1/H
+  diagnostic family, not the W1-W3 critical path. The core must build with NCP disabled. H1/H2
+  must run without requesting PID atoms (dependency firebreak, §8.9.3).
 - **NCP is a pinned git dependency**, currently the latest immutable release `v0.8.0` (wire
   0.8); no sibling checkout is required. Keep this legacy consumer frozen. A different wire
   requires a separate consumer surface, corpus, and qualification path. Official NCP main was
@@ -111,8 +124,9 @@ subsets of the required local gate.
   qualification. Refined low-overhead architecture prose and the prepared-stream-monitor gap
   record are coordination-only. B01 remains `IN_PROGRESS` with no passing receipt. See the
   [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1a04294c90c1b50eba06ae1c6afe9c951319250d/evidence/implementation/task-ledger.v1.json).
-- **The estimator pin is deliberate.** Public `pid-rs` main was observed at `bbdfda40` on
-  2026-08-13. It has newer unadopted method catalogs, formal/categorical assurance work,
+- **The estimator pin is deliberate.** Public `pid-rs` main was observed at `7473e62` on
+  2026-08-13. Its estimator-code parent is `cb3f58f0`; the child changes custody only. It has
+  newer unadopted method catalogs, formal/categorical assurance work,
   source-errata records, and exact-certifier surfaces. Keep `796c11e` until a consumer-owned
-  compatibility and scientific-value review supports a pin change. New provenance surfaces do
-  not open PID gates.
+  compatibility and scientific-value review supports a pin change. Full exact-head CI is red in
+  two jobs, while a narrower push receipt passed. New provenance surfaces do not open PID gates.

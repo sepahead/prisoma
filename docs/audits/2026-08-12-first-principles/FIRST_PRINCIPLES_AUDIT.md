@@ -9,8 +9,9 @@ evidence that M0 is freeze-ready.
 
 Keep Prisoma. Narrow its claims. Freeze science before adding infrastructure.
 
-The project has a coherent low-overhead architecture for recorded interventions, replay, bounded
-analysis, and diagnostic comparison. Its strongest contribution is the discipline that separates:
+The project has a coherent low-overhead architecture for exact-fork world-model decisions, linked
+fidelity studies, recorded interventions, replay, and bounded analysis. Its central discipline
+separates:
 
 - signal availability;
 - response to a named frozen-state intervention;
@@ -20,7 +21,7 @@ analysis, and diagnostic comparison. Its strongest contribution is the disciplin
 - application-valid scientific interpretation.
 
 No scientific PID gate opened in this audit. The current repository remains software groundwork
-and preregistration scaffolding. It does not contain EC1 or H1–H4 scientific evidence.
+and preregistration scaffolding. It does not contain W1-W3, EC1, or H1-H4 scientific evidence.
 
 The central correction is:
 
@@ -43,6 +44,15 @@ The most important architecture correction is:
 > VLA and WAM are not exclusive scientific classes. Prisoma must classify the deployed graph,
 > then test predictive accuracy, runtime use, action conditioning, and planning separately.
 
+The most important source-design correction is:
+
+> A source cannot contain its target. A state conditioned on a candidate action cannot be a PID
+> source when that exact proposal is the target. A downstream command, later declared
+> reference-state outcome, or separately measured physical outcome remains eligible only when the
+> matched baseline receives the same proposal. Command or simulator-state prediction is not
+> physical forecast validity. Freeze a target-specific prediction landmark before target
+> availability. Every source needs an ancestry receipt at that landmark.
+
 ## Audit boundary
 
 | Item | Bound value |
@@ -52,7 +62,7 @@ The most important architecture correction is:
 | Pinned `pid-rs` | `796c11e70f009634b853dc4ada6f565563d82f51` |
 | Pinned description | `v0.9.0-7-g796c11e` |
 | Immutable `pid-rs` 0.9.0 tag commit | `a9a275157237999c8da6ab813130d74f6113dec9` |
-| Public `pid-rs` main reviewed | `bbdfda40f0a49a2260b10eafdcb438fc61ae94e9` |
+| Public `pid-rs` main observed | `7473e62acef6077c2c1147e09d5d1297f2a2874b` |
 | Real-study or holdout access | none |
 | Submodule update | none |
 
@@ -66,10 +76,12 @@ Prisoma's dependency or integration verdicts.
 
 ## Method: 500 claim views
 
-The audit crossed five claim families with ten inference-chain questions and ten assurance lenses.
-This gives 500 claim-question-lens views. H1-A and H1-B received separate answers inside every
-relevant H1 view. The number describes the review matrix. It does not imply 500 independent
-reviewers or 500 empirical tests.
+The original audit crossed the five preserved EC1/H claim families with ten inference-chain
+questions and ten assurance lenses. This gives 500 claim-question-lens views. H1-A and H1-B
+received separate answers inside every relevant H1 view. The v13 W1-W3 review is an additional
+deployed-graph, decision, fidelity, and M4 audit. It is not counted by retroactively changing the
+500-view denominator. These numbers describe review matrices. They do not imply independent
+reviewers or empirical tests.
 
 The inference chain asks about the question, population, intervention or prediction time, data,
 unit, estimand, assumptions, estimator, comparator, falsifier, conclusion, and evidence status.
@@ -216,7 +228,8 @@ application gate remains BLOCKED and NOT APPLICATION-VALIDATED. Experiment 0 rep
 measure as not adjudicated and its atom estimator as blocked.
 
 An abstention has no numeric placeholder. It is neither zero nor NaN. A failed continuous term
-must not route to discrete `I_min`. Those are different measures and estimands.
+must not route to MGW categorical shared exclusions, Williams-Beer `I_min`, BROJA, or another
+functional. These are different scientific objects and estimands.
 
 Geometry can help define a warning or eligibility rule. It cannot substitute for measure,
 estimator, or application validation. Eligible-only performance must be reported, but it cannot
@@ -224,7 +237,7 @@ serve as the confirmatory H3 estimand.
 
 ### H4: preselected probe and intervention branch
 
-**Audit status:** unimplemented.
+**Audit status:** exploratory reference only; confirmatory protocol unimplemented.
 
 H4 is a preselected alternative and companion branch. It cannot become a post-result fallback after
 H3 fails on the same holdout. Such a switch needs a fresh holdout and sequential error control.
@@ -275,6 +288,8 @@ The high-level architecture is sufficient for the current research stage.
 4. Tauri and SparkJS remain deferred Phase 4 presentation work.
 5. NCP remains an optional read-only source outside the root workspace.
 6. `pid-rs` remains the sole estimator source of truth.
+7. The native exact-fork reference remains the first world-model decision-contract rung.
+8. Learned adapters remain optional, pinned, rights-reviewed, and fail-closed.
 
 No new service, database, queue, control plane, or custom viewer is justified now. The binding
 constraints are scientific freeze, rights-approved capture, comparator fidelity, and external
@@ -288,7 +303,10 @@ validation. More infrastructure would not close them.
 - fail-closed admission;
 - one canonical run log;
 - no hidden authority;
-- no component without a named decision or gate.
+- no component without a named decision or gate;
+- measured capture-to-command latency and tails;
+- bounded peak unified memory and model calls; and
+- offline diagnostics outside the action loop.
 
 ## Implementation findings
 
@@ -313,17 +331,40 @@ uses a separate nondecreasing projection.
 
 ### Temporal and resampling contracts
 
-The harness formerly computed AR(1)-derived sample-size and block-length hints from unlabeled row
-order. Row order alone does not identify a time series. An `episode_id` groups rows but does not
-order them. Those values now require one declared episode that spans every row and a strictly
-increasing canonical decimal `metadata.sequence_index`. The lag-1 row-order value remains descriptive and cannot set an
-inferential denominator or block length.
+The harness formerly derived AR(1) sample-size and block-length hints from row order. Those values
+were not valid for nonlinear MI or PID inference. The report now emits neither hint. It reports a
+descriptive within-unit-step-run Pearson lag-1 screen only.
+
+Axis summaries now center both lagged vectors and average only defined column correlations. They
+report the defined and total column counts. An all-undefined axis emits no lag-1 value. Rows
+without episode identities also emit no lag pairs. Every non-singleton segment also needs a strict
+canonical sequence-index receipt. Only unit index advances contribute. The report counts gaps.
+A run needs at least three lag pairs because a two-pair Pearson value is forced to positive or
+negative one.
+
+The report type also allowed a caller to change a structurally plausible metric and then publish
+new evidence without rerunning analysis. Schema 4 now carries a private process-local mutation
+seal over every serialized report field. Summary and run-log publication verify it before creating
+output. Deserialization removes that authority. The seal is not a signature, process attestation,
+or substitute for rerunning the analysis.
 
 The uncertainty API also allowed one request to combine a multi-row block bootstrap with a full
 shuffle, or a unit-block bootstrap with a circular serial surrogate. Serial transforms also require
 the same sequence-index receipt. Those pairs assert
 incompatible row-dependence laws. The library and CLI now reject both combinations before main
 analysis. This validates neither resampling law. It prevents one report from claiming both.
+
+### Native world-model decision contract
+
+The new native reference learns one bounded affine action-conditioned transition on the
+deterministic fixture. It publishes the ordered candidate pool and all forecasts before it can
+open reference labels. It labels each candidate on an independent restored branch, executes only
+the selected action through the Agent Bridge, and verifies replay.
+
+The learner and reference use the same simulator law. This is intentional software-contract
+groundwork, not independent forecast validation. It establishes neither W1 nor W2. The first
+external target is the pinned LeWorldModel PushT planner after safe loading and CPU/MPS
+qualification. JEPA-WM is the second planning benchmark.
 
 ### H1 scaled-response arithmetic
 
@@ -366,7 +407,7 @@ provenance is not complete enough to support that label.
 
 | Source family | Primary source fact | Prisoma consequence |
 |---|---|---|
-| PID non-uniqueness | Williams–Beer, shared exclusions, and conditional-independence PID define different measures. The 2026 review finds no universal choice. | Keep the measure gate. Never pool atoms across measures. |
+| PID object identity | MGW categorical and Ehrlich continuous shared exclusions are distinct functionals. Williams-Beer `I_min` and BROJA are other measures. A finite-sample estimator, a declared-law evaluator, and an infomorphic objective are different object kinds again. | Use a provenance and estimand graph. Declare the functional, evaluation kind, input-law kind, implementation, transform, units, aggregation, and composition. Never pool or transfer results without a mapping theorem. |
 | Continuous estimation | KSG is a nearest-neighbor estimator with difficult finite-sample behavior under strong dependence. | Keep dimension, tie, support, power, and external-fixture gates. |
 | Gaussian multi-source PID | Lyu, Clark, and Raviv give covariance-based closed forms under a Gaussian model and a different measure family. | Treat it as a separately named sensitivity regime, not shared-exclusions validation. |
 | Multimodal PID | Sensory PID applies conditional PID with modality and instruction interventions. | Generic multimodal PID is not novel. Prisoma must add sequential and claim-matched experiments. |
@@ -380,7 +421,7 @@ provenance is not complete enough to support that label.
 | Action grounding | MiraBench and the world-model hallucination audit separate plausible video from action-sensitive dynamics. | Require randomized executed actions, proper scores, calibration, and failure-heavy tests. |
 | Representation grounding | XEWorld, PhyLatent, and PSG-JEPA expose embodiment, physical-state, and counterfactual-dynamics failures. | Forward prediction and global non-collapse are not admission tests. |
 | Execution management | HarnessWAM and TempoWAM add task memory, progress checks, recovery, and adaptive replanning around finite-horizon policies. | Measure these external mechanisms separately from the world branch. |
-| Local execution | SmolVLA has an upstream MPS path. SLIM has a plausible MPS surface but no qualification. Efficient-WAM asserts CUDA before its attention fallback and uses float64/complex RoPE. JEPA-WAM is a CUDA-tested, pickle-based port candidate. LiLa-WAM has no language input or MPS path. | Qualify SmolVLA first. Gate SLIM next. Treat Efficient-WAM and JEPA-WAM as later code ports. Use LiLa-WAM as a separate predictive ablation. |
+| Local execution | Prisoma's native reference has no model download. LeWorldModel exposes a compact action-conditioned CEM planner, but its upstream evaluator hard-codes CUDA. One exact-artifact synthetic probe ran its predictor, rollout, and full-budget CEM on MPS. It did not run PushT or establish qualification. A one-seed independent reproduction covers only TwoRoom and exposes protocol-identity hazards. JEPA-WM is larger, CUDA-oriented, and noncommercial. SmolVLA has an upstream MPS example. VLA-JEPA uses safetensors and MPS-specific handling, but its predictor is training-only and its stock output is not a row-aligned action-conditioned state. | Run the native contract first. Port and qualify pinned LeWorldModel PushT as the first external world-model candidate. Bind paper/configuration/code readings, train-only action scaling, and raw-action support before outcomes. Keep JEPA-WM as the second planning benchmark. Use SmolVLA as the matched direct-policy MPS baseline. Keep VLA-JEPA as a predictive-training comparator. Do not substitute an action-independent `D→A` predictor for the W1 action-conditioned forecast. |
 
 ### Primary links refreshed
 
@@ -390,6 +431,10 @@ provenance is not complete enough to support that label.
   information](https://doi.org/10.1103/PhysRevE.103.032149), 2021.
 - Ehrlich, Makkeh, and Wibral, [Continuous shared-exclusions PID for neural
   representations](https://doi.org/10.1103/PhysRevE.110.014115), 2024.
+- Wibral et al., [PID as a unified approach to neural goal
+  functions](https://pubmed.ncbi.nlm.nih.gov/26475739/), 2017.
+- Makkeh et al., [A generalized framework for infomorphic neural
+  networks](https://pmc.ncbi.nlm.nih.gov/articles/PMC11912414/), 2025.
 - Liardi et al., [The Mathematical Landscape of Partial Information
   Decomposition](https://arxiv.org/abs/2603.06678), 2026.
 - Kraskov, Stögbauer, and Grassberger, [Estimating mutual
@@ -461,12 +506,11 @@ The full numbered bibliography and its role in the plan remain in `grandplan.md`
 
 ## `pid-rs` review
 
-The reviewed upstream head is 95 commits beyond the local pin. It adds substantial assurance and
+The observed upstream head is 97 commits beyond the local pin. It adds substantial assurance and
 API work. Prisoma checked, built all test targets, and ran its all-feature Rust consumer suite
 against exact revision `722d3abeb922fc4119ecb9f92d7fedca096c9f77` in an isolated clean tree.
-Current head `bbdfda40f0a49a2260b10eafdcb438fc61ae94e9` changes only assurance, workflow,
-script, and prose surfaces relative to that tested revision. The consumed crates, Cargo files,
-toolchain, and `pyproject.toml` are byte-identical. Since the earlier `00fce70d` check, executable verifier scripts, schemas, assurance
+Head `bbdfda40f0a49a2260b10eafdcb438fc61ae94e9` changes only assurance, workflow,
+script, and prose surfaces relative to that tested revision. Since the earlier `00fce70d` check, executable verifier scripts, schemas, assurance
 artifacts, prose, and tests changed. Three `pid-core` Rust source files changed only in
 documentation or comments. No Cargo manifest, public Rust signature, or executable Rust statement
 changed in that later interval.
@@ -484,17 +528,24 @@ The upstream categorical API now distinguishes `SxPointwiseAtom` from `SxAverage
 replaces an ambiguous probability field with empirical count and probability fields. Those changes
 are scientifically useful. They require a serialized-data and Python migration review.
 
-The upstream release scope explicitly does not claim downstream Prisoma compatibility or VLA
-application validity. Current-head CI run `31651702557` completed with all 45 jobs passing on
-2026-08-13. Current-head CodeQL run `31651702504` also passed. The provider-CI result does not
-replace the open consumer review, so the pin remains fixed. `PID_RS_HANDOFF.md` contains the
-acceptance matrix and ready-to-send message.
+Estimator-code anchor `cb3f58f0b190454cb3f1090de8798261ec78f194` adds one bounded KSG integration
+commit. Prisoma inspected its three changed production Rust files and replayed four predecessor-radius
+fixtures plus the structured overflow fixture. Exact-head CI run `31686107959` is red on a stale
+certified-SxPID2 workflow digest. Exact-head CodeQL run `31686106737` passed. Upstream still marks
+broader revision-4 KSG integration NO-GO. The upstream release scope explicitly does not claim
+downstream Prisoma compatibility or VLA application validity. The provider result does not replace
+the open consumer review, so the pin remains fixed. `PID_RS_HANDOFF.md` contains the acceptance
+matrix and ready-to-send message.
+Current public head `7473e62` is a custody-only direct child. It changes no crate or Cargo input.
+Its full CI run `31724449805` failed two jobs, while its narrower `Push on main` run `31724449083`
+passed. Neither run changes the adoption decision.
 
 ## Documentation reconciliation
 
 The current docset now uses the same boundaries:
 
-- `grandplan.md` remains canonical at v12.5.
+- `grandplan.md` remains canonical and advances to v13.0 for the world-model-first program.
+- W1–W3 are unfrozen. The preserved EC1/H1–H4 family remains unfrozen and diagnostic.
 - `AGENTS.md` and `CLAUDE.md` carry the same stop rules.
 - `README.md`, `ARCHITECTURE.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, and `pidsplatspecs.md`
   preserve the Agent Bridge, run-log, Rerun, and deferred-UI decisions.
@@ -509,6 +560,11 @@ validation, universal replay completeness, or natural pathway identification.
 
 ## What remains blocked
 
+- W1 lacks a qualified learned M4 adapter, held-out supported-action data, and frozen forecast and
+  ranking contracts.
+- W2 lacks a randomized complete-policy comparison and measured M4 resource receipts.
+- W3 lacks the linked matched mesh/3DGS, reference/learned dynamics, policy-response, controller,
+  and selection panels.
 - M0 is not freeze-ready.
 - EC1 lacks its final finite corpus and independent producer evidence.
 - H1-A lacks real frozen-policy capture and a frozen claim decision.
@@ -518,23 +574,27 @@ validation, universal replay completeness, or natural pathway identification.
 - H4 lacks a frozen target, selection rule, intervention, and error plan.
 - SAFE re-export and rights review remain open.
 - `pid-rs` adoption lacks behavior, schema, Python, fixture, package, and scientific-value evidence.
-  Current-head provider CI is green, but it does not close those consumer-owned gates.
+  Exact-head provider CI is red. A future green run would not close those consumer-owned gates.
 
 ## Priority order
 
-1. Review and freeze the M0 v2 scientific choices. Do not promote the v1 scaffold.
-2. Produce one rights-approved SAFE capture with exact model, split, hook, and label receipts.
-3. Close the generic paired instrumentation preflight on that real capture path.
-4. Freeze either H1-A or H1-B as the first H1 claim. Do not blend them.
-5. Freeze one aligned H2 primary scoring contract and exact comparator registry.
-6. Validate low-dimensional estimators and retain all four PID gates.
-7. Run a pilot without accessing the confirmatory holdout.
+1. Keep the W1-W3 registry unfrozen until its population, support, score, budget, and stop rules
+   receive accountable review.
+2. Preserve the native exact-fork reference as a software contract, not model evidence.
+3. Build a safe, pinned LeWorldModel PushT adapter. Bind paper, configuration, and code readings
+   before outcomes. Prove CPU/MPS parity, action sensitivity, and bounded resource use.
+4. Run W1 on held-out supported actions with proper forecast and same-pool ranking scores.
+5. Run W2 as a randomized complete-policy comparison under one frozen M4 budget.
+6. Run W3 as linked matched panels. Do not call it a full factorial unless every cell exists.
+7. If the preserved diagnostic family is activated, review its active v3 M0 choices and obtain one
+   rights-approved SAFE capture. Keep H1-A, H1-B, H2, H3, and H4 separate.
 8. Add UI or ecosystem integration only when it closes a named scientific or operator decision.
 
 ## Final conclusion
 
-Prisoma does not need a larger architecture. It needs fewer ambiguous claims and stronger frozen
-decisions. The revised plan now makes that distinction explicit.
+Prisoma does not need a larger architecture. It needs a qualified local world-model path, fewer
+ambiguous claims, and stronger frozen decisions. The revised plan now makes that distinction
+explicit.
 
 Retain PID as a conditional candidate. Treat non-PID monitors as mandatory comparators and exact
 fallbacks. Promote no scientific result until the registered population, identification,

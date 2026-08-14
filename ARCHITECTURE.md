@@ -91,6 +91,7 @@ It does not own network transports, the simulator, or file confinement.
 - Deterministic object-state fixtures.
 - stdio, TCP, and WebSocket bridge transports.
 - A Rapier-backed manipulation fixture.
+- A native exact-fork world-model decision reference.
 - H1 and H2 protocol arithmetic references.
 - The offline `(V,L,D,A)` harness.
 - Exact-snapshot publication helpers.
@@ -103,17 +104,23 @@ software fixtures and adapters.
 `pid-rerun` validates one bounded run-log snapshot and maps it to Rerun data. It supports headless
 RRD output and optional interactive viewing. It never controls the environment.
 
-The current adapter is implemented. The complete multi-panel Phases 1–3 diagnostic application is
-specified but not built. A Tauri/SparkJS shell is deferred and is not a thesis dependency.
+The current adapter is implemented, but it is narrow. It omits opaque `FrameObserved` events,
+reduces flow vectors to magnitudes, and does not map world-model candidate metadata. Pinned Rerun
+0.34.1 has mesh, camera, image, arrow, and point types. Its PLY path reduces Gaussian splats to
+spherical points and ignores opacity. It lacks the newer unstable anisotropic splat archetype.
+Therefore Rerun is a derived viewer, not the W1–W3 evidence model. The complete multi-panel
+application is specified but not built. A Tauri/SparkJS shell remains deferred.
 
 ### 3.5 Producer layer
 
 The offline harness accepts a strict `(V,L,D,A)` artifact with labels and metadata. Producers must
-declare each axis and its population support. Prisoma never infers support from observed values.
+declare each axis and its population support. A continuous call also needs a declaration for its
+complete source-target tuple. The tuple declaration asserts regular joint support and finite
+information. Prisoma never infers either declaration from observed values.
 
-`experiments/safe_adapter` is the reference adapter implementation and the candidate critical-path
-real-data producer. It validates content-bound SAFE input bundles. Current committed outputs are
-synthetic software proofs.
+`experiments/safe_adapter` is the reference adapter implementation for the preserved diagnostic
+program. It validates content-bound SAFE input bundles. Current committed outputs are synthetic
+software proofs. It is not the primary W1/W2 model path.
 
 The optional `ncp-observer` is a read-only producer adapter for NCP wire 0.8. It is workspace-
 excluded. NCP and Zenoh therefore stay outside the default dependency graph.
@@ -159,17 +166,61 @@ subsampling and full shuffle also support identified singleton episodes or rows 
 identifiers under the declared row-exchangeability null. The resamplers do not cross multiple
 non-singleton episode boundaries. A combined bootstrap and permutation request must declare one
 row-dependence class. Circular-shift tail fractions are approximate surrogate scores.
+Temporal output is a within-unit-step-run Pearson lag-1 screen. Axis means exclude columns that
+are undefined after centering and record their coverage. Rows without episode identities produce
+no lag pairs. Every non-singleton segment also needs a strict canonical `sequence_index` receipt.
+Only adjacent rows whose index advances by one contribute. The report counts excluded gaps. It
+centers both lagged vectors inside each contiguous run before pooling residual products. A run
+needs at least three lag pairs because two pairs force Pearson correlation to positive or negative
+one. It reports admitted and correlation-eligible pair counts. It emits no inferential sample-size
+or block-length suggestion.
 The train-only screen fits independent preprocessing.
 
 `--pid-mode none` is the default. It removes MI and PID requests while retaining factual-outcome
 baselines. The explicit `analysis` feature still links `pid-core` for shared geometry and logistic
 code. Thus, this mode is an estimator-request firebreak, not a link-time dependency claim.
 
-### 4.3 Replay and publication path
+The fitted categorical routes are `categorical-sx` and `categorical-sx-pls`. Each screen fits its
+own preprocessing on the rows admitted to that screen. The all-sample screen fits all admitted
+rows. An optional split screen fits and estimates only its training rows. Neither route scores
+held-out categorical rows. Because `categorical-sx-pls` uses the same target rows for supervised
+projection and analysis, every result carries a typed same-row warning and an estimator-blocked
+gate. It is a selection-inflation diagnostic only. The routes construct categorical variables
+with fitted equal-width quantizers. They use the pinned empirical-law MGW two-source
+shared-exclusions backend. Reports bind
+the fitted edges and all transform hashes.
+They also retain empirical-PMF occupancy and coverage diagnostics from the estimator. Those
+diagnostics do not establish population support.
+These routes are not Williams–Beer `I_min`, BROJA, continuous Ehrlich shared exclusions, or an
+infomorphic objective. They never replace a failed continuous result.
+
+### 4.3 World-model decision path
+
+The native reference starts from one exact simulator fork. It commits an ordered pool with at
+least two distinct actions and all forecasts before any reference label becomes accessible. It
+then executes only the selected action through the Agent Bridge and commits its execution receipt.
+After that receipt exists, it labels every candidate on an independent branch restored from the
+saved fork. A verifier reconstructs the commitments, selection, execution, branch outcomes, and
+run-log replay.
+
+The reference learns a small affine transition from a declared deterministic law. It proves the
+decision-contract software semantics only. It does not prove learned-model quality, physical
+truth, W1, W2, or planning benefit.
+
+Run-log schema 2 lacks a neutral inline decision-record event. The current reference uses strictly
+named `label_observed` envelopes for forecast commitments and execution receipts. These records are
+not outcome labels. The project has requested a versioned `pid-runlog` event for a future adapter.
+
+### 4.4 Replay and publication path
 
 Inputs are read from one descriptor-bound, bounded snapshot on supported Unix hosts. Publication
 uses staged files, file synchronization, and no-replace installation. A later output failure can
 leave an earlier file. No multi-file transaction is claimed.
+
+The analysis call seals every serialized report field with a private process-local digest.
+Summary and run-log publication verify that seal. Deserialization removes publication authority,
+so a saved summary is read-only evidence. This detects in-process report changes. It is not an
+external signature or a substitute for rerunning the analysis.
 
 ## 5. Low-overhead model
 
@@ -193,8 +244,8 @@ Low overhead is a design constraint, not a benchmark claim.
 ### 5.2 Bounded work
 
 The offline harness caps raw bytes, samples, decoded scalars, metadata, JSON depth, pairwise work,
-distance-coordinate work, dense-solver work, and outputs. Custom limits require an explicit strict
-JSON file.
+distance-coordinate work, dense-solver work, fitted-categorical PID work, and outputs. Custom
+limits require an explicit strict JSON file.
 
 Bridge transports cap messages, timeouts, and selected session totals. The Engram-host profile adds
 finite request, input, event, run-log, and pairing-attempt limits.
@@ -223,11 +274,29 @@ Predictive-training state, intended-future state, coupled joint-sampler state, a
 action-conditioned query state are different contracts. A joint density does not create an
 operational conditional query.
 
-SmolVLA is the current MPS baseline candidate. SLIM is the first compact predictive-training
-candidate for the full VLDA contract. Efficient-WAM is a later class-J code port with concrete
-attention, RoPE, device, loader, and dependency-memory blockers. JEPA-WAM is another later MPS port
-candidate with released source and weights. LiLa-WAM is a separate no-language, 0.5B predictive
-ablation. None is a current runtime dependency. Full video WAMs remain outside the critical path.
+Before H3 admission, freeze a target-specific prediction landmark before target realization or
+availability. Bind the maximum observation time for each captured tensor. Reject a source that
+reads a post-landmark observation or contains its PID target. A state
+conditioned on a candidate action cannot be a source for PID whose target is that exact proposal.
+A downstream command, later declared reference-state outcome, or separately measured physical
+outcome remains eligible only when the matched baseline receives the same proposal. Command or
+simulator-state prediction is not physical forecast validity. The current
+shared artifact schema does not yet enforce this receipt.
+
+The native exact-fork reference is the first M4 rung. It implements a fixed-pool contract. The
+first external target is the compact LeWorldModel PushT planner at the frozen revisions in
+`grandplan.md`. It uses adaptive CEM. The published PushT path runs 30 rounds with 300 samples, 30
+elites, horizon five, and five-action blocks. The adapter must retain every round and separately
+score its final recommendation before execution. The upstream evaluator hard-codes CUDA.
+One exact-package synthetic probe ran its tensor and full-budget CEM paths on MPS. It did not run
+the environment or closed loop. Therefore it remains an MPS port candidate, not MPS support. The
+one-seed independent TwoRoom reproduction does not test PushT or M4. It does show that pipeline and
+evaluation conventions can determine the reported result. The adapter must bind a
+paper/configuration/code concordance ledger, train-only scaling, and raw-action support after inverse
+transformation. Freeze each unresolved feasible protocol reading before outcomes.
+JEPA-WM is the second planning benchmark.
+SmolVLA is the direct-policy MPS baseline. VLA-JEPA is a predictive-training comparator whose
+inference graph drops its predictor. No external model is a current runtime dependency.
 
 ## 6. Security and trust boundaries
 
@@ -261,7 +330,8 @@ Machine-readable ledgers in `protocols/` separate four kinds of truth:
 
 | Ledger | Question answered |
 |---|---|
-| Claim-template registry | What can the current software and evidence support? |
+| W1-W3 claim registry | What can the primary world-model program currently support? |
+| EC1/H1-H4 claim registry | What can the preserved diagnostic program currently support? |
 | Governance drafts | What must be frozen before confirmatory capture? |
 | Capability catalog | What exists, at which evidence level, and under which pin? |
 | Ecosystem overlay | What external revisions were reviewed and when? |
@@ -272,7 +342,7 @@ that a command exercises every claim. Review and CI provide the separate executi
 Release candidate records form another truth surface. They remain non-promotable until a successor
 schema and authenticated exact-commit evidence exist.
 
-## 8. Optional and deferred surfaces
+## 8. Primary roadmap and deferred surfaces
 
 ### 8.1 Reconstruction-quality study
 
@@ -280,16 +350,26 @@ schema and authenticated exact-commit evidence exist.
 study. No frozen, implemented measurement contract exists. It cannot weight KSG or PID under the
 rejected heuristic sketch.
 
-### 8.2 External world-model comparator
+### 8.2 World-model and linked-fidelity roadmap
 
-`WORLD_WARP_INTEGRATION.md` specifies a possible external comparator. No pinned adapter, rights-
-approved bundle, or matched-support result exists. Generated scenes are not causal ground truth.
+The native world-model reference is implemented. W1 and W2 require a frozen learned-model study
+with supported randomized actions, proper forecast scoring, fixed-pool or adaptive-search traces,
+calibrated abstention, randomized complete policies, and measured M4 resource receipts. The
+compact LeWorldModel PushT CEM path is the first port candidate. JEPA-WM is the second planning
+benchmark. No external adapter or learned-model result exists yet.
+
+W3 links the same authoritative state trajectory and camera across mesh and 3DGS renderers. A
+body/link manifest separates collision geometry from both render paths. It binds camera,
+exposure, color, shutter, frame timing, asset lineage, policy memory, KV cache, history, and random
+state. W3 also links the same fork and action set across learned and reference dynamics. Immediate
+frozen-policy response and downstream complete-policy effects use separate designs. This is a
+narrow integration protocol, not a priority claim. `WORLD_WARP_INTEGRATION.md` remains an optional
+legacy comparator specification.
 
 The dated [WAM frontier review](docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md)
-defines six deployed-graph classes, including coupled joint generation. A planner must propose,
-predict, score, and select over at
-least two actions. Action-conditioned prediction remains observational until randomized executed-
-action validation passes.
+defines six deployed-graph families, including coupled joint generation. It splits planning into
+fixed-pool and adaptive-search contracts. Action-conditioned prediction remains observational until
+randomized executed-action validation passes.
 
 ### 8.3 Rendering and product UI
 

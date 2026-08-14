@@ -3,9 +3,8 @@
 Adapts the released **SAFE** VLA rollout datasets into this project's `(V, L, D, A)` +
 labels contract, so a real VLA/task capture can be run through `pid-offline-harness`
 without building capture from scratch. SAFE (`vla-safe/SAFE`; NeurIPS 2025 per the repo — verify venue/license) released OpenVLA-on-WidowX/LIBERO and π0-FAST-on-Franka rollouts with success/failure outcomes. This is
-the reference adapter implementation for the S2/EC1 gate recorded in `REVIEW_AND_TODO.md` and
-`grandplan.md` §8.7 (adapter contract) / §8.9.4 (adapter promotion contract). It is the
-candidate critical-path real-data producer, not completed confirmatory evidence.
+the reference adapter implementation for the preserved EC1/H diagnostic family recorded in
+`grandplan.md`. It is not the W1-W3 critical path and is not completed confirmatory evidence.
 
 ## What the released SAFE tensors actually give you (read this first)
 
@@ -141,7 +140,12 @@ No layer may be changed after looking at `evaluation`.
 
 For a WAM-derived producer, classify the deployed graph before choosing `D`. A training-only
 future target yields a predictive-trained current-context state. An intended future is not an
-action-conditioned transition. Preserve proposed and executed actions as separate variables.
+action-conditioned transition. Preserve proposed and executed actions as separate variables. The
+current adapter records provenance labels and sequence order. It does not produce the typed
+source-target ancestry receipt required by H3. Do not admit its `D` into H3 until a pinned producer
+binds a target-specific prediction landmark before target availability. It must also bind the
+tensor graph, maximum ancestor time, and target exclusion. A consumer must verify that receipt.
+The adapter also does not assert continuous joint support or finite information for any tuple.
 
 ## End-to-end usage
 
@@ -184,4 +188,4 @@ harness (all three strict leakage gates pass; PID screens + non-PID baselines in
 the SAFE-class logistic-regression detector run on the result). Real capture remains
 blocked on obtaining/re-exporting the data, freezing the exact source and split,
 verifying tensors and rights, and satisfying the scientific gates. Secure ingress
-readiness is not S2/EC1 completion and establishes no H1/H2 evidence.
+readiness is not D2/EC1 completion and establishes no H1/H2 evidence.

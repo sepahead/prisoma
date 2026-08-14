@@ -25,9 +25,9 @@
 
 ## 1. Context (what this is and is not)
 
-**prisoma** builds auditable experiment semantics for intervention-grounded diagnosis of
-Vision-Language-Action (VLA) policies. PID is one conditional diagnostic, not the system's
-identity or an assumed result. Its analysis is **source-agnostic**: downstream tools consume
+**prisoma** builds auditable experiment semantics for supported world-model decisions and linked
+closed-loop fidelity studies. Its preserved VLA/PID work is a conditional diagnostic family, not
+the system's identity or an assumed result. That analysis is **source-agnostic**: downstream tools consume
 `(V,L,D,A)`+labels artifacts in one schema (the `OfflineVldaDataset` JSON that the
 `pid-offline-harness` reads). In `(V,L,D,A)`, **D is a declared source axis, not depth**.
 Its producer, timing, ancestry, and scientific role are experimental variables.
@@ -38,9 +38,9 @@ The analysis receives that contract through several adapters:
 
 | Adapter or source | Role | Status |
 |---|---|---|
-| `experiments/safe_adapter/` (SAFE rollouts) | **Reference adapter implementation; candidate critical-path real-data producer** (grandplan §5.1, §8.7) | Implemented contract adapter with declared axis provenance; real capture and the diagnostic-noninterference preflight remain open |
+| `experiments/safe_adapter/` (SAFE rollouts) | Reference adapter for the preserved EC1/H diagnostic family; not the W1-W3 critical path | Implemented contract adapter with declared axis provenance; real capture and the diagnostic-noninterference preflight remain open |
 | `crates/pid-sim` fixtures + Rapier/toy harnesses | Standalone sim sources | Software/conformance smokes, not scientific gate passes |
-| **`crates/ncp-observer` (this)** | **Optional** read-only NCP consumer/observer and Prisoma artifact adapter for a future conforming Engram/NEST producer | **Exploratory-only — not eligible for a registered S2/EC1 evaluation (optional M2 ecosystem item); no compatible live Paper2Brain publisher** |
+| **`crates/ncp-observer` (this)** | **Optional** read-only NCP consumer/observer and Prisoma artifact adapter for a future conforming Engram/NEST producer | **Exploratory-only — not eligible for a registered D2/EC1 evaluation; no compatible live Paper2Brain publisher** |
 
 `ncp-observer` is a **read-only passive tap**. It subscribes to a conforming producer's
 Neuro-Cybernetic Protocol (NCP) data planes over Zenoh. It converts each eligible, complete,
@@ -59,7 +59,7 @@ See `crates/ncp-observer/README.md` and the wire-0.8
 
 ## 2. The adapter-side promotion bar (not EC1 completion)
 
-An `ncp-observer` capture becomes a candidate for broader S2/EC1 conformance evaluation
+An `ncp-observer` capture becomes a candidate for broader D2/EC1 conformance evaluation
 when its artifact passes the offline harness's **strict leakage gates** and carries
 **honest provenance**, i.e. it can be run with all of:
 
@@ -79,9 +79,10 @@ recipe already runs it alongside the three held-out gates.)
 beyond the frozen matched-access comparator registry; grandplan §3.8 PID kill rules, §6.5 baseline
 hierarchy). It does not clear the
 population, measure, estimator, or application gates. The current NCP artifact deliberately
-declares no population support: continuous KSG/shared-exclusions requests abstain;
-`--pid-mode none` requests nothing; and quantized discrete `I_min` can produce only a
-non-evidentiary diagnostic with population `NotEvaluated` and application `Blocked`. H1/H2
+declares no population support or complete-tuple contract. Continuous requests abstain;
+`--pid-mode none` requests nothing; and fitted categorical MGW shared exclusions can produce only
+a non-evidentiary diagnostic with population `NotEvaluated` and application `Blocked`. Empirical
+PMF occupancy diagnostics do not establish population support. H1/H2
 non-PID work may proceed with `--pid-mode none` after publication verification.
 
 ## 3. Current state
@@ -179,13 +180,13 @@ ticks are excluded from the artifact and counted** (`excluded_empty_l` in the
 `ObserverStats` finalize report) — one empty axis would make `pid-offline-harness`
 reject the whole dataset anyway. Kept samples always carry the honest
 `metadata.l_source = "channel"` marker.
-- **Residual:** a conforming S2/EC1 producer must provide a genuine, dimensionally stable
+- **Residual:** a conforming D2/EC1 producer must provide a genuine, dimensionally stable
   language channel for retained ticks. A zero/hash backfill is fabricated evidence and is
   not a conformance repair; keep exclusion as the permanent default.
 - **Acceptance:** no sample ever reaches the artifact with a fabricated or empty L (met);
   the exclusion count makes the loss visible (met).
 
-### Gap 3 — no held-out split / episode / label structure (MEDIUM; unlocks S2/EC1 analysis)
+### Gap 3 — no held-out split / episode / label structure (MEDIUM; unlocks D2/EC1 analysis)
 The artifact currently emits one optional `episode_id`, no `metadata.split`, and labels
 only if a `success_channel` is configured — so the strict gates and the PID-necessity audit can't run.
 - **Fix:** map NEST trials → `episode_id`; assign each sample a `metadata.split`
@@ -252,8 +253,8 @@ captures. Schema-1 receipts must bind the exact legacy `v0.8.0` tag, revision, w
 compact hash; missing or different-wire identity fails closed. This command requests no PID
 because the adapter declares no population support.
 Continuous KSG/shared-exclusions requests would abstain rather than infer support from the
-observed sample; quantized discrete `I_min` would remain non-evidentiary with population
-`NotEvaluated` and application `Blocked`.
+observed sample. Fitted categorical MGW shared exclusions would remain non-evidentiary with
+population `NotEvaluated` and application `Blocked`.
 
 The `ncp-core` / `ncp-zenoh` dependencies pin the immutable published `v0.8.0` tag in
 lockstep. The crate stays off the default workspace so NCP/Zenoh resolution cannot break

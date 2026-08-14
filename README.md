@@ -14,12 +14,13 @@ Partial information decomposition (PID) is one conditional diagnostic, not the p
 [![CI](https://github.com/sepahead/prisoma/actions/workflows/ci.yml/badge.svg)](https://github.com/sepahead/prisoma/actions/workflows/ci.yml)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
-The project asks whether pre-treatment diagnostics predict intervention response and future
-failure beyond strong baselines. It does not assume that PID will answer that question.
-Negative gate results are valid results.
+The primary project asks when an action-conditioned world model improves a supported decision,
+not only a forecast. It also asks where prediction, rendering, policy, controller, and selection
+errors enter one matched closed loop. PID is a conditional diagnostic study. Negative gate
+results are valid results.
 
-> Current scientific status: EC1 and H1–H4 are unfrozen claim templates, not completed
-> hypotheses. Confirmatory claims remain blocked. The high-dimensional
+> Current scientific status: W1–W3 and the preserved EC1/H1–H4 family are unfrozen claim
+> templates, not results. Confirmatory claims remain blocked. The high-dimensional
 > MI/coherence path is **NO-GO**. The continuous shared-exclusions application gate is
 > **BLOCKED / NOT APPLICATION-VALIDATED**.
 
@@ -46,20 +47,30 @@ physics or environment                            +--> Rerun adapter
       |
       +---------------- observations ------------>+
 
-content-bound capture --> (V,L,D,A) adapter --> bounded offline analysis
-                                                --> baselines
-                                                --> geometry diagnostics
-                                                --> conditional PID screens
+exact restored fork --> candidate actions --> forecast commit --> selection --> bridge execution
+                                                |                                      |
+                                                +--> saved fork --> reference labels <--+ execution receipt
+
+content-bound capture --> (V,L,D,A) adapter --> bounded offline diagnostics
 ```
 
 `D` is a declared source axis. It often represents dynamics or hidden state, but Prisoma
 does not assign one universal meaning to it.
 
-Prisoma also does not treat `VLA` and `WAM` as rival scientific classes. It classifies the
+Prisoma does not treat `VLA` and `WAM` as rival scientific classes. It classifies the
 deployed directed graph. Predictive training, intended-future conditioning, coupled joint
 generation, action-conditioned prediction, and candidate planning are different designs. A joint
-density does not create an operational action-conditioned query. See the
+density does not create an operational action-conditioned query. The reviewed evidence does not
+show that VLAs are dead. Many current systems retain a VLA action interface while adding a world
+objective, a future-conditioning path, or a planner. See the
 [dated frontier review](docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md).
+Prisoma also rejects target injection. A state conditioned on a candidate action cannot be a PID
+source when the target is that exact proposal. A downstream command, later declared
+reference-state outcome, or separately measured physical outcome remains eligible only when the
+matched baseline receives the same proposal. Command prediction and simulator-state prediction do
+not establish physical forecast validity. A future H3 adapter must freeze a target-specific prediction
+landmark before target realization or availability. It must bind every source ancestor to that
+landmark. The current shared artifact schema does not yet enforce this receipt.
 
 The local crates stay small in role:
 
@@ -68,7 +79,7 @@ The local crates stay small in role:
 | `pid-bridge` | Request contracts and run-log integration | No transport or physics ownership |
 | `pid-sim` | Deterministic fixtures, bridge transports, protocol references, offline harness | Protocols, analysis, WebSocket, Rapier, and Rerun export are opt-in; not a general simulator product |
 | `pid-rerun` | Bounded run-log-validating Rerun conversion | No control authority |
-| `experiments/safe_adapter` | Reference `(V,L,D,A)` adapter implementation | Candidate real-data path; synthetic proof only until real capture |
+| `experiments/safe_adapter` | Reference `(V,L,D,A)` adapter implementation | Preserved diagnostic path; synthetic proof only until real capture |
 | `experiments/attribution` | Bounded exploratory attribution probe | No causal-faithfulness claim |
 | `crates/ncp-observer` | Optional read-only wire-0.8 observer | Excluded from the main workspace |
 
@@ -91,7 +102,7 @@ The computation status of a number never authorizes its interpretation.
 
 An abstained estimate has no zero, NaN, or metric placeholder. Exact ties can reject a
 sample. They cannot redefine its population law. Prisoma never routes a failed continuous
-term to discrete `I_min` automatically because that changes the measure and estimand.
+term to a categorical route automatically because that changes the object and estimand.
 
 See [findings.md](findings.md) for current estimator evidence. See
 [grandplan.md](grandplan.md) for the canonical research specification.
@@ -102,12 +113,16 @@ See [findings.md](findings.md) for current estimator evidence. See
 - A mutation-disabled-by-default local Agent Bridge over in-process, stdio, TCP, and WebSocket transports.
 - A finite, paired, read-only Engram-host TCP profile with secret-possession proofs.
 - Deterministic object and Rapier-backed manipulation fixtures.
+- A zero-model-download exact-fork world-model decision reference with a fixed candidate pool,
+  pre-label forecast publication, bridge-only selected execution, post-receipt independent branch
+  labels, and replay.
 - A bounded offline `(V,L,D,A)` harness with static baselines and explicit PID modes.
-- Typed resource admission for samples, decoded metadata, distance work, and dense solvers.
+- Typed resource admission for samples, decoded metadata, distance, dense-solver, and categorical
+  work.
 - H1 common-preflight and Protocol-A synthetic software references.
 - An H2 fixed-horizon synthetic IPCW risk-estimator arithmetic reference.
 - A content-bound SAFE adapter and a bounded attribution reference probe.
-- A run-log-validating Rerun conversion adapter.
+- A narrow run-log-validating Rerun conversion adapter. It is a derived view, not W1–W3 evidence.
 - Machine-readable claim-template, capability, governance, and release-truth ledgers.
 
 These are software proofs for stated fixtures. They are not EC1 validation, a frozen
@@ -121,12 +136,12 @@ preregistration, a confirmatory result, a safety result, or deployment evidence.
 - A production remote-security boundary.
 - The complete Rerun diagnostic application.
 - A Tauri/SparkJS product shell.
-- A Gaussian-splatting or world-model runtime.
-- A qualified SLIM, LiLa-WAM, Flex-\(\pi\), or other WAM adapter.
-- An MPS-validated predictive-policy pipeline.
+- A Gaussian-splatting runtime or external learned-world-model adapter.
+- A qualified JEPA-WM, VLA-JEPA, Flex-\(\pi\), or other reviewed model adapter.
+- An MPS-validated learned-world-model planning pipeline.
 
-Optional rendering and comparator studies remain separate proposals. They do not define the
-core architecture and do not sit on the thesis critical path.
+The native world-model reference is the first software rung. Linked mesh-versus-3DGS fidelity
+tomography is a planned study. Neither is empirical evidence yet.
 
 ## Install
 
@@ -189,6 +204,7 @@ just firebreak
 just h1-preflight
 just h1-protocol-a
 just h2-reference
+just world-model-reference
 just toy-harness
 just rapier-test
 just safe-adapter
@@ -217,16 +233,31 @@ cargo run --locked \
 
 The default `--pid-mode none` is the estimator-request firebreak. It emits no MI or PID request.
 The opt-in `analysis` build still links `pid-core` because geometry and logistic code reuse that
-library. Continuous and quantized modes require explicit opt-in. They remain diagnostic and do not
-clear the four scientific gates. New summary configurations bind report contract
-`prisoma.offline_vlda.report/2`. Publication rejects an unversioned or unknown report contract.
+library. `continuous`, `categorical-sx`, and `categorical-sx-pls` require explicit opt-in. The
+categorical routes fit equal-width bins and estimate the averaged two-source MGW
+shared-exclusions functional on the resulting empirical categorical laws. They are not `I_min`,
+BROJA, the continuous Ehrlich functional, or an infomorphic objective. Every report binds
+fitted-transform receipts, transform hashes, estimator identity, and units. `categorical-sx-pls`
+learns a target-supervised projection from the same rows it analyzes. Every such estimate is an
+estimator-blocked `produced_with_warning` selection-inflation diagnostic. It does not score
+held-out categorical rows and cannot rescue an inferential PID claim. These modes remain
+diagnostic and do not
+clear the four scientific gates. Reports also retain the estimator's empirical-PMF occupancy,
+singleton, low-count, coverage-indicator, and unseen-state caveat fields. These diagnostics do not
+prove population support. Continuous requests also require a complete-tuple joint-law and
+finite-information declaration. Per-axis continuity alone is insufficient. New summary
+configurations bind report contract `prisoma.offline_vlda.report/5`. Publication rejects an
+unversioned or unknown report contract.
+Publication also requires the private in-process seal created by the analysis call. Treat a saved
+summary as read-only evidence. Rerun the analysis to publish a new summary or run log.
 
 ## Resource and overhead model
 
 Prisoma defaults to bounded work. The offline harness admits at most 64 MiB of input and 1,024
 samples. It caps pairwise work at 50,000,000 evaluations and coordinate work at 100,000,000
 units. Dense-solver work defaults to 100,000,000 projected operations. It also caps decoded
-scalars, metadata, JSON depth, and output bytes. Stress fixtures use an explicit limits file.
+scalars, metadata, JSON depth, and output bytes. Fitted categorical PID work defaults to
+500,000,000 projected operations. Stress fixtures use an explicit limits file.
 
 The optional NCP crate is outside the default workspace. Protocol references, legacy sensitivity,
 Rust analysis, WebSocket, Rapier, Rerun export, and optional Python groups are also outside the
@@ -238,14 +269,22 @@ descriptor snapshots.
 These limits are safety and availability controls. They are not performance claims. Measure
 the exact workload before selecting hardware or raising a limit.
 
-For one M4 Max, use the documented SmolVLA MPS path only as a baseline candidate. SLIM is the
-first compact predictive-training candidate for the full VLDA contract. Efficient-WAM is a later
-class-J code port. Its released attention helper rejects non-CUDA devices before its nominal
-fallback. JEPA-WAM is another later MPS port candidate with released source and weights. LiLa-WAM
-is a separate 0.5B no-language predictive ablation. Full video WAMs remain off the critical path.
-No reviewed predictive model is currently a Prisoma dependency or a qualified MPS runtime. Any
-future asynchronous chunk path must measure the full observation-to-command delay. Bind each
-executed command to its source observation and chunk index.
+For one M4 Max, start with `just world-model-reference`. It is CPU-only, needs no model download,
+and is small. A clean Rust build can still fetch pinned Cargo dependencies.
+The first external target is the compact LeWorldModel PushT CEM planner at the exact revisions in
+`grandplan.md`. Its reviewed configuration uses 30 rounds, 300 samples, 30 elites, horizon five,
+and action blocks of length five. Its upstream evaluator hard-codes CUDA, so it is only an **MPS
+candidate**. One exact-package synthetic probe ran the predictor, rollout, and full-budget CEM on
+MPS. It did not run PushT or closed-loop replanning. Reproduce the exact CEM path before freezing a
+reduced-budget arm. A one-seed independent TwoRoom reproduction found outcome-relevant pipeline
+conventions outside configuration files and conflicting evaluation settings. It did not test
+PushT or M4. Bind a paper/configuration/code concordance ledger and freeze each unresolved feasible
+reading before outcomes. Fit action scaling on training rows only. Check raw-action support after inverse
+transformation. Admit the port only after CPU/MPS parity, action sensitivity, adaptive-search
+reconstruction, multi-replan execution, and measured tail-latency, memory, power, and deadline
+receipts. JEPA-WM is the second planning benchmark.
+SmolVLA is the direct-policy MPS baseline. VLA-JEPA is a predictive-training comparator. No
+reviewed external model is a current Prisoma dependency or a qualified MPS runtime.
 
 ## NCP and Engram boundary
 
@@ -308,6 +347,7 @@ Read these documents in this order:
 | [docs/CAPABILITY_MATRIX.md](docs/CAPABILITY_MATRIX.md) | Generated content-bound capability inventory |
 | [docs/audits/2026-08-12-first-principles/FIRST_PRINCIPLES_AUDIT.md](docs/audits/2026-08-12-first-principles/FIRST_PRINCIPLES_AUDIT.md) | Dated hypothesis, source, and repository audit |
 | [docs/audits/2026-08-12-first-principles/PID_RS_HANDOFF.md](docs/audits/2026-08-12-first-principles/PID_RS_HANDOFF.md) | Consumer-owned `pid-rs` migration and assurance handoff |
+| [docs/audits/2026-08-12-first-principles/PID_RS_EXTENSION_BRIEF.md](docs/audits/2026-08-12-first-principles/PID_RS_EXTENSION_BRIEF.md) | Ranked `pid-rs` extension request with scientific-object boundaries |
 | [AGENTS.md](AGENTS.md) | Contributor ground truth and gate rules |
 
 `GAUSS_MI_INTEGRATION.md` and `WORLD_WARP_INTEGRATION.md` are optional study specifications.

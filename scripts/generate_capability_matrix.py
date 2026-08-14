@@ -54,7 +54,7 @@ EVIDENCE_BASIS_TO_LEVEL = {
     "independent_replication": "E5",
 }
 ALLOWED_DEPENDENCIES = {"required", "conditional", "optional", "not_on_thesis_path"}
-ALLOWED_CLAIMS = {"EC1", "H1", "H2", "H3", "H4"}
+ALLOWED_CLAIMS = {"W1", "W2", "W3", "EC1", "H1", "H2", "H3", "H4"}
 EXCLUDED_TREE_PARTS = {
     ".git",
     ".pytest_cache",
@@ -100,6 +100,7 @@ REQUIRED_FEATURE_IDS = frozenset(
         "capture.safe_reference_adapter",
         "docs.capability_matrix",
         "ecosystem.evidence_ledger",
+        "experiment.linked_fidelity_tomography",
         "experiment.ec1_external_benchmark",
         "experiment.h1_common_preflight",
         "experiment.h1_protocol_a_reference",
@@ -107,7 +108,9 @@ REQUIRED_FEATURE_IDS = frozenset(
         "experiment.h2_real_prospective",
         "experiment.h2_reference",
         "experiment.h4_attribution_reference",
+        "experiment.world_model_reference",
         "governance.m0_research_ledgers",
+        "governance.world_model_claim_ledger",
         "integration.standard_format_adapters",
         "integration.structurally_different_adapter",
         "observer.ncp_fault_observatory",
@@ -902,25 +905,26 @@ def _validate_row(row: Any, *, index: int, root: Path) -> dict[str, Any]:
             raise CatalogError(
                 f"{context}.test_command is not valid shell syntax"
             ) from error
-        if command_parts and command_parts[0] == "just":
-            if len(command_parts) < 2:
-                raise CatalogError(f"{context}.test_command omits the just recipe")
-            justfile = _relative_path(
-                "justfile", root=root, context="test-command justfile"
+        if len(command_parts) != 2 or command_parts[0] != "just":
+            raise CatalogError(
+                f"{context}.test_command must name exactly one reviewed just recipe"
             )
-            recipes = {
-                match.group(1)
-                for line in _read_regular_text(
-                    justfile,
-                    max_bytes=MAX_TEXT_INPUT_BYTES,
-                    context="test-command justfile",
-                ).splitlines()
-                if (match := JUST_RECIPE_RE.match(line)) is not None
-            }
-            if command_parts[1] not in recipes:
-                raise CatalogError(
-                    f"{context}.test_command names unknown just recipe {command_parts[1]!r}"
-                )
+        justfile = _relative_path(
+            "justfile", root=root, context="test-command justfile"
+        )
+        recipes = {
+            match.group(1)
+            for line in _read_regular_text(
+                justfile,
+                max_bytes=MAX_TEXT_INPUT_BYTES,
+                context="test-command justfile",
+            ).splitlines()
+            if (match := JUST_RECIPE_RE.match(line)) is not None
+        }
+        if command_parts[1] not in recipes:
+            raise CatalogError(
+                f"{context}.test_command names unknown just recipe {command_parts[1]!r}"
+            )
 
     external_revision = row["external_revision"]
     git_matches: list[re.Match[str]] = []
@@ -1061,7 +1065,7 @@ def _load_catalog(
     if not isinstance(catalog, dict):
         raise CatalogError("capability catalog must be a JSON object")
     _require_exact_keys(catalog, TOP_LEVEL_KEYS, "catalog")
-    if catalog["schema_version"] != 1:
+    if isinstance(catalog["schema_version"], bool) or catalog["schema_version"] != 1:
         raise CatalogError("capability catalog schema_version must be 1")
     try:
         date.fromisoformat(
@@ -1075,8 +1079,8 @@ def _load_catalog(
     if not isinstance(canonical, dict):
         raise CatalogError("catalog.canonical_spec must be an object")
     _require_exact_keys(canonical, CANONICAL_SPEC_KEYS, "catalog.canonical_spec")
-    if canonical["path"] != "grandplan.md" or canonical["version"] != "12.5":
-        raise CatalogError("catalog must bind the canonical grandplan.md v12.5 spec")
+    if canonical["path"] != "grandplan.md" or canonical["version"] != "13.0":
+        raise CatalogError("catalog must bind the canonical grandplan.md v13.0 spec")
     sections = canonical["sections"]
     if not isinstance(sections, list) or not sections:
         raise CatalogError("catalog.canonical_spec.sections must be a non-empty list")
@@ -1215,7 +1219,22 @@ def resolve_catalog(
 
 
 def _markdown_escape(value: str) -> str:
-    return value.replace("\\", "\\\\").replace("|", "\\|").replace("\n", "<br>")
+    escaped = (
+        value.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\\", "\\\\")
+        .replace("|", "\\|")
+    )
+    return escaped.replace("\n", "<br>")
+
+
+def _markdown_link_target(value: str) -> str:
+    path, separator, fragment = value.partition("#")
+    target = "../" + urllib.parse.quote(path, safe="/")
+    if separator:
+        target += "#" + urllib.parse.quote(fragment, safe="-._~")
+    return target
 
 
 def _markdown_code(value: str) -> str:
@@ -1231,14 +1250,14 @@ def render_markdown(matrix: dict[str, Any]) -> str:
         "# Current capability matrix",
         "",
         f"As of **{matrix['as_of_date']}**, generated offline from "
-        f"[`{source['path']}`](../{source['path']}) "
+        f"[{_markdown_code(source['path'])}]({_markdown_link_target(source['path'])}) "
         f"(SHA-256 `{source['sha256']}`). Regenerate with "
         "`python scripts/generate_capability_matrix.py --write`.",
         "",
         "This is a software/evidence inventory, not a scientific result. `tested` means "
         "behavior on the named local proof path only; it does not itself assign E3 relationship "
         "evidence or imply scientific conformance, deployment security, estimator application "
-        "validity, or EC1/H1–H4 success. "
+        "validity, or W1–W3/EC1/H1–H4 success. "
         f"The current matrix contains **{validated_count}** `validated` row(s).",
         "",
         "Status and evidence level are orthogonal. Status semantics are fail-closed: `implemented` "
@@ -1258,7 +1277,8 @@ def render_markdown(matrix: dict[str, Any]) -> str:
 
     for row in matrix["rows"]:
         artifacts = "<br>".join(
-            f"[`{_markdown_escape(item['path'])}`](../{item['path']})"
+            f"[{_markdown_code(item['path'].partition('#')[0])}]"
+            f"({_markdown_link_target(item['path'])})"
             for item in row["evidence_artifacts"]
         )
         command = (

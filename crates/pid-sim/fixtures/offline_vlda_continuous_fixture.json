@@ -9,6 +9,14 @@
     "d": "continuous_regular_full_dimensional",
     "a": "continuous_regular_full_dimensional"
   },
+  "continuous_tuple_support": {
+    "v_a": "regular_full_dimensional_finite_information",
+    "l_a": "regular_full_dimensional_finite_information",
+    "d_a": "regular_full_dimensional_finite_information",
+    "v_l_a": "regular_full_dimensional_finite_information",
+    "v_d_a": "regular_full_dimensional_finite_information",
+    "l_d_a": "regular_full_dimensional_finite_information"
+  },
   "samples": [
     {
       "sample_id": "s000",

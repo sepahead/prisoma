@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import subprocess
 import sys
@@ -868,6 +869,89 @@ repos:
     assert any("pre-commit==4.6.0" in problem for problem in problems)
     assert any("unpinned pip installation" in problem for problem in problems)
     assert any("40-hex commits" in problem for problem in problems)
+
+
+def test_world_model_claim_registry_is_fail_closed(tmp_path: Path, monkeypatch) -> None:
+    source_root = SCRIPT.parents[1]
+    registry = json.loads(
+        (source_root / "protocols/world_model_claim_registry_v1.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    for claim in registry["claims"]:
+        for artifact in claim["current_artifacts"]:
+            path = tmp_path / artifact["path"]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("fixture\n", encoding="utf-8")
+    registry_path = tmp_path / "protocols/world_model_claim_registry_v1.json"
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry_path.write_text(json.dumps(registry) + "\n", encoding="utf-8")
+    monkeypatch.setattr(MODULE, "ROOT", tmp_path)
+
+    assert MODULE.world_model_claim_registry_problems() == []
+
+    mutations = [
+        (
+            lambda value: value.__setitem__("schema_version", True),
+            "schema_version must be 1",
+        ),
+        (
+            lambda value: value.__setitem__("scope", "scientific result"),
+            "non-evidence scope",
+        ),
+        (
+            lambda value: value["claims"][0].__setitem__(
+                "registered_role", "generic world model"
+            ),
+            "W1 role",
+        ),
+        (
+            lambda value: value["reviewed_external_targets"][0].__setitem__(
+                "code_revision", "0" * 40
+            ),
+            "external M4 target",
+        ),
+        (
+            lambda value: value["claims"][0].__setitem__("unexpected", True),
+            "W1 claim fields",
+        ),
+        (
+            lambda value: value["claims"][0]["current_artifacts"][0].__setitem__(
+                "status", "W1 passed"
+            ),
+            "W1 artifact boundaries",
+        ),
+        (
+            lambda value: value["claims"][0].__setitem__("scientific_status", "passed"),
+            "W1 scientifically unfrozen",
+        ),
+        (
+            lambda value: value["claims"][0].__setitem__(
+                "remaining_required_artifacts", ["nothing_remaining"]
+            ),
+            "W1 remaining obligations differ",
+        ),
+        (
+            lambda value: value["claims"][0].__setitem__(
+                "permitted_language", "W1 passed and is deployment ready"
+            ),
+            "W1 permitted language differs",
+        ),
+        (
+            lambda value: value["claims"][2].__setitem__(
+                "prohibited_language", "W3 is unimplemented"
+            ),
+            "first such evaluation",
+        ),
+    ]
+    for mutate, expected in mutations:
+        candidate = json.loads(json.dumps(registry))
+        mutate(candidate)
+        registry_path.write_text(json.dumps(candidate) + "\n", encoding="utf-8")
+        assert any(
+            expected in problem
+            for problem in MODULE.world_model_claim_registry_problems()
+        )
 
 
 def test_cli_converts_malformed_input_to_a_failed_audit(monkeypatch, capsys) -> None:

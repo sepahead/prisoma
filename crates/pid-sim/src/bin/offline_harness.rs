@@ -29,7 +29,7 @@ struct Args {
     require_heldout_episode_disjoint: bool,
     require_axis_provenance_honest: bool,
     pid_mode: PidMode,
-    discrete_bins: usize,
+    categorical_bins: usize,
     pls: PlsComponentSelection,
     bootstrap: usize,
     permutation: usize,
@@ -49,7 +49,8 @@ const DEFAULT_RESOURCE_LIMITS_JSON_EXAMPLE: &str = r#"{
   "max_metadata_json_depth": 64,
   "max_pairwise_distance_evaluations": 50000000,
   "max_distance_coordinate_evaluations": 100000000,
-  "max_dense_solver_operations": 100000000
+  "max_dense_solver_operations": 100000000,
+  "max_categorical_pid_operations": 500000000
 }"#;
 
 fn main() -> Result<()> {
@@ -73,7 +74,7 @@ fn main() -> Result<()> {
         read_offline_vlda_dataset_with_hash_and_limits(&args.input, &resource_limits)?;
     let harness_options = OfflineVldaHarnessOptions {
         pid_mode: args.pid_mode,
-        discrete_bins: args.discrete_bins,
+        categorical_bins: args.categorical_bins,
         pls: args.pls,
     };
     let uncertainty_config = OfflineVldaUncertaintyConfig {
@@ -215,7 +216,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut require_heldout_episode_disjoint = false;
     let mut require_axis_provenance_honest = false;
     let mut pid_mode = PidMode::Disabled;
-    let mut discrete_bins: usize = 10;
+    let mut categorical_bins: usize = 10;
     let mut pls = PlsComponentSelection::Fixed(2);
     let mut bootstrap: usize = 0;
     let mut permutation: usize = 0;
@@ -268,25 +269,27 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
             }
             "--pid-mode" => {
                 let mode_str = iter.next().context(
-                    "--pid-mode requires 'none', 'continuous', 'discrete', or 'discrete-pls'",
+                    "--pid-mode requires 'none', 'continuous', 'categorical-sx', or 'categorical-sx-pls'",
                 )?;
                 pid_mode = match mode_str.as_str() {
                     "none" => PidMode::Disabled,
                     "continuous" => PidMode::Continuous,
-                    "discrete" => PidMode::Discrete,
-                    "discrete-pls" => PidMode::DiscretePls,
+                    "categorical-sx" => PidMode::CategoricalSx,
+                    "categorical-sx-pls" => PidMode::CategoricalSxPls,
                     other => bail!(
-                        "--pid-mode must be 'none', 'continuous', 'discrete', or 'discrete-pls', got '{other}'"
+                        "--pid-mode must be 'none', 'continuous', 'categorical-sx', or 'categorical-sx-pls', got '{other}'"
                     ),
                 };
             }
-            "--discrete-bins" => {
-                let bins_str = iter.next().context("--discrete-bins requires a number")?;
-                discrete_bins = bins_str
+            "--categorical-bins" => {
+                let bins_str = iter
+                    .next()
+                    .context("--categorical-bins requires a number")?;
+                categorical_bins = bins_str
                     .parse::<usize>()
-                    .with_context(|| format!("--discrete-bins: invalid number '{bins_str}'"))?;
-                if discrete_bins < 2 {
-                    bail!("--discrete-bins must be >= 2");
+                    .with_context(|| format!("--categorical-bins: invalid number '{bins_str}'"))?;
+                if categorical_bins < 2 {
+                    bail!("--categorical-bins must be >= 2");
                 }
             }
             "--pls-components" => {
@@ -418,7 +421,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
         require_heldout_episode_disjoint,
         require_axis_provenance_honest,
         pid_mode,
-        discrete_bins,
+        categorical_bins,
         pls,
         bootstrap,
         permutation,
@@ -507,7 +510,7 @@ fn ensure_distinct_paths(args: &Args, uncertainty_path: Option<&Path>) -> Result
 
 fn print_usage() {
     println!(
-        "Usage: pid-offline-harness --input PATH [--resource-limits-json PATH] [--summary-json PATH] [--runlog PATH] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint] [--require-axis-provenance-honest] [--pid-mode none|continuous|discrete|discrete-pls] [--discrete-bins N] [--pls-components N|cv|cv:MAX] [--bootstrap N] [--permutation N] [--permutation-scheme full-shuffle|circular-shift] [--uncertainty-block-size N] [--uncertainty-alpha F] [--uncertainty-json PATH]\n\
+        "Usage: pid-offline-harness --input PATH [--resource-limits-json PATH] [--summary-json PATH] [--runlog PATH] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint] [--require-axis-provenance-honest] [--pid-mode none|continuous|categorical-sx|categorical-sx-pls] [--categorical-bins N] [--pls-components N|cv|cv:MAX] [--bootstrap N] [--permutation N] [--permutation-scheme full-shuffle|circular-shift] [--uncertainty-block-size N] [--uncertainty-alpha F] [--uncertainty-json PATH]\n\
          \n\
          Converts captured (V,L,D,A) embedding JSON into canonical summary and run-log artifacts.\n\
          Geometry output is descriptive. Its warnings never establish or block estimator validity.\n\
@@ -515,30 +518,38 @@ fn print_usage() {
          --resource-limits-json PATH\n\
                                  Use a reviewed, strict JSON override for the typed resource\n\
                                  limits. Defaults cap input at 64 MiB, samples at 1,024, pairwise\n\
-                                 work at 50,000,000, coordinate work at 100,000,000, and dense-\n\
-                                 solver work at 100,000,000. The CLI\n\
+                                 work at 50,000,000, coordinate work at 100,000,000, dense-\n\
+                                 solver work at 100,000,000, and categorical-PID work at\n\
+                                 500,000,000. The CLI\n\
                                  checked-adds main and optional uncertainty projections before\n\
                                  analysis. Applied values and usage are bound into report and\n\
                                  run-log configuration. Larger SAFE or\n\
                                  NCP artifacts need a reviewed complete override.\n\
          --pid-mode none         Skip all MI/PID estimates; run labels, geometry, and non-PID\n\
                                  prediction baselines only (default estimator-request firebreak).\n\
-         --pid-mode continuous   Opt in to KSG kNN-based MI and continuous I^sx PID.\n\
-         --pid-mode discrete     Use equal-width quantization + counting-based discrete PID\n\
-                                 (I_min-style redundancy, not discrete i^sx; results carry\n\
-                                 saturation diagnostics — see grandplan §7.6).\n\
-         --pid-mode discrete-pls PLS-project V/L/D toward A, then discrete PID on the\n\
-                                 projections (fit is in-sample for the all-samples screen;\n\
-                                 train-only for the train-split screen).\n\
-         --discrete-bins N       Number of bins for discrete modes (default: 10, min: 2).\n\
-         --pls-components X      PLS components for discrete-pls: a fixed count N
+         --pid-mode continuous   Opt in to KSG kNN MI and the distinct Ehrlich continuous\n\
+                                 shared-exclusions construction.\n\
+         --pid-mode categorical-sx\n\
+                                 Use fitted equal-width quantization followed by averaged\n\
+                                 two-source MGW categorical shared-exclusions PID. Results\n\
+                                 retain informative,\n\
+                                 misinformative, and net atoms plus saturation diagnostics.\n\
+         --pid-mode categorical-sx-pls\n\
+                                 PLS-project V/L/D toward A, then run the same named MGW\n\
+                                 functional on the fitted categorical variables. Every screen\n\
+                                 fits and evaluates on the same rows. The split screen uses train\n\
+                                 rows only and does not score held-out categorical rows. Every\n\
+                                 result is a typed selection-inflation warning, never an\n\
+                                 inferential escape hatch.\n\
+         --categorical-bins N    Fitted bins per dimension (default: 10, min: 2).\n\
+         --pls-components X      PLS components for categorical-sx-pls: a fixed count N
                                  (default: 2), or 'cv' / 'cv:MAX' for per-source LOO-CV
                                  Q² selection (default MAX: 8). This is the preregistered
-                                 grandplan §6.2 fitted preprocessing method. In discrete-pls
-                                 mode, the summary also carries a shuffled-target permutation
-                                 control. Read the real atoms relative to that
-                                 selection-inflation floor. Treat in-sample discrete-pls
-                                 output as screening-only.\n\
+                                 grandplan §6.2 fitted preprocessing method. In categorical-sx-pls
+                                 mode, the summary also carries one fixed-seed shuffled-target
+                                 negative-control draw. It is not a null distribution, p-value,
+                                 bound, or value to subtract. Treat in-sample categorical-sx-pls
+                                 output as a descriptive same-row diagnostic only.\n\
          --bootstrap N           Number of m-out-of-n subsample resamples. The emitted raw\n\
                                  percentiles are stability envelopes at m, not calibrated\n\
                                  n-sample confidence intervals. Continuous mode requires N >= 2\n\
@@ -603,7 +614,7 @@ mod tests {
         assert!(args.require_heldout_class_coverage);
         assert!(args.require_heldout_episode_disjoint);
         assert_eq!(args.pid_mode, PidMode::Disabled);
-        assert_eq!(args.discrete_bins, 10);
+        assert_eq!(args.categorical_bins, 10);
         assert_eq!(args.pls, PlsComponentSelection::Fixed(2));
     }
 
@@ -741,18 +752,40 @@ mod tests {
     }
 
     #[test]
-    fn parse_args_accepts_discrete_pid_mode() {
+    fn parse_args_accepts_categorical_sx_pid_mode() {
         let args = parse_args([
             "--input".to_string(),
             "fixture.json".to_string(),
             "--pid-mode".to_string(),
-            "discrete".to_string(),
-            "--discrete-bins".to_string(),
+            "categorical-sx".to_string(),
+            "--categorical-bins".to_string(),
             "20".to_string(),
         ])
         .unwrap();
-        assert_eq!(args.pid_mode, PidMode::Discrete);
-        assert_eq!(args.discrete_bins, 20);
+        assert_eq!(args.pid_mode, PidMode::CategoricalSx);
+        assert_eq!(args.categorical_bins, 20);
+    }
+
+    #[test]
+    fn parse_args_rejects_ambiguous_legacy_discrete_names() {
+        for legacy in ["discrete", "discrete-pls"] {
+            let error = parse_args([
+                "--input".to_string(),
+                "fixture.json".to_string(),
+                "--pid-mode".to_string(),
+                legacy.to_string(),
+            ])
+            .unwrap_err();
+            assert!(error.to_string().contains("categorical-sx"));
+        }
+        let error = parse_args([
+            "--input".to_string(),
+            "fixture.json".to_string(),
+            "--discrete-bins".to_string(),
+            "8".to_string(),
+        ])
+        .unwrap_err();
+        assert!(error.to_string().contains("unknown argument"));
     }
 
     #[test]
@@ -905,17 +938,17 @@ mod tests {
     }
 
     #[test]
-    fn parse_args_accepts_discrete_pls_pid_mode() {
+    fn parse_args_accepts_categorical_sx_pls_pid_mode() {
         let args = parse_args([
             "--input".to_string(),
             "fixture.json".to_string(),
             "--pid-mode".to_string(),
-            "discrete-pls".to_string(),
+            "categorical-sx-pls".to_string(),
             "--pls-components".to_string(),
             "3".to_string(),
         ])
         .unwrap();
-        assert_eq!(args.pid_mode, PidMode::DiscretePls);
+        assert_eq!(args.pid_mode, PidMode::CategoricalSxPls);
         assert_eq!(args.pls, PlsComponentSelection::Fixed(3));
     }
 
@@ -925,7 +958,7 @@ mod tests {
             "--input".to_string(),
             "fixture.json".to_string(),
             "--pid-mode".to_string(),
-            "discrete-pls".to_string(),
+            "categorical-sx-pls".to_string(),
             "--pls-components".to_string(),
             "cv".to_string(),
         ])

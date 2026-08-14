@@ -10,15 +10,19 @@ being true as the code moves).
 > config fails closed. It makes no 1.x compatibility promise and carries no published-wheel
 > promise. Continuous shared
 > exclusions, pipelines, hierarchy and hyperbolic paths are default-off `experimental-*` features.
-> Datasets declare per-axis population support; computation status is `produced` /
+> Datasets declare per-axis population support. Each continuous MI/PID call also needs one
+> complete-tuple joint-law and finite-information declaration. Marginal continuity does not imply
+> joint absolute continuity or finite MI. Computation status is `produced` /
 > `produced_with_warning` / `abstained`, while separate population/measure/estimator/application
 > verdicts govern interpretation. An **abstained estimate has
 > no numeric placeholder** (no zero, no NaN, no metric event). Exact ties reject a *sample*, never
-> the population law. Never auto-route a failed continuous term to discrete `I_min`: different
-> measure, different estimand, never pooled.
-> Public `pid-rs` main was observed at `bbdfda40` on 2026-08-13. Its newer method catalogs,
+> the population law. Never auto-route a failed continuous term to a categorical route: different
+> object, measure, estimator, and estimand, never pooled.
+> Public `pid-rs` main was observed at `7473e62` on 2026-08-13. Its latest estimator-code anchor
+> is parent `cb3f58f0`; the child changes custody and assurance surfaces only. Its newer method catalogs,
 > formal/categorical assurance work, source-errata registry, and exact-certifier surfaces remain
-> unadopted. A consumer-owned review must prove compatibility and added value before a pin change.
+> unadopted. Full exact-head CI is red in two jobs, while a narrower push receipt passed. A consumer-owned review
+> must prove compatibility and added value before a pin change.
 
 > **Single source of truth for the Rust PID estimators: [`pid-rs`](https://github.com/sepahead/pid-rs).**
 > `pid-core`, `pid-python`, and `pid-runlog` are **not** vendored here — do **not** re-add copies.
@@ -73,9 +77,9 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
 
 1. **`grandplan.md` is canonical.** It is the research + engineering spec; keep `README.md`,
    `ARCHITECTURE.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, and `pidsplatspecs.md` consistent with
-   it (current docset: **v12.5**). The Rerun/Tauri/SparkJS decision record is `grandplan.md`
-   §16; the unfrozen claim-template registry (EC1, H1–H4) and PID kill rules are §4 and §3.8;
-   the statistical analysis specification is §6. The real study freeze is still pending.
+   it (current docset: **v13.0**). The primary world-model claim family is W1–W3. The preserved
+   EC1/H1–H4 diagnostic family remains unfrozen. PID kill rules and the statistical plan remain
+   canonical in `grandplan.md`. No real study is frozen.
 2. **Gate discipline.** Do not interpret PID atoms on real embeddings. PID validity splits into
    four gates — population, measure, estimator, application (`grandplan.md` §7.1). The current
    high-d **MI/coherence path is NO-GO**; the continuous `I^sx_∩` **application gate is BLOCKED /
@@ -85,9 +89,10 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
    reporting atoms.
    Geometry diagnostics are not a substitute; sampled-mean δ is descriptive only. See
    `findings.md` and `grandplan.md` §7.2, §7.9. One (PID measure, preprocessing, estimator
-   config) tuple = one pre-outcome frozen regime; never pool continuous `I^sx_∩` atoms with discrete
-   `I_min` atoms — `--pid-mode discrete` is Williams–Beer `I_min`, not discrete `i^sx_∩`
-   (`grandplan.md` §7.6).
+   config) tuple = one pre-outcome frozen regime. The `categorical-sx` route fits equal-width
+   quantizers and estimates averaged two-source MGW shared exclusions on empirical categorical
+   laws. It is not Williams–Beer `I_min`, BROJA, the continuous Ehrlich functional, or an
+   infomorphic objective. Never pool or auto-route these objects.
    Every H1 result must say H1-A or H1-B. Do not use “H1 passed” alone. H1 success requires a
    positive useful margin and a one-sided lower confidence bound above that margin. Noninferiority,
    equivalence, nonsignificance, or a secondary endpoint cannot rescue the primary endpoint. For
@@ -123,6 +128,12 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
    A joint density does not by itself expose an action-conditioned query. Action conditioning does not
    establish an interventional transition. A planner must propose, predict, score, and select over
    at least two actions. See `grandplan.md` §9.2 and the dated WAM frontier review.
+   Reject target injection. A candidate-action-conditioned state cannot be a PID source for that
+   exact proposal target. A downstream command, later declared reference-state outcome, or
+   separately measured physical outcome remains eligible only when its matched baseline gets the
+   same proposal. Command or simulator-state prediction is not physical forecast validity. Freeze
+   a target-specific prediction landmark before target availability. Bind each
+   source to a tensor-ancestry receipt at that landmark.
 
 ## Architecture invariants (docset-wide final solution)
 
@@ -141,12 +152,9 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
 - **`pid-core`** — KSG MI (with an optional exact, deterministic data-parallel `parallel`
   rayon feature), continuous `I^sx_∩` (`IsxMethod::EhrlichKsg` and baselines), 3-source
   SxPID, hierarchical screening, Shannon invariants (`invariants.rs`: r̄/v̄), PLS supervised
-  dimensionality reduction (`pls.rs`, NIPALS-PLS2), discrete 2- and 3-source PID via
-  quantization with a Williams–Beer-style `I_min` minimum-specific-information redundancy —
-  **not** discrete `i^sx_∩` (pid-core additionally ships a genuine discrete `i^sx_∩`
-  in `sxpid.rs` for 2–4 sources, but it is **not yet wired into the offline harness**; see
-  `grandplan.md` §7.6) — block resampling plus an m-out-of-n **stability envelope** (not an
-  n-sample CI), a `pipeline.rs`
+  dimensionality reduction (`pls.rs`, NIPALS-PLS2), a separately named fitted categorical
+  Williams–Beer-style `I_min` comparator, categorical MGW shared exclusions for 2–4 sources,
+  block resampling plus an m-out-of-n **stability envelope** (not an n-sample CI), and a `pipeline.rs`
   composition layer (PLS→PID3, per-atom resampling summaries, single-source permutation tests,
   LOO-CV PLS component selection, all-pairs PID2 screening, generic
   `bootstrap_rows_stats`/`permutation_rows_pvalue` row-resampling helpers), an
@@ -154,7 +162,8 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
   intrinsic-dimension diagnostics, and the Experiment 0 runner (`bin/exp0.rs`) with a
   `--strict-gate` flag for curated low-d-band CI enforcement plus opt-in resampling and
   permutation diagnostics. Its current outputs keep the MI/coherence, atom-measure, and
-  atom-estimator verdicts separate.
+  atom-estimator verdicts separate. Prisoma wires the fitted two-source MGW categorical route,
+  not the `I_min` comparator.
 - **`pid-python`** — typed PyO3 bindings (`pid_core_rs`) with a narrow 0.9 review surface proposed
   for later 1.0 review:
   report-first conditional KSG MI, categorical shared-exclusions PID for 2–4 sources, a separately
@@ -237,11 +246,12 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
   a SAFE-class held-out logistic-regression failure detector (`heldout_logreg_vlda`;
   train-fit, held-out-scored), held-out per-sample prediction records, failure-class
   confusion/rate diagnostics, default 64 MiB input, 1,024-sample, 50,000,000 pairwise-work,
-  100,000,000 distance-coordinate, and 100,000,000 aggregate dense-solver CLI caps, and a
+  100,000,000 distance-coordinate, 100,000,000 aggregate dense-solver, and 500,000,000
+  categorical-operation CLI caps, and a
   complete strict
   `--resource-limits-json` override. Producer caps do not imply harness
   admission. Report configuration binds the applied limits, distance projections, and dense-solver
-  projection. Optional uncertainty remains an out-of-band schema-2 sidecar. It records row
+  projection. Optional uncertainty remains an out-of-band schema-3 sidecar. It records row
   topology and separates exchangeability-based Monte Carlo p-values from circular-shift surrogate
   scores. The CLI requires an explicit permutation scheme. It also requires an explicit block size
   for each bootstrap or circular-shift request. A combined bootstrap and permutation request must
@@ -251,13 +261,35 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
   `metadata.sequence_index`. An `episode_id` alone does not prove order. Unit-block subsampling
   and full shuffle remain available under an explicit row-exchangeability assertion. The harness
   never concatenates episodes into one stationary series.
-  Temporal AR(1) output is descriptive. It is not an estimator effective sample size or automatic
-  block selector. AR(1)-derived hints require the same sequence-index receipt. The CLI computes
-  the sidecar first. It then writes the summary, sidecar, and run log. A later write can leave that
-  output prefix. No cross-file transaction is claimed.
-  `--pid-mode none|continuous|discrete|discrete-pls` (`none` is the default and requests
-  zero MI/PID work; the opt-in analysis build still links shared `pid-core` code) with per-pair
-  `discrete_saturation` diagnostics; a fail-closed typed H1 common-preflight validator/CLI with
+  Temporal output is a descriptive within-unit-step-run Pearson lag-1 screen. Rows without
+  episode identities produce no lag pairs. Every non-singleton segment also needs a strict
+  canonical `metadata.sequence_index` receipt. Only adjacent rows whose receipt advances by one
+  contribute. The report counts excluded gaps. It centers both lagged vectors inside each run
+  before pooling residual products. A run needs at least three lag pairs because two pairs force
+  Pearson correlation to positive or negative one. It reports admitted and correlation-eligible
+  pair counts. Axis means exclude columns that are undefined after centering. The report records
+  defined-dimension coverage. It emits no effective-sample-size or block-length suggestion. Select inferential blocks
+  from a separate pre-outcome justification. Publication requires the private process-local seal
+  created by the analysis call. A deserialized summary is read-only evidence, not authority to
+  mint a new summary or run log. The CLI computes the sidecar first. It then writes the summary,
+  sidecar, and run log. A later write can leave that output prefix. No cross-file transaction is
+  claimed.
+  The crate also ships `pid-world-model-reference`. It learns a small action-conditioned affine
+  transition on the deterministic fixture. It commits a fixed candidate pool and all forecasts
+  before labels. It executes the selected action only through the Agent Bridge. After it commits
+  the execution receipt, it labels independent branches restored from the saved fork and verifies
+  replay. Schema 2 has no neutral decision record. Forecast commitments and execution receipts use
+  strictly named `label_observed` compatibility envelopes, but they are not outcome labels. This
+  is software conformance only, not W1 or W2 evidence.
+  Report contract `prisoma.offline_vlda.report/5` keeps fitted-quantizer receipts,
+  empirical-PMF occupancy diagnostics, and
+  categorical informative, misinformative, and net MGW components separate. These diagnostics do
+  not prove population support or application validity. The harness supports
+  `--pid-mode none|continuous|categorical-sx|categorical-sx-pls` (`none` is the default and
+  requests zero MI/PID work; the opt-in analysis build still links shared `pid-core` code) with
+  fitted-quantizer receipts and per-pair `categorical_saturation` diagnostics. Every
+  `categorical-sx-pls` estimate is a typed, estimator-blocked same-row warning. It is a supervised
+  selection-inflation diagnostic, not an inferential escape hatch. The crate also has a fail-closed typed H1 common-preflight validator/CLI with
   a schema-v2 input contract and schema-v3 result artifacts, a representative-mechanism scope,
   exact-byte content-addressed and strictly bound
   policy/instrumentation/manifests, clock/timing/lineage/fold checks,
@@ -277,7 +309,9 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
   not prospective capture, validated calibration, the comparator frontier, or H2 evidence; and a
   high-dimensional synthetic VLDA fixture
   (`offline_vlda_highdim_fixture.json`: v=128, l=64, d=32, a=7). That stress fixture uses the
-  explicit `offline_vlda_highdim_limits.json` override.
+  explicit `offline_vlda_highdim_limits.json` override. It does not declare complete-tuple
+  continuous support. It is a PID-disabled and fitted-categorical stress fixture, not a continuous
+  population-law fixture.
 - **`pid-rerun`** — bounded run-log→Rerun conversion that validates its input snapshot, with
   summary/provenance/validation diagnostics; replay summaries distinguish unique metric
   names from total metric-event counts; surfaces `attribution_logged` events (see below).
@@ -287,10 +321,16 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
 
 ### Machine-readable truth ledgers (`protocols/`)
 
+- `world_model_claim_registry_v1.json` records the unfrozen v13.0 W1-W3 claim family. W1 and W2
+  are proposed primary claims. W3 is secondary or exploratory. The registry records current
+  software artifacts, proof commands, blockers, and permitted and prohibited language. It is not
+  a preregistration, freeze, result, or learned-model qualification.
 - `research_claim_registry_v1.json` records current EC1/H1–H4 software artifacts, proof commands,
-  blockers, and permitted/prohibited language; it is not a preregistration or result.
-- The M0 governance bundle preserves the historical unfrozen v1 scaffold and adds an all-null
-  typed v2 successor draft. It covers EC1 finite acceptance. H1-A binds one typed primary response
+  blockers, and permitted and prohibited language. This preserved diagnostic registry is not a
+  preregistration or result.
+- The preserved diagnostic-governance bundle keeps the historical unfrozen v1 scaffold and the superseded,
+  all-null v2 draft. Its active all-null typed v3 successor adds a role-typed H3 ancestry
+  contract. It covers EC1 finite acceptance. H1-A binds one typed primary response
   contract, useful margin, comparator, uncertainty, calibration consequence, and replication
   scope. H1-B binds one primary effect endpoint, its hierarchy, mandatory design checks, and
   directional replication. It also covers H2
@@ -309,8 +349,13 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
   systematic literature search. Both validators' `--require-freeze-ready` modes must fail until
   those scientific conditions are genuinely met; they check completeness and integrity, not the
   substantive correctness of scientific judgment or review. The v1 scaffold is deliberately
-  non-promotable. The 2026-08-12 H2 correction reopened review of v2, so it is a revised,
-  unreviewed draft contract rather than a completed freeze candidate.
+  non-promotable. The 2026-08-12 H2 correction reopened review. The 2026-08-13 ancestry change
+  moved the active contract to schema v3. It remains unreviewed and is not a freeze candidate.
+  Its five H3 role bindings are structural placeholders. Prisoma does not yet implement the
+  source-target ancestry producer, consumer validator, or per-row receipt schema. The validator
+  reports `M0_SUCCESSOR_H3_ANCESTRY_PRODUCER_CONSUMER_AND_RECEIPT_UNIMPLEMENTED` for an H3
+  candidate and rejects an H3 `frozen` state. Do not treat role labels or file hashes as role
+  adequacy.
   A future candidate populates only EC1, H2, the selected H1 protocol, and the selected H3/H4
   branch. Every inactive protocol slot stays null. A fresh-sample switch from H3 to H4 retains the
   frozen H3 contract only as history under the prespecified sequential-error rule.
@@ -327,8 +372,8 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
 
 ### Python experiments (`experiments/`, tracked packages)
 
-- **`safe_adapter/`** — the **reference `(V,L,D,A)` adapter implementation** and the candidate
-  critical-path real-data producer for the H-experiments (the S2/EC1 adapter contract). It converts
+- **`safe_adapter/`** — the **reference `(V,L,D,A)` adapter implementation** for the preserved
+  EC1/H diagnostic family. It is not the W1-W3 critical path. It converts
   released SAFE VLA rollouts into the
   `(V,L,D,A)`+labels harness contract with honest per-axis `{v,l,d,a}_provenance` markers and a
   layerwise physics-decodability hook probe. Its default ingress is a finite NPZ/strict-JSON
@@ -417,8 +462,8 @@ No live Paper2Brain-to-Prisoma producer, NCP bridge, wire translator, or authori
   independent of NCP; it does not change the scientific PID verdicts. Build it explicitly:
   `cargo build --locked --manifest-path crates/ncp-observer/Cargo.toml`.
 - **Off the critical path:** an optional, read-only `(V,L,D,A)` source only — grandplan does
-  not depend on Engram. `experiments/safe_adapter` is the reference adapter implementation and
-  the candidate critical-path real-data producer. The core builds with NCP disabled and runs its
+  not depend on Engram. `experiments/safe_adapter` is a preserved diagnostic adapter, not the
+  W1-W3 real-data path. The core builds with NCP disabled and runs its
   static non-PID
   label-baseline smoke with PID requests disabled (`grandplan.md` §8.9.3). The analysis build still
   links shared `pid-core` code. This is
@@ -473,11 +518,12 @@ No live Paper2Brain-to-Prisoma producer, NCP bridge, wire translator, or authori
   drive or measure timing; and trace truncation is not disconnect evidence. Its security case
   guards only a declared-profile label: no configuration is loaded or selected. The NCP artifact
   declares no population support: continuous KSG/shared-exclusions requests abstain,
-  `--pid-mode none` requests nothing, and quantized discrete `I_min` is at most a non-evidentiary
-  diagnostic with population `NotEvaluated` and application `Blocked`. Use PID-disabled
-  diagnostics/baselines by default until a real producer supplies justified per-axis declarations.
+  `--pid-mode none` requests nothing. The fitted categorical MGW route remains non-evidentiary
+  with population `NotEvaluated` and application `Blocked`. Use PID-disabled
+  diagnostics/baselines by default until a real producer supplies justified per-axis and
+  complete-tuple declarations.
   This is not E4, EC1, live Engram validation, or security validation.
-- **Still exploratory-only** (below the S2/EC1 adapter contract; optional M2 ecosystem item) until
+- **Still exploratory-only** (below the D2/EC1 adapter contract; optional conformance item) until
   a conforming external publisher stamps every plane observation with its driving sensor
   `source`, a language channel is present (so `L` is real, not excluded), and
   `metadata.split`/`episode_id`/
@@ -486,9 +532,12 @@ No live Paper2Brain-to-Prisoma producer, NCP bridge, wire translator, or authori
 
 ### Specified but not built
 
-Several simulation/visualization components are specifications only (see `grandplan.md`
-§12 milestones and §8.10 current-vs-target implementation) — notably the fuller Rerun-based
-viewer phases and the deferred Tauri/SparkJS shell. Do not describe them as runnable.
+The learned LeWorldModel M4 adapter, matched mesh-versus-3DGS study, fuller Rerun views, and
+Tauri/SparkJS shell are not built. The native `pid-world-model-reference` is built. Do not promote
+its deterministic contract proof to learned-model, physical, W1, or W2 evidence. The independent
+LeWM reproduction is one-seed TwoRoom evidence, not PushT or M4 evidence. Before a LeWM port study,
+bind paper, configuration, and executable-code protocol fields. Freeze each unresolved feasible
+reading before outcomes.
 
 ## Gates before any PR or commit
 
@@ -512,7 +561,7 @@ estimator gate itself is `just exp0-bin` (prints the GO/PIVOT/NO-GO verdict).
 - Required local gate: `just check`
 - Rust tests only: `just test` (or `cargo test --locked` if `just` is not installed)
 - Full Python tests only: `just python-test`
-- M0 governance integrity (honest unfinished state, not a freeze): `just research-governance`
+- Diagnostic-governance integrity (honest unfinished state, not a freeze): `just research-governance`
 - NCP wire-0.8 deterministic fault suite: `just ncp-fault-observatory outputs/ncp_fault_observatory`
 - Estimator gate:
   - `just exp0` (or `cargo test --locked --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all exp0 -- --nocapture`)
@@ -526,6 +575,8 @@ estimator gate itself is `just exp0-bin` (prints the GO/PIVOT/NO-GO verdict).
   - `just h1-protocol-a`
 - H2 deterministic fixed-horizon/IPCW/alarm software reference (synthetic protocol arithmetic, not H2 evidence):
   - `just h2-reference`
+- Native exact-fork world-model contract reference (software semantics only):
+  - `just world-model-reference`
 - Offline VLDA embedding harness:
   - `just offline-harness` (or `cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json outputs/offline_vlda_summary.json --runlog outputs/offline_vlda_runlog.jsonl`)
   - `just offline-harness-require-labels` — exercises `--require-success-labels` on the labeled fixture.
@@ -535,8 +586,8 @@ estimator gate itself is `just exp0-bin` (prints the GO/PIVOT/NO-GO verdict).
   - Geometry output is descriptive. It records risk warnings but never acts as an estimator-validity gate.
   - `just offline-harness-highdim` — the high-dimensional synthetic fixture (v=128, l=64, d=32, a=7, 48 samples).
   - `just firebreak` — runs the non-PID prediction/geometry path with `--pid-mode none` and asserts zero MI/PID requests and events. It is an estimator-request check, not a link-time dependency claim.
-  - `just offline-harness-discrete` — `--pid-mode discrete --discrete-bins 8` (quantized `I_min` PID with per-pair `discrete_saturation` diagnostics; expect `saturation_warning=true` on the tiny smoke fixtures. The warning does not fail the CLI, but its estimator verdict is blocked and the values are non-evidence).
-  - `just offline-harness-discrete-pls` — `--pid-mode discrete-pls --pls-components 2 --discrete-bins 8` on the high-dim fixture (PLS-project sources toward `A`, then discrete PID).
+  - `just offline-harness-categorical-sx` — `--pid-mode categorical-sx --categorical-bins 8` (fitted categorical MGW SxPID with signed components and fitted-quantizer receipts; results remain non-evidence while gates are blocked).
+  - `just offline-harness-categorical-sx-pls` — `--pid-mode categorical-sx-pls --pls-components 2 --categorical-bins 8` on the high-dimensional fixture. Each screen fits PLS and quantization on the same rows it analyzes. Every estimate carries a typed warning. The optional split screen uses train rows only and does not score held-out categorical rows.
 - Run-log smoke:
   - `just bridge-contract`
   - `just bridge-security` — local-only unit proof for bind/safe defaults, the enumerated wire

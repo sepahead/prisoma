@@ -1,7 +1,7 @@
 use crate::file_snapshot::{
     parse_strict_json, read_bounded_regular_file, validate_strict_json_lines,
 };
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{anyhow, bail, ensure, Context, Result};
 use pid_core::diagnostics::{
     distance_concentration_stats, intrinsic_dimension_levina_bickel,
     sampled_four_point_delta_summary, DistanceConcentrationConfig, HyperbolicityConfig,
@@ -18,9 +18,13 @@ use pid_core::experimental::pipelines::{
     StatisticCallbackDeclaration,
 };
 use pid_core::stable::continuous::{KsgConfig, NegativeHandling};
-use pid_core::stable::imin::imin_pid2;
 use pid_core::stable::preprocessing::{ConstantColumnPolicy, Standardizer};
-use pid_core::stable::quantized::{EqualWidthQuantizer, QuantizedData, QuantizerConfig};
+#[cfg(test)]
+use pid_core::stable::quantized::fitted_quantized_sxpid2_resource_estimate;
+use pid_core::stable::quantized::{
+    fitted_quantized_sxpid2_with_budget, EqualWidthQuantizer, OutOfRangePolicy, QuantizedData,
+    QuantizerConfig,
+};
 use pid_core::{
     MatOwned, MatRef, Metric, PidError, ResourceBudget, DEFAULT_MAX_BYTES,
     DEFAULT_MAX_PAIRWISE_DISTANCES,
@@ -50,8 +54,8 @@ const OFFLINE_NCP_RUNLOG_MAX_BYTES: usize = 64 * 1024 * 1024;
 const OFFLINE_RESOURCE_LIMITS_MAX_BYTES: usize = 64 * 1_024;
 const OFFLINE_SUMMARY_MAX_BYTES: u64 = 64 * 1_024 * 1_024;
 const OFFLINE_UNCERTAINTY_MAX_BYTES: u64 = 8 * 1_024 * 1_024;
-const OFFLINE_VLDA_REPORT_SCHEMA: &str = "prisoma.offline_vlda.report/2";
-const OFFLINE_UNCERTAINTY_SCHEMA_VERSION: u32 = 2;
+const OFFLINE_VLDA_REPORT_SCHEMA: &str = "prisoma.offline_vlda.report/5";
+const OFFLINE_UNCERTAINTY_SCHEMA_VERSION: u32 = 3;
 
 const OFFLINE_DEFAULT_MAX_INPUT_BYTES: u64 = 64 * 1_024 * 1_024;
 const OFFLINE_DEFAULT_MAX_SAMPLES: usize = 1_024;
@@ -63,6 +67,7 @@ const OFFLINE_DEFAULT_MAX_METADATA_DEPTH: usize = 64;
 const OFFLINE_DEFAULT_MAX_PAIRWISE_DISTANCE_EVALUATIONS: u64 = 50_000_000;
 const OFFLINE_DEFAULT_MAX_DISTANCE_COORDINATE_EVALUATIONS: u64 = 100_000_000;
 const OFFLINE_DEFAULT_MAX_DENSE_SOLVER_OPERATIONS: u64 = 100_000_000;
+const OFFLINE_DEFAULT_MAX_CATEGORICAL_PID_OPERATIONS: u64 = 500_000_000;
 
 // These constants mirror the pinned pid-core 0.9 review contract. Unit tests compare the local
 // dimension-only projections with pid-core's public estimates. A future submodule update must
@@ -90,10 +95,15 @@ const OFFLINE_KSG_PAIRWISE_PASSES: u128 = 4;
 const OFFLINE_PID2_PAIRWISE_PASSES: u128 = 10;
 const OFFLINE_CONTINUOUS_PID_PAIRWISE_PASSES: u128 =
     3 * OFFLINE_KSG_PAIRWISE_PASSES + 3 * OFFLINE_PID2_PAIRWISE_PASSES;
-/// Unique-joint-bin fraction above which discrete plug-in MI is treated as
-/// saturated (grandplan §7.6): estimates pinned near entropy ceilings (~ln n)
-/// reflect small-sample artifacts, not dependence.
-const OFFLINE_DISCRETE_SATURATION_UNIQUE_FRACTION_MAX: f64 = 0.8;
+/// Unique-joint-bin fraction above which categorical empirical-PMF estimates are treated as
+/// too sparse for application interpretation (grandplan §7.6). High occupancy relative to the
+/// sample count creates severe plug-in bias and unstable atom allocation. It does not imply that
+/// every MI term is near `ln(n)`.
+const OFFLINE_CATEGORICAL_SATURATION_UNIQUE_FRACTION_MAX: f64 = 0.8;
+const SCIENTIFIC_REASON_CATEGORICAL_SATURATION: &str = "categorical_saturation";
+const SCIENTIFIC_REASON_SUPERVISED_SAME_ROW: &str = "supervised_same_row_preprocessing";
+const SCIENTIFIC_REASON_SUPERVISED_SAME_ROW_AND_SATURATION: &str =
+    "supervised_same_row_preprocessing_and_categorical_saturation";
 
 struct BoundedJsonBuffer {
     bytes: Vec<u8>,
@@ -127,17 +137,22 @@ impl Serialize for CanonicalOfflineVldaDataset<'_> {
             model,
             task,
             support,
+            continuous_tuple_support,
             capture_integrity,
             publication_receipt,
-            publication_receipt_verified: _,
+            publication_receipt_verified_content_sha256: _,
             samples,
         } = self.0;
         let field_count = 6
+            + usize::from(!continuous_tuple_support.is_empty())
             + usize::from(capture_integrity.is_some())
             + usize::from(publication_receipt.is_some());
         let mut map = serializer.serialize_map(Some(field_count))?;
         if let Some(value) = capture_integrity {
             map.serialize_entry("capture_integrity", value)?;
+        }
+        if !continuous_tuple_support.is_empty() {
+            map.serialize_entry("continuous_tuple_support", continuous_tuple_support)?;
         }
         map.serialize_entry("model", model)?;
         if let Some(value) = publication_receipt {
@@ -275,6 +290,41 @@ fn offline_vlda_sample_content_sha256(sample: &OfflineVldaSample) -> Result<Stri
     Ok(crate::lowercase_hex(writer.0.finalize()))
 }
 
+fn offline_vlda_report_analysis_seal(report: &OfflineVldaReport) -> Result<[u8; 32]> {
+    let mut writer = Sha256Writer::default();
+    writer
+        .write_all(b"prisoma.offline_vlda.analysis_seal/v1\0")
+        .context("failed to initialize the offline VLDA analysis seal")?;
+    serde_json::to_writer(&mut writer, report)
+        .context("failed to stream the offline VLDA report analysis seal")?;
+    Ok(writer.0.finalize().into())
+}
+
+fn validate_offline_vlda_report_analysis_seal(report: &OfflineVldaReport) -> Result<()> {
+    let recorded = report.analysis_seal.0.as_ref().ok_or_else(|| {
+        anyhow!(
+            "offline VLDA report lacks its in-process analysis seal; deserialize reports only as read-only evidence and rerun the analysis before publication"
+        )
+    })?;
+    let reconstructed = offline_vlda_report_analysis_seal(report)?;
+    ensure!(
+        recorded == &reconstructed,
+        "offline VLDA report changed after analysis and cannot be published"
+    );
+    Ok(())
+}
+
+#[derive(Debug, Clone, Default)]
+struct OfflineVldaAnalysisSeal(Option<[u8; 32]>);
+
+// The seal is publication authority, not serialized report meaning. Keep derived report equality
+// aligned with the public JSON evidence while publication checks the token explicitly.
+impl PartialEq for OfflineVldaAnalysisSeal {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
 impl Write for BoundedJsonBuffer {
     fn write(&mut self, input: &[u8]) -> std::io::Result<usize> {
         let next_len = self
@@ -381,6 +431,9 @@ pub struct OfflineVldaResourceLimits {
     /// Maximum aggregate arithmetic projection for dense PLS and logistic-regression solvers.
     /// This is a complete main-analysis run cap, not a fresh allowance for each solver call.
     pub max_dense_solver_operations: u64,
+    /// Maximum aggregate operation projection for fitted quantization and categorical
+    /// shared-exclusions PID across the full-data, train-split, and shuffled-control screens.
+    pub max_categorical_pid_operations: u64,
 }
 
 impl Default for OfflineVldaResourceLimits {
@@ -397,6 +450,7 @@ impl Default for OfflineVldaResourceLimits {
             max_distance_coordinate_evaluations:
                 OFFLINE_DEFAULT_MAX_DISTANCE_COORDINATE_EVALUATIONS,
             max_dense_solver_operations: OFFLINE_DEFAULT_MAX_DENSE_SOLVER_OPERATIONS,
+            max_categorical_pid_operations: OFFLINE_DEFAULT_MAX_CATEGORICAL_PID_OPERATIONS,
         }
     }
 }
@@ -459,6 +513,10 @@ fn validate_resource_limits(limits: &OfflineVldaResourceLimits) -> Result<()> {
             "max_dense_solver_operations",
             u128::from(limits.max_dense_solver_operations),
         ),
+        (
+            "max_categorical_pid_operations",
+            u128::from(limits.max_categorical_pid_operations),
+        ),
     ] {
         if value == 0 {
             bail!("resource-limits field {name} must be greater than zero; observed 0");
@@ -499,14 +557,18 @@ pub struct OfflineVldaResourceUsage {
     /// Conservative aggregate arithmetic projection for every PLS fit, PLS transform, PLS
     /// component-selection fold, and applicable held-out logistic-regression fit in the main run.
     pub projected_dense_solver_operations: u64,
+    /// Conservative aggregate fitted-quantization and categorical shared-exclusions work.
+    pub projected_categorical_pid_operations: u64,
 }
 
-/// PID estimator mode: disabled (baseline-only firebreak), continuous (KSG-based kNN),
-/// discrete (quantization + counting), or discrete-pls (PLS projection + discrete PID).
+/// PID estimator mode: disabled, continuous shared exclusions, fitted categorical shared
+/// exclusions, or PLS followed by fitted categorical shared exclusions.
 ///
-/// Measure identity (grandplan §7.6): continuous mode estimates the
-/// shared-exclusions `I^sx_∩`; the discrete modes estimate a Williams–Beer-style
-/// `I_min` redundancy. Cross-mode comparisons are cross-measure comparisons.
+/// Measure identity (grandplan §7.6): the continuous and categorical modes are distinct
+/// shared-exclusions constructions. The categorical modes define fitted quantized variables and
+/// use the averaged two-source Makkeh-Gutknecht-Wibral functional. The continuous mode uses the
+/// Ehrlich construction and its kNN estimator. Never pool results across scientific objects,
+/// preprocessing regimes, or estimators.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum PidMode {
     /// Do not request MI or PID estimates. Geometry and every static factual-outcome
@@ -516,27 +578,28 @@ pub enum PidMode {
     Disabled,
     /// Continuous PID using KSG kNN mutual information and shared-exclusions redundancy.
     Continuous,
-    /// Discrete PID using equal-width quantization and counting-based entropy
-    /// (`I_min`-style redundancy, not discrete `i^sx_∩`).
-    Discrete,
-    /// PLS supervised projection toward `A` followed by discrete PID (escape hatch
-    /// for high-dimensional embeddings; projection is fitted on the samples given
-    /// to each screen, so the train-split screen fits on train samples only).
-    DiscretePls,
+    /// Averaged two-source MGW categorical shared-exclusions PID after fitted equal-width
+    /// quantization of each axis.
+    CategoricalSx,
+    /// PLS supervised projection toward `A` followed by fitted categorical MGW PID. This is a
+    /// same-row selection-inflation diagnostic, not an inferential escape hatch. Projection is
+    /// fitted on the samples given to each screen. The train-split screen therefore fits and
+    /// evaluates on train samples only; it does not score held-out categorical rows.
+    CategoricalSxPls,
 }
 
 /// Options for the offline VLDA harness.
 #[derive(Debug, Clone)]
 pub struct OfflineVldaHarnessOptions {
-    /// PID estimator mode (disabled, continuous, discrete, or discrete-pls).
+    /// Exact PID estimator mode. Generic `discrete` is intentionally not an identity.
     pub pid_mode: PidMode,
-    /// Number of quantization bins when `pid_mode == Discrete` or `DiscretePls`.
-    pub discrete_bins: usize,
-    /// PLS component selection when `pid_mode == DiscretePls`.
+    /// Number of fitted bins in a categorical shared-exclusions mode.
+    pub categorical_bins: usize,
+    /// PLS component selection when `pid_mode == CategoricalSxPls`.
     pub pls: PlsComponentSelection,
 }
 
-/// How the number of PLS latent components is chosen in `discrete-pls` mode.
+/// How the number of PLS latent components is chosen in `categorical-sx-pls` mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlsComponentSelection {
     /// A fixed count (the historical `--pls-components N`; default 2).
@@ -551,7 +614,7 @@ pub enum PlsComponentSelection {
     },
 }
 
-/// Per-source PLS component-selection provenance for a `discrete-pls` screen.
+/// Per-source PLS component-selection provenance for a `categorical-sx-pls` screen.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaPlsSelection {
     /// `"fixed"` or `"cv_q2"`.
@@ -572,7 +635,7 @@ impl Default for OfflineVldaHarnessOptions {
     fn default() -> Self {
         Self {
             pid_mode: PidMode::Disabled,
-            discrete_bins: 10,
+            categorical_bins: 10,
             pls: PlsComponentSelection::Fixed(2),
         }
     }
@@ -580,8 +643,8 @@ impl Default for OfflineVldaHarnessOptions {
 
 fn validate_harness_options(options: &OfflineVldaHarnessOptions) -> Result<()> {
     ensure!(
-        options.discrete_bins >= 2,
-        "offline VLDA discrete bin count must be at least 2"
+        options.categorical_bins >= 2,
+        "offline VLDA categorical bin count must be at least 2"
     );
     match options.pls {
         PlsComponentSelection::Fixed(components) => {
@@ -596,6 +659,36 @@ fn validate_harness_options(options: &OfflineVldaHarnessOptions) -> Result<()> {
                 "offline VLDA PLS CV maximum component count must be positive"
             );
         }
+    }
+    Ok(())
+}
+
+fn is_lowercase_sha256(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn validate_optional_input_binding(
+    input_uri: Option<&str>,
+    input_sha256: Option<&str>,
+) -> Result<()> {
+    ensure!(
+        input_uri.is_some() == input_sha256.is_some(),
+        "offline VLDA input URI and exact-byte SHA-256 must be supplied together"
+    );
+    if let Some(uri) = input_uri {
+        ensure!(
+            !uri.trim().is_empty(),
+            "offline VLDA input URI must not be empty"
+        );
+    }
+    if let Some(sha256) = input_sha256 {
+        ensure!(
+            is_lowercase_sha256(sha256),
+            "offline VLDA input SHA-256 must be 64 lowercase hexadecimal characters"
+        );
     }
     Ok(())
 }
@@ -617,6 +710,112 @@ pub enum OfflineVldaDeclaredSupport {
     Mixed,
 }
 
+/// Caller-declared joint-law contract for one complete continuous estimator tuple.
+///
+/// Per-axis continuity does not imply joint absolute continuity or finite mutual information.
+/// The caller must therefore declare this stronger contract for each requested MI or PID tuple.
+/// The declaration is never inferred from a finite sample and does not clear scientific gates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OfflineVldaContinuousTupleSupport {
+    /// Every marginal and joint law used by the named estimator call is regular,
+    /// full-dimensional, absolutely continuous, and has finite required information quantities.
+    RegularFullDimensionalFiniteInformation,
+    /// At least one required law contains atomic and continuous components.
+    KnownAtomicOrMixed,
+    /// At least one required law is quantized.
+    KnownQuantized,
+    /// At least one required joint law is singular, stratified, fractal, or lower-dimensional.
+    KnownSingularOrLowerDimensional,
+}
+
+impl OfflineVldaContinuousTupleSupport {
+    fn is_regular(self) -> bool {
+        matches!(self, Self::RegularFullDimensionalFiniteInformation)
+    }
+}
+
+const CONTINUOUS_TUPLE_V_A: &str = "v_a";
+const CONTINUOUS_TUPLE_L_A: &str = "l_a";
+const CONTINUOUS_TUPLE_D_A: &str = "d_a";
+const CONTINUOUS_TUPLE_V_L_A: &str = "v_l_a";
+const CONTINUOUS_TUPLE_V_D_A: &str = "v_d_a";
+const CONTINUOUS_TUPLE_L_D_A: &str = "l_d_a";
+const CONTINUOUS_TUPLE_KEYS: [&str; 6] = [
+    CONTINUOUS_TUPLE_V_A,
+    CONTINUOUS_TUPLE_L_A,
+    CONTINUOUS_TUPLE_D_A,
+    CONTINUOUS_TUPLE_V_L_A,
+    CONTINUOUS_TUPLE_V_D_A,
+    CONTINUOUS_TUPLE_L_D_A,
+];
+
+fn validate_continuous_support_contract_consistency(dataset: &OfflineVldaDataset) -> Result<()> {
+    let tuple_axes: [(&str, &[&str]); 6] = [
+        (CONTINUOUS_TUPLE_V_A, &["v", "a"]),
+        (CONTINUOUS_TUPLE_L_A, &["l", "a"]),
+        (CONTINUOUS_TUPLE_D_A, &["d", "a"]),
+        (CONTINUOUS_TUPLE_V_L_A, &["v", "l", "a"]),
+        (CONTINUOUS_TUPLE_V_D_A, &["v", "d", "a"]),
+        (CONTINUOUS_TUPLE_L_D_A, &["l", "d", "a"]),
+    ];
+    for (tuple, axes) in tuple_axes {
+        if dataset
+            .continuous_tuple_support
+            .get(tuple)
+            .copied()
+            .is_some_and(OfflineVldaContinuousTupleSupport::is_regular)
+        {
+            for axis in axes {
+                if dataset
+                    .support
+                    .get(*axis)
+                    .is_some_and(|support| !support.is_continuous())
+                {
+                    bail!(
+                        "offline VLDA continuous tuple {tuple:?} declares a regular full-dimensional law, but axis {axis:?} has an explicitly incompatible support declaration"
+                    );
+                }
+            }
+        }
+    }
+
+    for (joint_tuple, implied_marginals) in [
+        (
+            CONTINUOUS_TUPLE_V_L_A,
+            [CONTINUOUS_TUPLE_V_A, CONTINUOUS_TUPLE_L_A],
+        ),
+        (
+            CONTINUOUS_TUPLE_V_D_A,
+            [CONTINUOUS_TUPLE_V_A, CONTINUOUS_TUPLE_D_A],
+        ),
+        (
+            CONTINUOUS_TUPLE_L_D_A,
+            [CONTINUOUS_TUPLE_L_A, CONTINUOUS_TUPLE_D_A],
+        ),
+    ] {
+        if dataset
+            .continuous_tuple_support
+            .get(joint_tuple)
+            .copied()
+            .is_some_and(OfflineVldaContinuousTupleSupport::is_regular)
+        {
+            for marginal in implied_marginals {
+                if dataset
+                    .continuous_tuple_support
+                    .get(marginal)
+                    .is_some_and(|support| !support.is_regular())
+                {
+                    bail!(
+                        "offline VLDA continuous tuple {joint_tuple:?} declares every required marginal regular, but the explicit {marginal:?} declaration is incompatible"
+                    );
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 impl OfflineVldaDeclaredSupport {
     fn is_continuous(self) -> bool {
         matches!(self, Self::ContinuousRegularFullDimensional)
@@ -632,6 +831,12 @@ pub enum OfflineVldaAbstainReason {
     DeclaredSupportIncompatibleContinuous,
     /// No population support was declared for an axis in the tuple. Fail closed.
     SupportContractUnspecified,
+    /// Axis declarations exist, but the complete estimator tuple lacks its stronger joint-law and
+    /// finite-information declaration.
+    TupleSupportContractUnspecified,
+    /// The complete estimator tuple is declared atomic, mixed, quantized, singular, or
+    /// lower-dimensional relative to the required continuous reference law.
+    DeclaredTupleSupportIncompatibleContinuous,
     /// The observed sample carries exact ties, incompatible with the estimator's ideal i.i.d.,
     /// unrounded continuous-sample conditions. Rejects the *sample*, not the population law.
     ObservedSampleIncompatibleExactTies,
@@ -654,6 +859,10 @@ impl OfflineVldaAbstainReason {
                 "declared_support_incompatible_continuous"
             }
             Self::SupportContractUnspecified => "support_contract_unspecified",
+            Self::TupleSupportContractUnspecified => "tuple_support_contract_unspecified",
+            Self::DeclaredTupleSupportIncompatibleContinuous => {
+                "declared_tuple_support_incompatible_continuous"
+            }
             Self::ObservedSampleIncompatibleExactTies => "observed_sample_incompatible_exact_ties",
             Self::AmbiguousNeighborShell => "ambiguous_neighbor_shell",
             Self::EstimatorRequiresEqualSourceDimensions => {
@@ -674,7 +883,8 @@ pub enum OfflineVldaEstimateStatus {
     /// scientific eligibility verdict; consult `scientific_gates` before interpretation.
     #[serde(alias = "eligible")]
     Produced,
-    /// The implementation produced a diagnostic value with a declared numerical warning.
+    /// The implementation produced a diagnostic value with a declared numerical or design
+    /// warning.
     #[serde(alias = "eligible_with_warning")]
     ProducedWithWarning,
     Abstained,
@@ -723,6 +933,10 @@ fn legacy_scientific_gates() -> OfflineVldaScientificGates {
         support_envelope_version: None,
         reason_code: Some("legacy_artifact_scientific_gates_unrecorded".to_string()),
     }
+}
+
+fn legacy_information_units() -> String {
+    "nats".to_string()
 }
 
 /// Observed-sample evidence for one axis. Evidence only — never a population-support finding.
@@ -803,11 +1017,21 @@ impl OfflineVldaEstimateDenominators {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaOutcome {
     pub status: OfflineVldaEstimateStatus,
-    /// The requested measure — `continuous_isx_pid2`, `ksg_mi`, `quantized_imin_pid2`, …
+    /// The requested functional and derived-variable domain. The estimator has its own field.
+    /// Examples include `shannon_mutual_information_on_continuous_tuple` and the full-team MGW
+    /// categorical shared-exclusions identity.
     pub measure: String,
     /// Exact estimator revision the value would have come from.
     pub estimator_revision: String,
+    /// Unit of every produced numeric information quantity for this outcome.
+    /// The current continuous and categorical routes both use natural logarithms.
+    #[serde(default = "legacy_information_units")]
+    pub information_units: String,
     pub axes: Vec<String>,
+    /// Strong joint-law declaration for the exact continuous tuple. Categorical and disabled
+    /// outcomes omit it. A missing declaration forces a continuous abstention.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub declared_continuous_tuple_support: Option<OfflineVldaContinuousTupleSupport>,
     #[serde(default = "legacy_scientific_gates")]
     pub scientific_gates: OfflineVldaScientificGates,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -851,14 +1075,25 @@ pub struct OfflineVldaDataset {
     /// declaration fails closed as `support_contract_unspecified`.
     #[serde(default, deserialize_with = "deserialize_unique_string_map")]
     pub support: BTreeMap<String, OfflineVldaDeclaredSupport>,
+    /// Strong declarations for complete continuous estimator tuples. Canonical keys are
+    /// `v_a`, `l_a`, `d_a`, `v_l_a`, `v_d_a`, and `l_d_a`.
+    #[serde(
+        default,
+        skip_serializing_if = "BTreeMap::is_empty",
+        deserialize_with = "deserialize_unique_string_map"
+    )]
+    pub continuous_tuple_support: BTreeMap<String, OfflineVldaContinuousTupleSupport>,
     /// Optional producer-side integrity grade. NCP artifacts require a committed,
     /// hash-verified publication receipt and a complete/complete-with-warning grade.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capture_integrity: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub publication_receipt: Option<String>,
+    /// Private authority token created only after the reader verifies the committed NCP
+    /// publication chain. The digest binds that authority to the exact canonical in-memory
+    /// content, so cloning and then mutating a verified dataset invalidates publication use.
     #[serde(skip)]
-    publication_receipt_verified: bool,
+    publication_receipt_verified_content_sha256: Option<String>,
     pub samples: Vec<OfflineVldaSample>,
 }
 
@@ -994,11 +1229,14 @@ pub struct OfflineVldaMetrics {
     pub heldout_logreg_vlda_success_balanced_accuracy: Option<f64>,
     pub heldout_logreg_vlda_success_auroc: Option<f64>,
     pub pid_pairs: BTreeMap<String, OfflineVldaPidPairMetrics>,
-    /// `discrete-pls` only — see `OfflineVldaPidScreenMetrics::pls_selection`.
+    /// Exact fitted-variable receipts for V, L, D, and A in a categorical Sx mode.
+    #[serde(default)]
+    pub categorical_quantization: BTreeMap<String, OfflineVldaQuantizationReceipt>,
+    /// `categorical-sx-pls` only. See `OfflineVldaPidScreenMetrics::pls_selection`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pls_selection: Option<OfflineVldaPlsSelection>,
-    /// `discrete-pls` only — the shuffled-target permutation control (the
-    /// selection-inflation floor); see
+    /// `categorical-sx-pls` only. This is one fixed-seed shuffled-target negative-control draw,
+    /// not a null distribution, p-value, bound, or floor. See
     /// `OfflineVldaPidScreenMetrics::pls_shuffled_target_control`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pls_shuffled_target_control: Option<Box<OfflineVldaPidScreenMetrics>>,
@@ -1030,16 +1268,20 @@ pub struct OfflineVldaPidScreenMetrics {
     #[serde(default)]
     pub estimate_denominators: OfflineVldaEstimateDenominators,
     pub pid_pairs: BTreeMap<String, OfflineVldaPidPairMetrics>,
-    /// `discrete-pls` only: how many components each source's projector used.
+    /// Exact fitted-variable receipts for V, L, D, and A in a categorical Sx mode.
+    #[serde(default)]
+    pub categorical_quantization: BTreeMap<String, OfflineVldaQuantizationReceipt>,
+    /// `categorical-sx-pls` only: how many components each source's projector used.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pls_selection: Option<OfflineVldaPlsSelection>,
-    /// `discrete-pls` only: the **shuffled-target permutation control** — the
-    /// identical pipeline (PLS fit + discrete PID) run against a seeded row
-    /// shuffle of the target `A` (grandplan §6.2 leakage-safe fitted preprocessing). With the true
-    /// X↔A dependence destroyed, everything these control atoms show is
-    /// selection inflation from fitting the projection on the same rows the
-    /// PID is computed on. Read the real screen **relative to this floor**,
-    /// and treat in-sample `discrete-pls` output as screening-only.
+    /// `categorical-sx-pls` only: one **fixed-seed shuffled-target negative-control draw**. The
+    /// identical pipeline runs PLS plus categorical SxPID against a seeded row
+    /// shuffle of the target `A` (grandplan §6.2 leakage-safe fitted preprocessing). It perturbs
+    /// the observed X↔A pairing, but one draw can retain fixed points or chance alignment. Its
+    /// residual atoms combine supervised-selection effects, finite-sample dependence, fitted
+    /// quantization, and estimator bias. It is not a null distribution, p-value, lower bound, or
+    /// value to subtract. Treat both screens as descriptive. Treat in-sample
+    /// `categorical-sx-pls` output as screening-only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pls_shuffled_target_control: Option<Box<OfflineVldaPidScreenMetrics>>,
     /// Seed of the control's target shuffle (recorded for reproducibility).
@@ -1073,22 +1315,90 @@ pub struct OfflineVldaPidPairMetrics {
     pub unique_source_2: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub synergy: Option<f64>,
-    /// Discrete-mode saturation diagnostics (grandplan §7.6); `None` in continuous mode.
+    /// Informative and misinformative components of categorical shared-exclusions atoms.
+    /// Continuous estimators expose only net atoms and therefore leave this field absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub categorical_sx_components: Option<OfflineVldaCategoricalSxComponents>,
+    /// Fitted-categorical saturation diagnostics (grandplan §7.6). Absent otherwise.
     #[serde(default)]
-    pub discrete_saturation: Option<OfflineVldaDiscreteSaturation>,
+    pub categorical_saturation: Option<OfflineVldaCategoricalSaturation>,
 }
 
-/// Saturation diagnostics for discrete (quantized) PID screens.
-///
-/// When almost every sample occupies its own joint bin, plug-in entropies hit
-/// the `ln n` ceiling and MI estimates measure sample size, not dependence
-/// (grandplan §7.6). Treat pairs with `saturation_warning == true` as invalid.
+/// The defining signed decomposition of one categorical shared-exclusions atom.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OfflineVldaCategoricalSxAtom {
+    pub informative: f64,
+    pub misinformative: f64,
+    pub net: f64,
+}
+
+/// Informative, misinformative, and net atoms for one categorical PID2 result.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct OfflineVldaDiscreteSaturation {
+#[serde(deny_unknown_fields)]
+pub struct OfflineVldaCategoricalSxComponents {
+    pub redundancy: OfflineVldaCategoricalSxAtom,
+    pub unique_source_1: OfflineVldaCategoricalSxAtom,
+    pub unique_source_2: OfflineVldaCategoricalSxAtom,
+    pub synergy: OfflineVldaCategoricalSxAtom,
+}
+
+/// Content-bound identity of one fitted categorical variable.
+///
+/// The codebook is part of the estimand. This receipt binds its exact edges, inputs, outputs,
+/// occupancy, and declared transform without copying a potentially large edge table into every
+/// screen. Reconstructing the edge digest also requires the exact bound input bytes and reviewed
+/// quantizer implementation. The report alone does not contain the fitted edge table.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OfflineVldaQuantizationReceipt {
+    pub axis: String,
+    pub functional: String,
+    pub quantizer: String,
+    pub estimator_revision: String,
+    /// Unit emitted by the bound categorical information functional.
+    pub information_units: String,
+    pub fitted_edges_sha256: String,
+    pub fitted_edge_count: usize,
+    pub training_input_sha256: String,
+    pub transform_input_sha256: String,
+    pub categorical_output_sha256: String,
+    pub out_of_range_policy: String,
+    pub scaling_description: String,
+    pub samples: usize,
+    pub dimensions: usize,
+    pub bins_per_dimension: usize,
+    /// Decimal text avoids a JSON implementation limit for large `u128` cardinalities.
+    pub nominal_joint_cardinality: Option<String>,
+    pub observed_joint_cardinality: usize,
+    /// Decimal text avoids a JSON implementation limit for large `u128` cardinalities.
+    pub empty_joint_cells: Option<String>,
+    pub low_count_joint_cells: usize,
+    pub minimum_observed_cell_count: usize,
+    pub maximum_observed_cell_count: usize,
+    pub estimand_statement: String,
+}
+
+/// Saturation diagnostics for fitted-categorical PID screens.
+///
+/// When almost every sample occupies its own joint bin, the empirical law is too sparse for
+/// stable application interpretation. Individual MI terms can be zero or large, so the warning
+/// does not assert a value near `ln(n)`. A warned pair is not application-interpretable.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaCategoricalSaturation {
     pub unique_fraction_source_1: f64,
     pub unique_fraction_source_2: f64,
     pub unique_fraction_target: f64,
     pub unique_fraction_joint: f64,
+    /// Exact empirical-PMF occupancy diagnostics returned by the pinned MGW estimator.
+    pub empirical_sample_count: usize,
+    pub observed_joint_states: usize,
+    pub singleton_joint_states: usize,
+    pub low_count_joint_states: usize,
+    pub minimum_observed_count: usize,
+    pub maximum_observed_count: usize,
+    pub observed_coverage_indicator: f64,
+    pub population_caveat: String,
     pub saturation_warning: bool,
 }
 
@@ -1124,45 +1434,49 @@ pub struct OfflineVldaPreprocessingVariable {
 
 /// Per-axis temporal-dependence diagnostic. Per-step rows are not independent when episodes
 /// autocorrelate, while the point estimators do not model that dependence. This report provides a
-/// descriptive lag-1 screen only. Its AR(1) approximation is not an effective sample size for a
-/// nonlinear MI/PID estimator, a denominator correction, or a valid block-length selector.
+/// descriptive within-unit-step-run Pearson lag-1 screen only. It is not an effective sample
+/// size, a denominator correction, or a valid block-length selector.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaTemporalReport {
     /// One entry per axis (V/L/D/A).
     pub variables: BTreeMap<String, OfflineVldaTemporalVariable>,
-    /// Maximum AR(1) block-length heuristic over axes. This exists only when all rows declare one
-    /// complete episode with a strict canonical `metadata.sequence_index` receipt. It requires an
-    /// independent, pre-outcome justification before use.
-    pub recommended_block_len: Option<usize>,
-    /// Number of ordered segments used by the diagnostic.
+    /// Number of episode-topology segments before any sequence-index gap splits.
     pub segments: usize,
-    /// Number of adjacent row pairs that stayed inside those segments.
+    /// Number of adjacent within-segment pairs that the episode topology could supply before the
+    /// order-receipt check.
+    pub potential_lag_pairs: usize,
+    /// Number of adjacent within-segment pairs whose canonical `sequence_index` advances by one.
     pub lag_pairs: usize,
-    /// `"within_episode"` when every row has an episode id, `"row_order"` when no row has one,
-    /// or `"known_episode_segments_only_mixed_ids"` when missing ids prevent a complete series.
+    /// Unit-step pairs in runs with at least three pairs. Only these pairs can enter the centered
+    /// residual products. A two-pair Pearson correlation is forced to positive or negative one,
+    /// so the descriptive screen excludes it.
+    pub correlation_lag_pairs: usize,
+    /// Adjacent within-segment pairs excluded because canonical `sequence_index` advances by more
+    /// than one.
+    pub sequence_index_gap_pairs: usize,
+    /// `"within_episode"` when every row has an episode id,
+    /// `"unidentified_without_episode_ids"` when no row has one, or
+    /// `"known_episode_segments_only_mixed_ids"` when missing ids prevent a complete series.
     pub scope: String,
     /// Stable machine-readable warning against inferential reuse.
     pub interpretation: String,
-    /// Evidence used to interpret the row sequence. A same-episode label is not an order receipt.
+    /// Evidence used to admit the row sequence. A same-episode label is not an order receipt.
     pub ordering_basis: String,
 }
 
 /// One axis's temporal diagnostic.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaTemporalVariable {
-    /// Dimension-averaged lag-1 correlation of the globally standardized columns.
-    /// Lag pairs pool within episode segments. Per-segment means are not re-removed. `None` means
-    /// the topology supplied no adjacent within-series pair.
+    /// Mean Pearson lag-1 correlation across defined columns. Each contiguous unit-step run's left
+    /// and right lag vectors are centered separately before their residual products are pooled.
+    /// `None` means that no run has at least three adjacent unit-step pairs, or every column has
+    /// zero residual variance on at least one side of the eligible lagged pairs.
     pub lag1_autocorr: Option<f64>,
-    /// Descriptive AR(1) approximation `n·(1−r)/(1+r)`, clamped to `[1, n]`. This exists only
-    /// when all rows declare one complete episode with a strict canonical
-    /// `metadata.sequence_index` receipt. It is not the sampling denominator of any estimator in
-    /// this harness.
-    pub effective_sample_size: Option<f64>,
-    /// Descriptive AR(1) integrated-autocorrelation-time heuristic for one declared complete
-    /// episode with a strict canonical `metadata.sequence_index` receipt. It is not a validated
-    /// or automatically selected resampling block length.
-    pub recommended_block_len: Option<usize>,
+    /// Number of columns in this axis.
+    pub dimensions_total: usize,
+    /// Number of columns whose two centered lag-pair vectors both had nonzero variance. The
+    /// reported lag-1 mean uses this denominator, not [`Self::dimensions_total`].
+    pub dimensions_with_defined_lag1: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1296,6 +1610,10 @@ pub struct OfflineVldaReport {
     /// The list is empty when no sample carries a recognized provenance convention.
     pub axis_provenance: Vec<OfflineVldaAxisProvenance>,
     pub metrics: OfflineVldaMetrics,
+    /// Process-local mutation seal over every serialized report field. The field is never
+    /// serialized. A deserialized report is read-only evidence, not fresh publication authority.
+    #[serde(skip)]
+    analysis_seal: OfflineVldaAnalysisSeal,
 }
 
 /// Provenance summary for one `(V,L,D,A)` axis, aggregated across all dataset
@@ -1340,10 +1658,11 @@ fn offline_vlda_has_ncp_markers(dataset: &OfflineVldaDataset) -> bool {
     dataset.source.as_deref() == Some("ncp")
         || dataset.capture_integrity.is_some()
         || dataset.publication_receipt.is_some()
-        || dataset
-            .samples
-            .iter()
-            .any(|sample| sample.metadata.get("source").map(String::as_str) == Some("ncp"))
+        || dataset.samples.iter().any(|sample| {
+            sample.metadata.get("source").map(String::as_str) == Some("ncp")
+                || sample.metadata.contains_key("l_source")
+                || sample.metadata.contains_key("d_source")
+        })
 }
 
 #[derive(Debug, Default)]
@@ -1492,6 +1811,20 @@ fn account_decoded_resources(
         if !matches!(key.as_str(), "v" | "l" | "d" | "a") {
             bail!(
                 "offline VLDA support declares unknown axis {key:?}; expected only v, l, d, or a"
+            );
+        }
+        add_bounded_usize(
+            &mut usage.total_metadata_entries,
+            1,
+            limits.max_total_metadata_entries,
+            "metadata entries",
+        )?;
+        account_metadata_utf8(key, &mut usage, limits)?;
+    }
+    for key in dataset.continuous_tuple_support.keys() {
+        if !CONTINUOUS_TUPLE_KEYS.contains(&key.as_str()) {
+            bail!(
+                "offline VLDA continuous_tuple_support declares unknown tuple {key:?}; expected only v_a, l_a, d_a, v_l_a, v_d_a, or l_d_a"
             );
         }
         add_bounded_usize(
@@ -1673,27 +2006,13 @@ fn projected_pls_axis_operations(
     target_dim: u128,
     selection: PlsComponentSelection,
 ) -> Result<u128> {
-    let (components, selection_work) = match selection {
-        PlsComponentSelection::Fixed(components) => (components as u128, 0),
-        PlsComponentSelection::CvQ2 { max_components } => {
-            let components = (max_components as u128)
-                .min(source_dim)
-                .min(samples.saturating_sub(1));
-            (
-                components,
-                projected_pls_cv_operations(samples, source_dim, target_dim, components)?,
-            )
+    let components = projected_pls_output_dimension(samples, source_dim, selection)?;
+    let selection_work = match selection {
+        PlsComponentSelection::Fixed(_) => 0,
+        PlsComponentSelection::CvQ2 { .. } => {
+            projected_pls_cv_operations(samples, source_dim, target_dim, components)?
         }
     };
-    ensure!(
-        components > 0 && components <= source_dim.min(samples.saturating_sub(1)),
-        "offline VLDA PLS component count {components} is invalid for {samples} samples and source width {source_dim}"
-    );
-    ensure!(
-        components <= OFFLINE_PLS_MAX_SOLVER_COMPONENTS,
-        "offline VLDA PLS component count {components} exceeds pid-core's {}-component dense-solver limit",
-        OFFLINE_PLS_MAX_SOLVER_COMPONENTS
-    );
     let fit = projected_pls_fit_operations(samples, source_dim, target_dim, components)?;
     let transform = projected_pls_transform_operations(samples, source_dim, components)?;
     checked_work_add(
@@ -1758,13 +2077,13 @@ fn projected_dense_solver_operations(
 ) -> Result<u128> {
     let dims = validate_dataset(dataset)?;
     let mut projected = 0u128;
-    if options.pid_mode == PidMode::DiscretePls {
+    if options.pid_mode == PidMode::CategoricalSxPls {
         projected =
             projected_pls_screen_operations(dataset.samples.len() as u128, &dims, options.pls)?;
     }
 
     if let Some(split) = heldout_split_plan(&dataset.samples) {
-        if options.pid_mode == PidMode::DiscretePls {
+        if options.pid_mode == PidMode::CategoricalSxPls {
             projected = checked_work_add(
                 projected,
                 projected_pls_screen_operations(
@@ -1821,6 +2140,261 @@ fn dense_solver_budget(limits: &OfflineVldaResourceLimits) -> Result<ResourceBud
         1,
     )
     .context("failed to construct the offline VLDA dense-solver budget")
+}
+
+fn categorical_pid_budget(limits: &OfflineVldaResourceLimits) -> Result<ResourceBudget> {
+    ResourceBudget::new(
+        DEFAULT_MAX_BYTES,
+        DEFAULT_MAX_PAIRWISE_DISTANCES,
+        u128::from(limits.max_categorical_pid_operations),
+        1,
+    )
+    .context("failed to construct the offline VLDA categorical-PID budget")
+}
+
+fn ceil_log2_u128(value: u128) -> u128 {
+    if value <= 1 {
+        1
+    } else {
+        u128::BITS as u128 - (value - 1).leading_zeros() as u128
+    }
+}
+
+/// Mirrors the pinned pid-core 0.9 two-source averaged SxPID operation estimate.
+fn projected_categorical_sxpid2_operations(
+    samples: u128,
+    source_1_dim: u128,
+    source_2_dim: u128,
+    target_dim: u128,
+) -> Result<u128> {
+    let coordinates = checked_work_add(
+        checked_work_add(source_1_dim, source_2_dim, "categorical source coordinates")?,
+        target_dim,
+        "categorical target coordinates",
+    )?;
+    let event_scans = checked_work_mul(
+        checked_work_mul(samples, samples, "categorical SxPID event pairs")?,
+        32,
+        "two-source SxPID event scans",
+    )?;
+    let mobius_work = checked_work_mul(samples, 16, "two-source SxPID Mobius inversion")?;
+    let histogram_work = checked_work_mul(
+        checked_work_mul(3, samples, "two-source SxPID subset histograms")?,
+        checked_work_mul(
+            ceil_log2_u128(samples),
+            coordinates.max(1),
+            "categorical histogram comparison width",
+        )?,
+        "categorical histogram work",
+    )?;
+    checked_work_add(
+        checked_work_add(event_scans, mobius_work, "categorical SxPID core")?,
+        histogram_work,
+        "categorical SxPID total",
+    )
+}
+
+fn projected_quantizer_axis_operations(samples: u128, dimension: u128, bins: u128) -> Result<u128> {
+    let edges = checked_work_mul(
+        dimension,
+        bins.checked_add(1)
+            .context("quantizer bin-edge count overflow")?,
+        "quantizer fitted edges",
+    )?;
+    let fit = checked_work_add(
+        checked_work_mul(
+            checked_work_mul(samples, dimension, "quantizer input coordinates")?,
+            2,
+            "quantizer fit scans",
+        )?,
+        edges,
+        "quantizer fit work",
+    )?;
+    let transform = checked_work_add(
+        checked_work_mul(
+            checked_work_mul(samples, dimension, "quantizer transform coordinates")?,
+            checked_work_add(
+                3,
+                checked_work_add(
+                    ceil_log2_u128(samples),
+                    ceil_log2_u128(bins),
+                    "quantizer search logs",
+                )?,
+                "quantizer per-coordinate work",
+            )?,
+            "quantizer transform work",
+        )?,
+        edges,
+        "quantizer transform and report",
+    )?;
+    checked_work_add(fit, transform, "quantizer axis total")
+}
+
+fn projected_categorical_pid_screen_operations(
+    samples: u128,
+    dims: [u128; 4],
+    bins: u128,
+) -> Result<u128> {
+    let quantization = dims.into_iter().try_fold(0u128, |sum, dimension| {
+        checked_work_add(
+            sum,
+            projected_quantizer_axis_operations(samples, dimension, bins)?,
+            "categorical screen quantizers",
+        )
+    })?;
+    let [v, l, d, a] = dims;
+    let pairs = [(v, l), (v, d), (l, d)]
+        .into_iter()
+        .try_fold(0u128, |sum, (first, second)| {
+            checked_work_add(
+                sum,
+                projected_categorical_sxpid2_operations(samples, first, second, a)?,
+                "categorical screen PID pairs",
+            )
+        })?;
+    // Project-owned work after pid-core returns: collapse row tuples into category IDs, build
+    // paired/triple occupancy sets, serialize and hash every fitted-edge receipt, and encode four
+    // fixed-size digest sets. This bound is intentionally conservative because hash-table probes
+    // are data dependent. It keeps those steps inside the same aggregate admission decision.
+    let coordinate_ids = checked_work_mul(
+        samples,
+        dims.into_iter().try_fold(0u128, |sum, dimension| {
+            checked_work_add(sum, dimension, "categorical category-id coordinates")
+        })?,
+        "categorical category-id work",
+    )?;
+    let occupancy = checked_work_mul(samples, 32, "categorical occupancy bookkeeping")?;
+    let edge_receipts = checked_work_mul(
+        dims.into_iter().try_fold(0u128, |sum, dimension| {
+            checked_work_add(
+                sum,
+                checked_work_mul(
+                    dimension,
+                    bins.checked_add(1)
+                        .context("categorical receipt bin-edge overflow")?,
+                    "categorical receipt edges",
+                )?,
+                "categorical receipt edge sum",
+            )
+        })?,
+        32,
+        "categorical edge serialization and hashing",
+    )?;
+    let receipt_digests = 4u128 * 4 * 64;
+    let bookkeeping = checked_work_add(
+        checked_work_add(coordinate_ids, occupancy, "categorical row bookkeeping")?,
+        checked_work_add(
+            edge_receipts,
+            receipt_digests,
+            "categorical receipt bookkeeping",
+        )?,
+        "categorical project-owned bookkeeping",
+    )?;
+    checked_work_add(
+        checked_work_add(quantization, pairs, "categorical PID estimator screen")?,
+        bookkeeping,
+        "categorical PID screen",
+    )
+}
+
+fn projected_pls_output_dimension(
+    samples: u128,
+    source_dim: u128,
+    selection: PlsComponentSelection,
+) -> Result<u128> {
+    let components = match selection {
+        PlsComponentSelection::Fixed(components) => components as u128,
+        PlsComponentSelection::CvQ2 { max_components } => (max_components as u128)
+            .min(source_dim)
+            .min(samples.saturating_sub(1)),
+    };
+    ensure!(
+        components > 0 && components <= source_dim.min(samples.saturating_sub(1)),
+        "offline VLDA PLS component count {components} is invalid for {samples} samples and source width {source_dim}"
+    );
+    ensure!(
+        components <= OFFLINE_PLS_MAX_SOLVER_COMPONENTS,
+        "offline VLDA PLS component count {components} exceeds pid-core's {}-component dense-solver limit",
+        OFFLINE_PLS_MAX_SOLVER_COMPONENTS
+    );
+    Ok(components)
+}
+
+fn projected_categorical_dimensions(
+    samples: u128,
+    dims: &OfflineVldaDims,
+    options: &OfflineVldaHarnessOptions,
+) -> Result<[u128; 4]> {
+    if options.pid_mode == PidMode::CategoricalSxPls {
+        return Ok([
+            projected_pls_output_dimension(samples, dims.v as u128, options.pls)?,
+            projected_pls_output_dimension(samples, dims.l as u128, options.pls)?,
+            projected_pls_output_dimension(samples, dims.d as u128, options.pls)?,
+            dims.a as u128,
+        ]);
+    }
+    Ok([dims.v, dims.l, dims.d, dims.a].map(|dimension| dimension as u128))
+}
+
+fn projected_categorical_pid_operations(
+    dataset: &OfflineVldaDataset,
+    options: &OfflineVldaHarnessOptions,
+) -> Result<u128> {
+    if !matches!(
+        options.pid_mode,
+        PidMode::CategoricalSx | PidMode::CategoricalSxPls
+    ) {
+        return Ok(0);
+    }
+    let dims = validate_dataset(dataset)?;
+    let screens_per_scope = if options.pid_mode == PidMode::CategoricalSxPls {
+        2
+    } else {
+        1
+    };
+    let full_samples = dataset.samples.len() as u128;
+    let full_dimensions = projected_categorical_dimensions(full_samples, &dims, options)?;
+    let full = checked_work_mul(
+        screens_per_scope,
+        projected_categorical_pid_screen_operations(
+            full_samples,
+            full_dimensions,
+            options.categorical_bins as u128,
+        )?,
+        "full-data categorical PID screens",
+    )?;
+    let Some(split) = heldout_split_plan(&dataset.samples) else {
+        return Ok(full);
+    };
+    let train_samples = split.report.train_samples as u128;
+    let train_dimensions = projected_categorical_dimensions(train_samples, &dims, options)?;
+    let train = checked_work_mul(
+        screens_per_scope,
+        projected_categorical_pid_screen_operations(
+            train_samples,
+            train_dimensions,
+            options.categorical_bins as u128,
+        )?,
+        "train-split categorical PID screens",
+    )?;
+    checked_work_add(full, train, "aggregate categorical PID screens")
+}
+
+fn enforce_categorical_pid_limit(
+    projected: u128,
+    limits: &OfflineVldaResourceLimits,
+) -> Result<u64> {
+    if projected > u128::from(limits.max_categorical_pid_operations) {
+        bail!(
+            "offline VLDA resource limit exceeded for aggregate categorical-PID operations: observed {projected}, limit {}",
+            limits.max_categorical_pid_operations
+        );
+    }
+    u64::try_from(projected).map_err(|_| {
+        anyhow::anyhow!(
+            "offline VLDA projected categorical-PID operations {projected} do not fit u64"
+        )
+    })
 }
 
 fn projected_geometry_distance_evaluations(samples: u128) -> Result<u128> {
@@ -2044,6 +2618,7 @@ fn admit_dataset_resources(
 ) -> Result<OfflineVldaResourceUsage> {
     validate_resource_limits(limits)?;
     let decoded = account_decoded_resources(dataset, limits)?;
+    validate_continuous_support_contract_consistency(dataset)?;
     let projected_main = match options {
         Some(options) => projected_analysis_distance_evaluations(dataset, options.pid_mode)?,
         None => 0,
@@ -2110,6 +2685,13 @@ fn admit_dataset_resources(
         },
         limits,
     )?;
+    let projected_categorical_pid_operations = enforce_categorical_pid_limit(
+        match options {
+            Some(options) => projected_categorical_pid_operations(dataset, options)?,
+            None => 0,
+        },
+        limits,
+    )?;
     let projected_main_pairwise_distance_evaluations =
         u64::try_from(projected_main).map_err(|_| {
             anyhow::anyhow!(
@@ -2148,6 +2730,7 @@ fn admit_dataset_resources(
         projected_uncertainty_distance_coordinate_evaluations,
         projected_total_distance_coordinate_evaluations,
         projected_dense_solver_operations,
+        projected_categorical_pid_operations,
     })
 }
 
@@ -2341,9 +2924,12 @@ pub fn read_offline_vlda_dataset_with_hash_and_limits(
         }
         receipt_snapshot.verify_path()?;
         runlog_snapshot.verify_path()?;
-        dataset.publication_receipt_verified = true;
     }
     dataset_snapshot.verify_path()?;
+    if offline_vlda_has_ncp_markers(&dataset) {
+        dataset.publication_receipt_verified_content_sha256 =
+            Some(offline_vlda_dataset_content_sha256(&dataset)?);
+    }
     validate_dataset_publication_eligibility(&dataset).with_context(|| {
         format!(
             "offline VLDA dataset {} failed publication validation",
@@ -2411,6 +2997,7 @@ pub fn run_offline_vlda_harness_with_options_and_limits(
     limits: &OfflineVldaResourceLimits,
 ) -> Result<OfflineVldaReport> {
     validate_harness_options(options)?;
+    validate_optional_input_binding(input_uri.as_deref(), input_sha256.as_deref())?;
     let resource_usage = admit_dataset_resources(&dataset, Some(options), None, limits)?;
     let dataset_content_sha256 = offline_vlda_dataset_content_sha256(&dataset)
         .context("failed to hash the admitted offline VLDA dataset")?;
@@ -2464,6 +3051,7 @@ pub fn run_offline_vlda_harness_borrowed_with_options_and_invocation_limits(
     limits: &OfflineVldaResourceLimits,
 ) -> Result<OfflineVldaReport> {
     validate_harness_options(options)?;
+    validate_optional_input_binding(input_uri.as_deref(), input_sha256.as_deref())?;
     let resource_usage =
         admit_dataset_resources(dataset, Some(options), Some(uncertainty_config), limits)?;
     let dataset_content_sha256 = offline_vlda_dataset_content_sha256(dataset)
@@ -2503,6 +3091,7 @@ pub fn run_offline_vlda_invocation_borrowed_with_options_and_limits(
     limits: &OfflineVldaResourceLimits,
 ) -> Result<OfflineVldaInvocationResult> {
     validate_harness_options(options)?;
+    validate_optional_input_binding(input_uri.as_deref(), input_sha256.as_deref())?;
     let resource_usage =
         admit_dataset_resources(dataset, Some(options), Some(uncertainty_config), limits)?;
     let dataset_content_sha256 = offline_vlda_dataset_content_sha256(dataset)
@@ -2536,29 +3125,51 @@ pub fn run_offline_vlda_invocation_borrowed_with_options_and_limits(
     })
 }
 
+struct OfflineVldaMetricPipelineInputs<'a> {
+    preprocessing: &'a OfflineVldaPreprocessingReport,
+    geometry: &'a OfflineVldaGeometryReport,
+    temporal: &'a OfflineVldaTemporalReport,
+    train_split_pid: Option<&'a OfflineVldaTrainSplitPidReport>,
+    heldout_split: Option<&'a OfflineVldaHeldoutSplitReport>,
+    heldout_class_coverage: Option<&'a OfflineVldaHeldoutClassCoverageReport>,
+    heldout_episode_disjoint: Option<&'a OfflineVldaHeldoutEpisodeDisjointReport>,
+}
+
 fn offline_vlda_metric_pipeline_config(
     options: &OfflineVldaHarnessOptions,
-    preprocessing: &OfflineVldaPreprocessingReport,
-    geometry: &OfflineVldaGeometryReport,
-    train_split_pid: Option<&OfflineVldaTrainSplitPidReport>,
-    heldout_split: Option<&OfflineVldaHeldoutSplitReport>,
-    heldout_class_coverage: Option<&OfflineVldaHeldoutClassCoverageReport>,
-    heldout_episode_disjoint: Option<&OfflineVldaHeldoutEpisodeDisjointReport>,
+    inputs: OfflineVldaMetricPipelineInputs<'_>,
 ) -> Value {
     json!({
-        "mi": match options.pid_mode {
-            PidMode::Disabled => "disabled",
-            PidMode::Continuous => "ksg",
-            PidMode::Discrete | PidMode::DiscretePls => "discrete",
+        "mi_functional": match options.pid_mode {
+            PidMode::Disabled => "not_requested",
+            PidMode::Continuous => MEASURE_CONTINUOUS_MI,
+            PidMode::CategoricalSx | PidMode::CategoricalSxPls => MEASURE_CATEGORICAL_MI,
         },
-        "pid": match options.pid_mode {
-            PidMode::Disabled => "disabled",
-            PidMode::Continuous => "isx_ehrlich_ksg",
-            PidMode::Discrete => "discrete_imin",
-            PidMode::DiscretePls => "pls_discrete_imin",
+        "mi_estimator": match options.pid_mode {
+            PidMode::Disabled => "not_applicable",
+            PidMode::Continuous => ESTIMATOR_CONTINUOUS_MI,
+            PidMode::CategoricalSx | PidMode::CategoricalSxPls => ESTIMATOR_CATEGORICAL_MI,
+        },
+        "pid_functional": match options.pid_mode {
+            PidMode::Disabled => "not_requested",
+            PidMode::Continuous => MEASURE_CONTINUOUS_PID2,
+            PidMode::CategoricalSx | PidMode::CategoricalSxPls => MEASURE_CATEGORICAL_PID2,
+        },
+        "pid_estimator": match options.pid_mode {
+            PidMode::Disabled => "not_applicable",
+            PidMode::Continuous => ESTIMATOR_CONTINUOUS_PID2,
+            PidMode::CategoricalSx | PidMode::CategoricalSxPls => ESTIMATOR_CATEGORICAL_PID2,
         },
         "pid_mode": options.pid_mode,
-        "discrete_bins": options.discrete_bins,
+        "pid_evaluation_relation": match options.pid_mode {
+            PidMode::Disabled => "not_applicable",
+            PidMode::Continuous => "same_rows_descriptive_point_estimation",
+            PidMode::CategoricalSx => "same_rows_fitted_quantization_descriptive",
+            PidMode::CategoricalSxPls => {
+                "same_rows_target_supervised_projection_and_fitted_quantization_warning"
+            }
+        },
+        "categorical_bins": options.categorical_bins,
         "pls_components": match options.pls {
             PlsComponentSelection::Fixed(k) => json!(k),
             PlsComponentSelection::CvQ2 { max_components } => {
@@ -2572,7 +3183,11 @@ fn offline_vlda_metric_pipeline_config(
         },
         "pid_sample_scopes": if options.pid_mode == PidMode::Disabled {
             Vec::<&str>::new()
-        } else if train_split_pid.and_then(|report| report.metrics.as_ref()).is_some() {
+        } else if inputs
+            .train_split_pid
+            .and_then(|report| report.metrics.as_ref())
+            .is_some()
+        {
             vec!["all_samples", "metadata_split_train"]
         } else {
             vec!["all_samples"]
@@ -2584,20 +3199,36 @@ fn offline_vlda_metric_pipeline_config(
             vec!["mi_v_action", "mi_l_action", "mi_d_action"]
         },
         "preprocessing": {
-            "pid_geometry_space": preprocessing.strategy,
+            "pid_geometry_space": inputs.preprocessing.strategy,
             "standardizer": "per_variable_center_scale_population_std",
             "full_sample_pid_fit_scope": "all_samples",
-            "train_split_pid_fit_scope": train_split_pid
+            "train_split_pid_fit_scope": inputs.train_split_pid
                 .and_then(|report| report.metrics.as_ref())
                 .map(|_| "metadata_split_train")
         },
+        "continuous_support_contract": if options.pid_mode == PidMode::Continuous {
+            "each_complete_mi_or_pid_tuple_requires_a_caller_declared_regular_full_dimensional_finite_information_joint_law"
+        } else {
+            "not_applicable"
+        },
         "geometry": {
             "role": "descriptive_diagnostics_not_validity_gate",
-            "metric": geometry.metric,
-            "intrinsic_k": geometry.intrinsic_k,
-            "hyperbolicity_samples": geometry.hyperbolicity_samples,
+            "metric": inputs.geometry.metric,
+            "intrinsic_k": inputs.geometry.intrinsic_k,
+            "hyperbolicity_samples": inputs.geometry.hyperbolicity_samples,
             "max_intrinsic_dimension_warning": OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION_WARNING,
             "min_pairwise_cv_warning": OFFLINE_GEOMETRY_MIN_PAIRWISE_CV_WARNING
+        },
+        "temporal": {
+            "role": "descriptive_not_estimator_effective_sample_size_or_block_selector",
+            "statistic": "within_unit_step_run_pearson_lag1",
+            "minimum_lag_pairs_per_run": 3,
+            "episode_identity_required": true,
+            "strict_canonical_sequence_index_required": true,
+            "gap_policy": "split_run_and_count_excluded_pair",
+            "axis_aggregation": "mean_over_defined_columns_only",
+            "scope": inputs.temporal.scope,
+            "ordering_basis": inputs.temporal.ordering_basis
         },
         "baselines": [
             "majority_success_accuracy",
@@ -2664,8 +3295,8 @@ fn offline_vlda_metric_pipeline_config(
             "heldout_prediction_score",
             "heldout_prediction_squared_distance"
         ],
-        "heldout_split": heldout_split,
-        "train_split_pid": train_split_pid.map(|report| json!({
+        "heldout_split": inputs.heldout_split,
+        "train_split_pid": inputs.train_split_pid.map(|report| json!({
             "status": report.status,
             "split_metadata_key": report.split_metadata_key,
             "split": report.split,
@@ -2674,8 +3305,8 @@ fn offline_vlda_metric_pipeline_config(
             "preprocessing_available": report.preprocessing.is_some(),
             "metrics_available": report.metrics.is_some()
         })),
-        "heldout_class_coverage": heldout_class_coverage,
-        "heldout_episode_disjoint": heldout_episode_disjoint,
+        "heldout_class_coverage": inputs.heldout_class_coverage,
+        "heldout_episode_disjoint": inputs.heldout_episode_disjoint,
         "prediction_records": [
             "heldout_train_split_majority",
             "heldout_train_split_1nn",
@@ -2709,11 +3340,13 @@ fn run_offline_vlda_harness_after_resource_preflight(
         resource_usage,
         uncertainty_config,
     } = preflight;
+    validate_optional_input_binding(input_uri.as_deref(), input_sha256.as_deref())?;
     let aggregate_invocation = uncertainty_config.is_some();
     let row_topology = uncertainty_row_topology(&dataset.samples);
     let uncertainty_request = match uncertainty_config {
         Some(config) => json!({
             "enabled": config.enabled(),
+            "preprocessing_resampling": OFFLINE_UNCERTAINTY_PREPROCESSING_RESAMPLING,
             "n_boot": config.n_boot,
             "n_perm": config.n_perm,
             "block_size": config.block_size,
@@ -2741,9 +3374,11 @@ fn run_offline_vlda_harness_after_resource_preflight(
     let analysis = compute_analysis(
         &dataset.samples,
         &dataset.support,
+        &dataset.continuous_tuple_support,
         &dims,
         options,
         dense_solver_budget(limits)?,
+        categorical_pid_budget(limits)?,
     )?;
     let run_id = dataset
         .run_id
@@ -2755,6 +3390,7 @@ fn run_offline_vlda_harness_after_resource_preflight(
         "source": &dataset.source,
         "model": &dataset.model,
         "task": &dataset.task,
+        "continuous_tuple_support": &dataset.continuous_tuple_support,
         "input_uri": input_uri,
         "input_sha256": input_sha256,
         "dataset_content_sha256": dataset_content_sha256,
@@ -2776,6 +3412,7 @@ fn run_offline_vlda_harness_after_resource_preflight(
             },
             "distance_projection_model": "pairwise_units_times_max_combined_axis_width_v2",
             "dense_solver_projection_model": "pid_core_0_9_logreg_pls_worst_case_v1",
+            "categorical_pid_projection_model": "pid_core_0_9_fitted_quantization_and_two_source_averaged_sxpid_v1",
             "optional_uncertainty": if aggregate_invocation {
                 "included_or_typed_skip_in_aggregate_preflight"
             } else {
@@ -2784,16 +3421,19 @@ fn run_offline_vlda_harness_after_resource_preflight(
         },
         "metric_pipeline": offline_vlda_metric_pipeline_config(
             options,
-            &analysis.preprocessing,
-            &analysis.geometry,
-            analysis.train_split_pid.as_ref(),
-            analysis.heldout_split.as_ref(),
-            analysis.heldout_class_coverage.as_ref(),
-            analysis.heldout_episode_disjoint.as_ref(),
+            OfflineVldaMetricPipelineInputs {
+                preprocessing: &analysis.preprocessing,
+                geometry: &analysis.geometry,
+                temporal: &analysis.temporal,
+                train_split_pid: analysis.train_split_pid.as_ref(),
+                heldout_split: analysis.heldout_split.as_ref(),
+                heldout_class_coverage: analysis.heldout_class_coverage.as_ref(),
+                heldout_episode_disjoint: analysis.heldout_episode_disjoint.as_ref(),
+            },
         )
     });
     let config_hash = pid_runlog::canonical_json_hash_v2(&config)?;
-    Ok(OfflineVldaReport {
+    let mut report = OfflineVldaReport {
         run_id,
         config_hash,
         config,
@@ -2810,16 +3450,18 @@ fn run_offline_vlda_harness_after_resource_preflight(
         heldout_failure_diagnostics: analysis.heldout_failure_diagnostics,
         axis_provenance: axis_provenance(&dataset.samples),
         metrics: analysis.metrics,
-    })
+        analysis_seal: OfflineVldaAnalysisSeal::default(),
+    };
+    report.analysis_seal =
+        OfflineVldaAnalysisSeal(Some(offline_vlda_report_analysis_seal(&report)?));
+    Ok(report)
 }
 
 fn train_split_pid_report(
     samples: &[OfflineVldaSample],
-    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
     dims: &OfflineVldaDims,
     split: &OfflineVldaHeldoutSplitPlan,
-    options: &OfflineVldaHarnessOptions,
-    dense_solver_budget: ResourceBudget,
+    contract: OfflineVldaPidScreenContract<'_>,
 ) -> OfflineVldaTrainSplitPidReport {
     let train_samples = split.report.train_samples;
     let train_dims = OfflineVldaDims {
@@ -2829,7 +3471,7 @@ fn train_split_pid_report(
         d: dims.d,
         a: dims.a,
     };
-    if options.pid_mode == PidMode::Disabled {
+    if contract.options.pid_mode == PidMode::Disabled {
         return OfflineVldaTrainSplitPidReport {
             split_metadata_key: split.report.metadata_key.clone(),
             split: "metadata_split_train".to_string(),
@@ -2847,12 +3489,7 @@ fn train_split_pid_report(
     let result = (|| -> Result<(OfflineVldaPreprocessingReport, OfflineVldaPidScreenMetrics)> {
         let prepared =
             prepare_standardized_embeddings_for_train(samples, &split.roles, &train_dims)?;
-        let metrics = compute_pid_screen_metrics_with_control(
-            &prepared,
-            support,
-            options,
-            dense_solver_budget,
-        )?;
+        let metrics = compute_pid_screen_metrics_with_control(&prepared, contract)?;
         Ok((prepared.preprocessing, metrics))
     })();
     let (status, preprocessing, metrics, error) = match result {
@@ -2879,29 +3516,53 @@ fn train_split_pid_report(
     }
 }
 
+#[derive(Clone, Copy)]
+struct OfflineVldaPidResourceBudgets {
+    dense_solver: ResourceBudget,
+    categorical_pid: ResourceBudget,
+}
+
+#[derive(Clone, Copy)]
+struct OfflineVldaPidScreenContract<'a> {
+    support: &'a BTreeMap<String, OfflineVldaDeclaredSupport>,
+    continuous_tuple_support: &'a BTreeMap<String, OfflineVldaContinuousTupleSupport>,
+    options: &'a OfflineVldaHarnessOptions,
+    budgets: OfflineVldaPidResourceBudgets,
+}
+
+#[derive(Clone, Copy)]
+struct OfflineVldaPidMatrices<'a> {
+    v: MatRef<'a>,
+    l: MatRef<'a>,
+    d: MatRef<'a>,
+    a: MatRef<'a>,
+}
+
 fn compute_pid_screen_metrics(
-    v: MatRef<'_>,
-    l: MatRef<'_>,
-    d: MatRef<'_>,
-    a: MatRef<'_>,
-    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
-    options: &OfflineVldaHarnessOptions,
-    dense_solver_budget: ResourceBudget,
+    matrices: OfflineVldaPidMatrices<'_>,
+    contract: OfflineVldaPidScreenContract<'_>,
 ) -> Result<OfflineVldaPidScreenMetrics> {
+    let OfflineVldaPidMatrices { v, l, d, a } = matrices;
+    let OfflineVldaPidScreenContract {
+        support,
+        continuous_tuple_support,
+        options,
+        budgets,
+    } = contract;
     let pid_mode = options.pid_mode;
-    let discrete_bins = options.discrete_bins;
+    let categorical_bins = options.categorical_bins;
     let pls = options.pls;
     if pid_mode == PidMode::Disabled {
         return Ok(disabled_pid_screen_metrics());
     }
 
-    // DiscretePls: project each source toward A with PLS fitted on the samples
+    // CategoricalSxPls: project each source toward A with PLS fitted on the samples
     // given to this screen (train-only in the train-split path; in-sample for the
     // all-samples screen, which the metric_pipeline provenance records). The
     // target A stays unprojected.
     let mut pls_selection = None;
     let pls_projected = match pid_mode {
-        PidMode::DiscretePls => {
+        PidMode::CategoricalSxPls => {
             // Per-source component choice: fixed, or LOO-CV Q² selection
             // (grandplan §6.2 leakage-safe fitted preprocessing).
             let choose = |x: MatRef<'_>| -> Result<(usize, Option<f64>)> {
@@ -2912,7 +3573,7 @@ fn compute_pid_screen_metrics(
                             x,
                             a,
                             max_components,
-                            dense_solver_budget,
+                            budgets.dense_solver,
                         )?;
                         // In the current pid-core review contract, `best_components` is `None` when
                         // no candidate completed every predeclared fold, and Q² lives on the
@@ -2935,12 +3596,12 @@ fn compute_pid_screen_metrics(
             let (kv, q2v) = choose(v)?;
             let (kl, q2l) = choose(l)?;
             let (kd, q2d) = choose(d)?;
-            let v_projector = PlsProjector::fit_with_budget(v, a, kv, dense_solver_budget)?;
-            let l_projector = PlsProjector::fit_with_budget(l, a, kl, dense_solver_budget)?;
-            let d_projector = PlsProjector::fit_with_budget(d, a, kd, dense_solver_budget)?;
-            let v_proj = v_projector.transform_with_budget(v, dense_solver_budget)?;
-            let l_proj = l_projector.transform_with_budget(l, dense_solver_budget)?;
-            let d_proj = d_projector.transform_with_budget(d, dense_solver_budget)?;
+            let v_projector = PlsProjector::fit_with_budget(v, a, kv, budgets.dense_solver)?;
+            let l_projector = PlsProjector::fit_with_budget(l, a, kl, budgets.dense_solver)?;
+            let d_projector = PlsProjector::fit_with_budget(d, a, kd, budgets.dense_solver)?;
+            let v_proj = v_projector.transform_with_budget(v, budgets.dense_solver)?;
+            let l_proj = l_projector.transform_with_budget(l, budgets.dense_solver)?;
+            let d_proj = d_projector.transform_with_budget(d, budgets.dense_solver)?;
             pls_selection = Some(OfflineVldaPlsSelection {
                 method: match pls {
                     PlsComponentSelection::Fixed(_) => "fixed".to_string(),
@@ -2956,7 +3617,7 @@ fn compute_pid_screen_metrics(
             Some((v_proj, l_proj, d_proj))
         }
         PidMode::Disabled => unreachable!("disabled mode returns before PID preprocessing"),
-        PidMode::Continuous | PidMode::Discrete => None,
+        PidMode::Continuous | PidMode::CategoricalSx => None,
     };
     let (v_eff, l_eff, d_eff) = match &pls_projected {
         Some((v_proj, l_proj, d_proj)) => (v_proj.as_ref(), l_proj.as_ref(), d_proj.as_ref()),
@@ -2969,15 +3630,26 @@ fn compute_pid_screen_metrics(
     let l_diagnostics = axis_diagnostics("L", l_eff, support);
     let d_diagnostics = axis_diagnostics("D", d_eff, support);
     let a_diagnostics = axis_diagnostics("A", a, support);
-    let quantized = if matches!(pid_mode, PidMode::Discrete | PidMode::DiscretePls) {
+    let quantized = if matches!(pid_mode, PidMode::CategoricalSx | PidMode::CategoricalSxPls) {
         Some((
-            prepare_quantized_axis(v_eff, discrete_bins)?,
-            prepare_quantized_axis(l_eff, discrete_bins)?,
-            prepare_quantized_axis(d_eff, discrete_bins)?,
-            prepare_quantized_axis(a, discrete_bins)?,
+            prepare_quantized_axis(v_eff, categorical_bins, budgets.categorical_pid)?,
+            prepare_quantized_axis(l_eff, categorical_bins, budgets.categorical_pid)?,
+            prepare_quantized_axis(d_eff, categorical_bins, budgets.categorical_pid)?,
+            prepare_quantized_axis(a, categorical_bins, budgets.categorical_pid)?,
         ))
     } else {
         None
+    };
+    let categorical_quantization = match &quantized {
+        Some((v_axis, l_axis, d_axis, a_axis)) => {
+            [("V", v_axis), ("L", l_axis), ("D", d_axis), ("A", a_axis)]
+                .into_iter()
+                .map(|(axis, prepared)| {
+                    Ok((axis.to_string(), quantization_receipt(axis, prepared)?))
+                })
+                .collect::<Result<BTreeMap<_, _>>>()?
+        }
+        None => BTreeMap::new(),
     };
 
     let v_source = OfflineVldaSourceMatrix {
@@ -2997,7 +3669,7 @@ fn compute_pid_screen_metrics(
         matrix: a,
     };
 
-    let (vl_pair, vd_pair, ld_pair) = match pid_mode {
+    let (mut vl_pair, mut vd_pair, mut ld_pair) = match pid_mode {
         PidMode::Continuous => {
             let ksg = ksg_config();
             let pid_cfg = pid2_config(&ksg);
@@ -3011,6 +3683,9 @@ fn compute_pid_screen_metrics(
                         l_diagnostics.clone(),
                         a_diagnostics.clone(),
                     ],
+                    continuous_tuple_support
+                        .get(CONTINUOUS_TUPLE_V_L_A)
+                        .copied(),
                     &pid_cfg,
                 )?,
                 compute_pid_pair_metrics(
@@ -3022,6 +3697,9 @@ fn compute_pid_screen_metrics(
                         d_diagnostics.clone(),
                         a_diagnostics.clone(),
                     ],
+                    continuous_tuple_support
+                        .get(CONTINUOUS_TUPLE_V_D_A)
+                        .copied(),
                     &pid_cfg,
                 )?,
                 compute_pid_pair_metrics(
@@ -3033,53 +3711,65 @@ fn compute_pid_screen_metrics(
                         d_diagnostics.clone(),
                         a_diagnostics.clone(),
                     ],
+                    continuous_tuple_support
+                        .get(CONTINUOUS_TUPLE_L_D_A)
+                        .copied(),
                     &pid_cfg,
                 )?,
             )
         }
-        PidMode::Discrete | PidMode::DiscretePls => {
+        PidMode::CategoricalSx | PidMode::CategoricalSxPls => {
             let (v_quantized, l_quantized, d_quantized, a_quantized) = quantized
                 .as_ref()
-                .context("quantized PID mode lacks prepared quantized axes")?;
+                .context("categorical Sx mode lacks prepared fitted-categorical axes")?;
             (
-                compute_pid_pair_metrics_discrete(
+                compute_pid_pair_metrics_categorical_sx(
                     v_source,
                     l_source,
                     action_target,
-                    v_quantized,
-                    l_quantized,
-                    a_quantized,
+                    PreparedCategoricalSxPair {
+                        source_1: v_quantized,
+                        source_2: l_quantized,
+                        target: a_quantized,
+                    },
                     vec![
                         v_diagnostics.clone(),
                         l_diagnostics.clone(),
                         a_diagnostics.clone(),
                     ],
+                    budgets.categorical_pid,
                 )?,
-                compute_pid_pair_metrics_discrete(
+                compute_pid_pair_metrics_categorical_sx(
                     v_source,
                     d_source,
                     action_target,
-                    v_quantized,
-                    d_quantized,
-                    a_quantized,
+                    PreparedCategoricalSxPair {
+                        source_1: v_quantized,
+                        source_2: d_quantized,
+                        target: a_quantized,
+                    },
                     vec![
                         v_diagnostics.clone(),
                         d_diagnostics.clone(),
                         a_diagnostics.clone(),
                     ],
+                    budgets.categorical_pid,
                 )?,
-                compute_pid_pair_metrics_discrete(
+                compute_pid_pair_metrics_categorical_sx(
                     l_source,
                     d_source,
                     action_target,
-                    l_quantized,
-                    d_quantized,
-                    a_quantized,
+                    PreparedCategoricalSxPair {
+                        source_1: l_quantized,
+                        source_2: d_quantized,
+                        target: a_quantized,
+                    },
                     vec![
                         l_diagnostics.clone(),
                         d_diagnostics.clone(),
                         a_diagnostics.clone(),
                     ],
+                    budgets.categorical_pid,
                 )?,
             )
         }
@@ -3093,53 +3783,70 @@ fn compute_pid_screen_metrics(
     let v_pair_value = vl_pair.mi_source_1_action.or(vd_pair.mi_source_1_action);
     let l_pair_value = vl_pair.mi_source_2_action.or(ld_pair.mi_source_1_action);
     let d_pair_value = vd_pair.mi_source_2_action.or(ld_pair.mi_source_2_action);
-    let (mi_v_action, mi_l_action, mi_d_action) = match pid_mode {
+    let (mut mi_v_action, mut mi_l_action, mut mi_d_action) = match pid_mode {
         PidMode::Continuous => {
             let ksg = ksg_config();
             let marginal = |source_name: &'static str,
                             source: MatRef<'_>,
                             source_diagnostics: &OfflineVldaAxisDiagnostics,
+                            tuple_key: &'static str,
                             pair_value: Option<f64>|
              -> Result<OfflineVldaMiEstimate> {
-                if let Some(value) = pair_value {
-                    return Ok(OfflineVldaMiEstimate {
-                        outcome: produced_outcome(
-                            MEASURE_CONTINUOUS_MI,
-                            &[source_name, "A"],
-                            vec![source_diagnostics.clone(), a_diagnostics.clone()],
-                        ),
-                        value: Some(value),
-                    });
-                }
                 continuous_mi_estimate(
-                    source_name,
-                    source,
-                    "A",
-                    a,
+                    OfflineVldaSourceMatrix {
+                        name: source_name,
+                        matrix: source,
+                    },
+                    OfflineVldaTargetMatrix {
+                        name: "A",
+                        matrix: a,
+                    },
                     vec![source_diagnostics.clone(), a_diagnostics.clone()],
+                    continuous_tuple_support.get(tuple_key).copied(),
+                    pair_value,
                     &ksg,
                 )
             };
             (
-                marginal("V", v_eff, &v_diagnostics, v_pair_value)?,
-                marginal("L", l_eff, &l_diagnostics, l_pair_value)?,
-                marginal("D", d_eff, &d_diagnostics, d_pair_value)?,
+                marginal(
+                    "V",
+                    v_eff,
+                    &v_diagnostics,
+                    CONTINUOUS_TUPLE_V_A,
+                    v_pair_value,
+                )?,
+                marginal(
+                    "L",
+                    l_eff,
+                    &l_diagnostics,
+                    CONTINUOUS_TUPLE_L_A,
+                    l_pair_value,
+                )?,
+                marginal(
+                    "D",
+                    d_eff,
+                    &d_diagnostics,
+                    CONTINUOUS_TUPLE_D_A,
+                    d_pair_value,
+                )?,
             )
         }
-        PidMode::Discrete | PidMode::DiscretePls => {
+        PidMode::CategoricalSx | PidMode::CategoricalSxPls => {
             let (v_quantized, l_quantized, d_quantized, a_quantized) = quantized
                 .as_ref()
-                .context("quantized PID mode lacks prepared quantized axes")?;
+                .context("categorical Sx mode lacks prepared fitted-categorical axes")?;
             let marginal = |source_name: &'static str,
                             source_diagnostics: &OfflineVldaAxisDiagnostics,
                             source_quantized: &PreparedQuantizedAxis,
                             pair_value: Option<f64>|
              -> Result<OfflineVldaMiEstimate> {
                 let value = pair_value.with_context(|| {
-                    format!("quantized PID pairs produced no marginal MI for {source_name} -> A")
+                    format!(
+                        "categorical SxPID pairs produced no marginal MI for {source_name} -> A"
+                    )
                 })?;
                 Ok(OfflineVldaMiEstimate {
-                    outcome: discrete_mi_outcome(
+                    outcome: categorical_mi_outcome(
                         source_name,
                         vec![source_diagnostics.clone(), a_diagnostics.clone()],
                         source_quantized,
@@ -3156,6 +3863,19 @@ fn compute_pid_screen_metrics(
         }
         PidMode::Disabled => unreachable!("disabled mode returns before MI estimation"),
     };
+
+    if pid_mode == PidMode::CategoricalSxPls {
+        for outcome in [
+            &mut mi_v_action.outcome,
+            &mut mi_l_action.outcome,
+            &mut mi_d_action.outcome,
+            &mut vl_pair.outcome,
+            &mut vd_pair.outcome,
+            &mut ld_pair.outcome,
+        ] {
+            mark_supervised_same_row_warning(outcome);
+        }
+    }
 
     // Denominators over every requested estimate: three marginal MIs plus three pairs.
     let mut estimate_denominators = OfflineVldaEstimateDenominators::default();
@@ -3197,44 +3917,44 @@ fn compute_pid_screen_metrics(
         synergy_v_l_action,
         estimate_denominators,
         pid_pairs,
+        categorical_quantization,
         pls_selection,
         pls_shuffled_target_control: None,
         pls_control_seed: None,
     })
 }
 
-/// Fixed, recorded seed of the discrete-pls shuffled-target control.
+/// Fixed seed of the `categorical-sx-pls` shuffled-target control.
 const PLS_CONTROL_SEED: u64 = 0x51AF_F1ED;
 
-/// [`compute_pid_screen_metrics`], plus — in `discrete-pls` mode — the
-/// **shuffled-target permutation control**: the identical pipeline re-run with
+/// [`compute_pid_screen_metrics`], plus, in `categorical-sx-pls` mode, the
+/// fixed-seed **shuffled-target negative-control draw**: the identical pipeline re-run with
 /// the target `A`'s rows shuffled by a seeded permutation, attached to the
-/// returned metrics. See `OfflineVldaPidScreenMetrics::pls_shuffled_target_control`.
+/// returned metrics. One draw is not a null distribution, p-value, bound, or floor. See
+/// `OfflineVldaPidScreenMetrics::pls_shuffled_target_control`.
 fn compute_pid_screen_metrics_with_control(
     prepared: &PreparedVldaMatrices,
-    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
-    options: &OfflineVldaHarnessOptions,
-    dense_solver_budget: ResourceBudget,
+    contract: OfflineVldaPidScreenContract<'_>,
 ) -> Result<OfflineVldaPidScreenMetrics> {
     let mut metrics = compute_pid_screen_metrics(
-        prepared.v.as_ref(),
-        prepared.l.as_ref(),
-        prepared.d.as_ref(),
-        prepared.a.as_ref(),
-        support,
-        options,
-        dense_solver_budget,
+        OfflineVldaPidMatrices {
+            v: prepared.v.as_ref(),
+            l: prepared.l.as_ref(),
+            d: prepared.d.as_ref(),
+            a: prepared.a.as_ref(),
+        },
+        contract,
     )?;
-    if options.pid_mode == PidMode::DiscretePls {
+    if contract.options.pid_mode == PidMode::CategoricalSxPls {
         let shuffled_target = shuffled_target(prepared.a.as_ref(), PLS_CONTROL_SEED)?;
         let control = compute_pid_screen_metrics(
-            prepared.v.as_ref(),
-            prepared.l.as_ref(),
-            prepared.d.as_ref(),
-            shuffled_target.as_ref(),
-            support,
-            options,
-            dense_solver_budget,
+            OfflineVldaPidMatrices {
+                v: prepared.v.as_ref(),
+                l: prepared.l.as_ref(),
+                d: prepared.d.as_ref(),
+                a: shuffled_target.as_ref(),
+            },
+            contract,
         )?;
         metrics.pls_shuffled_target_control = Some(Box::new(control));
         metrics.pls_control_seed = Some(PLS_CONTROL_SEED);
@@ -3287,6 +4007,11 @@ fn shuffled_target(a: MatRef<'_>, seed: u64) -> Result<MatOwned> {
 /// full-n estimator or population quantity.
 pub const RAW_M_SAMPLE_STABILITY_INTERPRETATION: &str =
     "raw_m_sample_percentiles_not_n_sample_confidence_intervals";
+
+/// Current offline uncertainty holds the all-sample standardization fixed while rows are
+/// resampled. This is a conditional stability diagnostic, not nested preprocessing uncertainty.
+pub const OFFLINE_UNCERTAINTY_PREPROCESSING_RESAMPLING: &str =
+    "fixed_full_sample_standardization_not_nested";
 
 fn raw_m_sample_stability_interpretation() -> String {
     RAW_M_SAMPLE_STABILITY_INTERPRETATION.to_string()
@@ -3351,8 +4076,11 @@ fn permutation_calibration_label(scheme: PermutationScheme, n_perm: usize) -> Re
         return Ok("not_requested");
     }
     match scheme {
-        PermutationScheme::FullShuffle | PermutationScheme::BlockShuffle { .. } => {
-            Ok("monte_carlo_p_value_under_declared_exchangeability")
+        PermutationScheme::FullShuffle => {
+            Ok("monte_carlo_p_value_under_declared_row_exchangeability")
+        }
+        PermutationScheme::BlockShuffle { .. } => {
+            Ok("monte_carlo_p_value_under_declared_whole_block_exchangeability")
         }
         PermutationScheme::CircularShift { .. } => {
             Ok("approximate_stationary_surrogate_score_not_p_value")
@@ -3435,6 +4163,57 @@ fn has_strict_sequence_index(samples: &[OfflineVldaSample]) -> bool {
         previous = Some(current);
     }
     previous.is_some()
+}
+
+fn segments_have_strict_sequence_index(
+    samples: &[OfflineVldaSample],
+    segments: &[std::ops::Range<usize>],
+) -> bool {
+    segments.iter().all(|segment| {
+        if segment.len() < 2 {
+            return true;
+        }
+        let mut previous = None::<u64>;
+        samples[segment.clone()].iter().all(|sample| {
+            let Some(raw) = sample.metadata.get("sequence_index") else {
+                return false;
+            };
+            let Ok(current) = raw.parse::<u64>() else {
+                return false;
+            };
+            let valid = current.to_string() == *raw && previous.is_none_or(|value| current > value);
+            if valid {
+                previous = Some(current);
+            }
+            valid
+        })
+    })
+}
+
+fn split_segments_at_sequence_index_gaps(
+    samples: &[OfflineVldaSample],
+    segments: &[std::ops::Range<usize>],
+) -> (Vec<std::ops::Range<usize>>, usize) {
+    let mut unit_step_segments = Vec::with_capacity(segments.len());
+    let mut gap_pairs = 0usize;
+    for segment in segments {
+        let mut start = segment.start;
+        for idx in segment.start.saturating_add(1)..segment.end {
+            let previous = samples[idx - 1].metadata["sequence_index"]
+                .parse::<u64>()
+                .expect("strict sequence receipt was verified");
+            let current = samples[idx].metadata["sequence_index"]
+                .parse::<u64>()
+                .expect("strict sequence receipt was verified");
+            if current - previous > 1 {
+                unit_step_segments.push(start..idx);
+                start = idx;
+                gap_pairs += 1;
+            }
+        }
+        unit_step_segments.push(start..segment.end);
+    }
+    (unit_step_segments, gap_pairs)
 }
 
 fn uncertainty_execution_label(
@@ -3612,6 +4391,9 @@ pub struct OfflineVldaPairUncertainty {
     /// record these gates and deserialize conservatively as not evaluated/application blocked.
     #[serde(default = "legacy_scientific_gates")]
     pub scientific_gates: OfflineVldaScientificGates,
+    /// Strong joint-law declaration for this exact continuous PID tuple.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub declared_continuous_tuple_support: Option<OfflineVldaContinuousTupleSupport>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<OfflineVldaAbstainReason>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3680,6 +4462,9 @@ pub struct OfflineVldaPidUncertainty {
     /// interpretation when reading sidecars written before this field existed.
     #[serde(default = "raw_m_sample_stability_interpretation")]
     pub stability_interpretation: String,
+    /// Whether fitted preprocessing is rerun inside each resample.
+    #[serde(default = "offline_uncertainty_preprocessing_resampling")]
+    pub preprocessing_resampling: String,
     pub n_boot: usize,
     pub n_perm: usize,
     pub block_size: usize,
@@ -3696,23 +4481,32 @@ pub struct OfflineVldaPidUncertainty {
     /// Which permutation or surrogate transform produced the tail fractions.
     #[serde(default)]
     pub permutation_scheme: String,
-    /// `"monte_carlo_p_value_under_declared_exchangeability"`,
+    /// `"monte_carlo_p_value_under_declared_row_exchangeability"`,
+    /// `"monte_carlo_p_value_under_declared_whole_block_exchangeability"`,
     /// `"approximate_stationary_surrogate_score_not_p_value"`, or `"not_requested"`.
     pub permutation_calibration: String,
     pub pairs: Vec<OfflineVldaPairUncertainty>,
+}
+
+fn offline_uncertainty_preprocessing_resampling() -> String {
+    OFFLINE_UNCERTAINTY_PREPROCESSING_RESAMPLING.to_string()
 }
 
 /// Compute raw m-sample stability percentiles and single-source null tail fractions for the
 /// three two-source `(V,L)→A` / `(V,D)→A` / `(L,D)→A` PID screens.
 ///
 /// This is the analysis-side complement to the Exp0 uncertainty gate: it quantifies
-/// uncertainty on the **continuous `I^sx_∩`** atoms (the primary atom-level measure;
-/// discrete `I_min` modes are a different measure — Warning 6 — and are reported as
-/// `skipped`). Resampling is Politis–Romano subsampling without replacement. It avoids the
+/// uncertainty on the **continuous `I^sx_∩`** atoms. The categorical modes estimate a distinct
+/// MGW shared-exclusions functional on explicitly quantized variables. They share a scientific
+/// lineage, not one cross-domain measure. This continuous resampler does not cover the categorical
+/// estimator and reports a typed skip. Resampling is Politis–Romano
+/// subsampling without replacement. It avoids the
 /// duplicate indices created by an ordinary with-replacement bootstrap, but does not establish
 /// inferential validity for KSG or `I^sx_∩`; ties already present in the data can still reject a
 /// resample. Its raw percentiles describe estimator stability at `m = subsample_len`; they do not
 /// have calibrated n-sample confidence-interval coverage.
+/// The all-sample standardization stays fixed inside every resample. The result is conditional
+/// stability under that fitted transform, not nested preprocessing uncertainty.
 /// Full shuffles require exchangeable rows. Circular shifts produce approximate stationary-series
 /// surrogate scores, not p-values. The current implementation does not cross or pool dependent
 /// episode boundaries: it returns a typed skip when multiple episodes contain repeated rows.
@@ -3768,10 +4562,11 @@ fn compute_offline_pid_uncertainty_after_resource_preflight(
         return Ok(OfflineVldaPidUncertainty {
             schema_version: OFFLINE_UNCERTAINTY_SCHEMA_VERSION,
             dataset_content_sha256,
-            estimator_revision: ESTIMATOR_REVISION.to_string(),
+            estimator_revision: ESTIMATOR_CONTINUOUS_PID2.to_string(),
             pid_mode,
             mode: "skipped:no_uncertainty_requested".to_string(),
             stability_interpretation: raw_m_sample_stability_interpretation(),
+            preprocessing_resampling: offline_uncertainty_preprocessing_resampling(),
             n_boot: 0,
             n_perm: 0,
             block_size: config.block_size,
@@ -3789,10 +4584,11 @@ fn compute_offline_pid_uncertainty_after_resource_preflight(
         return Ok(OfflineVldaPidUncertainty {
             schema_version: OFFLINE_UNCERTAINTY_SCHEMA_VERSION,
             dataset_content_sha256,
-            estimator_revision: ESTIMATOR_REVISION.to_string(),
+            estimator_revision: ESTIMATOR_CONTINUOUS_PID2.to_string(),
             pid_mode,
             mode: format!("skipped:non_continuous_mode_is_a_different_measure ({pid_mode:?})"),
             stability_interpretation: raw_m_sample_stability_interpretation(),
+            preprocessing_resampling: offline_uncertainty_preprocessing_resampling(),
             n_boot: config.n_boot,
             n_perm: config.n_perm,
             block_size: config.block_size,
@@ -3823,10 +4619,11 @@ fn compute_offline_pid_uncertainty_after_resource_preflight(
         return Ok(OfflineVldaPidUncertainty {
             schema_version: OFFLINE_UNCERTAINTY_SCHEMA_VERSION,
             dataset_content_sha256,
-            estimator_revision: ESTIMATOR_REVISION.to_string(),
+            estimator_revision: ESTIMATOR_CONTINUOUS_PID2.to_string(),
             pid_mode,
             mode: UNSUPPORTED_UNCERTAINTY_TOPOLOGY_MODE.to_string(),
             stability_interpretation: raw_m_sample_stability_interpretation(),
+            preprocessing_resampling: offline_uncertainty_preprocessing_resampling(),
             n_boot: config.n_boot,
             n_perm: config.n_perm,
             block_size: config.block_size,
@@ -3902,11 +4699,21 @@ fn compute_offline_pid_uncertainty_after_resource_preflight(
 
         // Uncertainty is only meaningful for a pair the continuous estimator will actually run.
         // Preflight exactly as the screens do, and abstain rather than crash.
-        let (diagnostics, rejection) = continuous_preflight_from_diagnostics(vec![
-            diagnostic_for(axis_1).clone(),
-            diagnostic_for(axis_2).clone(),
-            diagnostic_for("A").clone(),
-        ]);
+        let tuple_key = match name {
+            "VL" => CONTINUOUS_TUPLE_V_L_A,
+            "VD" => CONTINUOUS_TUPLE_V_D_A,
+            "LD" => CONTINUOUS_TUPLE_L_D_A,
+            _ => unreachable!("uncertainty pair specification uses only VL, VD, and LD"),
+        };
+        let tuple_support = dataset.continuous_tuple_support.get(tuple_key).copied();
+        let (diagnostics, rejection) = continuous_preflight_from_diagnostics(
+            vec![
+                diagnostic_for(axis_1).clone(),
+                diagnostic_for(axis_2).clone(),
+                diagnostic_for("A").clone(),
+            ],
+            tuple_support,
+        );
         // `pid2_resource_estimate` also rejects structurally-inapplicable pairs (e.g. unequal
         // ambient source dimensions), so consult it before doing any resampling work.
         let (rejection, pair_resource_estimate) = if rejection.is_some() {
@@ -3932,6 +4739,7 @@ fn compute_offline_pid_uncertainty_after_resource_preflight(
                 pair: name.to_string(),
                 status: OfflineVldaEstimateStatus::Abstained,
                 scientific_gates: abstained_scientific_gates(reason),
+                declared_continuous_tuple_support: tuple_support,
                 reason_code: Some(reason),
                 reason_detail: Some(detail),
                 warning_codes: Vec::new(),
@@ -4103,6 +4911,7 @@ fn compute_offline_pid_uncertainty_after_resource_preflight(
             pair: name.to_string(),
             status,
             scientific_gates,
+            declared_continuous_tuple_support: tuple_support,
             reason_code,
             reason_detail,
             warning_codes,
@@ -4120,10 +4929,11 @@ fn compute_offline_pid_uncertainty_after_resource_preflight(
     Ok(OfflineVldaPidUncertainty {
         schema_version: OFFLINE_UNCERTAINTY_SCHEMA_VERSION,
         dataset_content_sha256,
-        estimator_revision: ESTIMATOR_REVISION.to_string(),
+        estimator_revision: ESTIMATOR_CONTINUOUS_PID2.to_string(),
         pid_mode,
         mode: "continuous".to_string(),
         stability_interpretation: raw_m_sample_stability_interpretation(),
+        preprocessing_resampling: offline_uncertainty_preprocessing_resampling(),
         n_boot: config.n_boot,
         n_perm: config.n_perm,
         block_size: config.block_size,
@@ -4164,6 +4974,32 @@ fn validate_outcome_contract(
             && outcome.estimator_revision == outcome.estimator_revision.trim(),
         "{context}: estimator revision is empty or has surrounding whitespace"
     );
+    let expected_units = if outcome.status == OfflineVldaEstimateStatus::NotRequested {
+        "not_applicable"
+    } else {
+        "nats"
+    };
+    ensure!(
+        outcome.information_units == expected_units,
+        "{context}: information units must be {expected_units}"
+    );
+    let is_continuous = matches!(
+        outcome.measure.as_str(),
+        MEASURE_CONTINUOUS_MI | MEASURE_CONTINUOUS_PID2
+    );
+    if !is_continuous {
+        ensure!(
+            outcome.declared_continuous_tuple_support.is_none(),
+            "{context}: non-continuous outcome carries a continuous tuple-support contract"
+        );
+    } else if outcome.produced() {
+        ensure!(
+            outcome
+                .declared_continuous_tuple_support
+                .is_some_and(OfflineVldaContinuousTupleSupport::is_regular),
+            "{context}: produced continuous outcome lacks its regular joint-law and finite-information tuple contract"
+        );
+    }
     ensure!(!outcome.axes.is_empty(), "{context}: axes are empty");
     ensure!(
         outcome
@@ -4253,6 +5089,20 @@ fn validate_outcome_contract(
                 !outcome.scientific_gates.interpretation_allowed,
                 "{context}: an abstained estimate cannot permit interpretation"
             );
+            if reason == OfflineVldaAbstainReason::TupleSupportContractUnspecified {
+                ensure!(
+                    outcome.declared_continuous_tuple_support.is_none(),
+                    "{context}: missing-tuple abstention carries a tuple declaration"
+                );
+            }
+            if reason == OfflineVldaAbstainReason::DeclaredTupleSupportIncompatibleContinuous {
+                ensure!(
+                    outcome
+                        .declared_continuous_tuple_support
+                        .is_some_and(|support| !support.is_regular()),
+                    "{context}: incompatible-tuple abstention lacks its non-regular tuple declaration"
+                );
+            }
         }
     }
     ensure!(
@@ -4380,7 +5230,53 @@ fn validate_pid_pair(pair_name: &str, pair: &OfflineVldaPidPairMetrics) -> Resul
             );
         }
     }
-    if let Some(saturation) = &pair.discrete_saturation {
+    match (&pair.categorical_sx_components, pair.outcome.measure.as_str()) {
+        (Some(components), MEASURE_CATEGORICAL_PID2) => {
+            let component_atoms = [
+                ("redundancy", components.redundancy, pair.redundancy),
+                (
+                    "unique_source_1",
+                    components.unique_source_1,
+                    pair.unique_source_1,
+                ),
+                (
+                    "unique_source_2",
+                    components.unique_source_2,
+                    pair.unique_source_2,
+                ),
+                ("synergy", components.synergy, pair.synergy),
+            ];
+            for (name, atom, reported_net) in component_atoms {
+                ensure!(
+                    [atom.informative, atom.misinformative, atom.net]
+                        .into_iter()
+                        .all(f64::is_finite),
+                    "{context}: categorical shared-exclusions {name} component is non-finite"
+                );
+                let tolerance = 256.0 * f64::EPSILON;
+                ensure!(
+                    atom.informative >= -tolerance && atom.misinformative >= -tolerance,
+                    "{context}: categorical shared-exclusions {name} has a negative informative or misinformative component"
+                );
+                ensure!(
+                    approximately_equal_f64(atom.net, atom.informative - atom.misinformative),
+                    "{context}: categorical shared-exclusions {name} does not satisfy net = informative - misinformative"
+                );
+                ensure!(
+                    reported_net.is_some_and(|value| value.to_bits() == atom.net.to_bits()),
+                    "{context}: categorical shared-exclusions {name} net does not match its report atom"
+                );
+            }
+        }
+        (None, MEASURE_CATEGORICAL_PID2) => bail!(
+            "{context}: categorical shared-exclusions result lacks informative/misinformative components"
+        ),
+        (Some(_), _) => bail!(
+            "{context}: a non-categorical estimate carries categorical shared-exclusions components"
+        ),
+        (None, _) => {}
+    }
+    if let Some(saturation) = &pair.categorical_saturation {
         let fractions = [
             saturation.unique_fraction_source_1,
             saturation.unique_fraction_source_2,
@@ -4391,7 +5287,35 @@ fn validate_pid_pair(pair_name: &str, pair: &OfflineVldaPidPairMetrics) -> Resul
             fractions
                 .into_iter()
                 .all(|fraction| fraction.is_finite() && (0.0..=1.0).contains(&fraction)),
-            "{context}: discrete saturation fraction is outside [0, 1]"
+            "{context}: categorical saturation fraction is outside [0, 1]"
+        );
+        ensure!(
+            saturation.empirical_sample_count > 0
+                && saturation.observed_joint_states > 0
+                && saturation.observed_joint_states <= saturation.empirical_sample_count
+                && saturation.singleton_joint_states <= saturation.observed_joint_states
+                && saturation.low_count_joint_states <= saturation.observed_joint_states
+                && saturation.minimum_observed_count > 0
+                && saturation.maximum_observed_count >= saturation.minimum_observed_count
+                && saturation.maximum_observed_count <= saturation.empirical_sample_count,
+            "{context}: categorical empirical-PMF occupancy counts are inconsistent"
+        );
+        ensure!(
+            saturation.observed_coverage_indicator.is_finite()
+                && (0.0..=1.0).contains(&saturation.observed_coverage_indicator),
+            "{context}: categorical empirical-PMF coverage indicator is outside [0, 1]"
+        );
+        ensure!(
+            approximately_equal_f64(
+                saturation.unique_fraction_joint,
+                saturation.observed_joint_states as f64 / saturation.empirical_sample_count as f64,
+            ),
+            "{context}: categorical joint-state fraction contradicts the empirical-PMF occupancy"
+        );
+        ensure!(
+            saturation.population_caveat
+                == "direct evaluation on the empirical categorical PMF; unseen population states have empirical probability zero and plug-in bias remains",
+            "{context}: categorical empirical-PMF population caveat is missing or changed"
         );
         ensure!(
             pair.outcome.produced(),
@@ -4399,22 +5323,30 @@ fn validate_pid_pair(pair_name: &str, pair: &OfflineVldaPidPairMetrics) -> Resul
         );
         let expected_warning = fractions
             .into_iter()
-            .any(|fraction| fraction > OFFLINE_DISCRETE_SATURATION_UNIQUE_FRACTION_MAX);
+            .any(|fraction| fraction > OFFLINE_CATEGORICAL_SATURATION_UNIQUE_FRACTION_MAX);
         ensure!(
             saturation.saturation_warning == expected_warning,
-            "{context}: discrete saturation warning contradicts the recorded fractions"
+            "{context}: categorical saturation warning contradicts the recorded fractions"
         );
         ensure!(
             if expected_warning {
                 pair.outcome.status == OfflineVldaEstimateStatus::ProducedWithWarning
                     && pair.outcome.scientific_gates.estimator
                         == OfflineVldaScientificGateVerdict::Blocked
-                    && pair.outcome.scientific_gates.reason_code.as_deref()
-                        == Some("discrete_saturation")
+                    && matches!(
+                        pair.outcome.scientific_gates.reason_code.as_deref(),
+                        Some(SCIENTIFIC_REASON_CATEGORICAL_SATURATION)
+                            | Some(SCIENTIFIC_REASON_SUPERVISED_SAME_ROW_AND_SATURATION)
+                    )
             } else {
                 pair.outcome.status == OfflineVldaEstimateStatus::Produced
+                    || (pair.outcome.status == OfflineVldaEstimateStatus::ProducedWithWarning
+                        && pair.outcome.scientific_gates.estimator
+                            == OfflineVldaScientificGateVerdict::Blocked
+                        && pair.outcome.scientific_gates.reason_code.as_deref()
+                            == Some(SCIENTIFIC_REASON_SUPERVISED_SAME_ROW))
             },
-            "{context}: discrete saturation state contradicts the computation outcome"
+            "{context}: categorical saturation state contradicts the computation outcome"
         );
     }
     Ok(())
@@ -4603,20 +5535,68 @@ fn validate_pls_selection_contract(
     Ok(())
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "publication validation keeps every independent PLS/PID contract component explicit"
-)]
-fn validate_pid_mode_screen_contract(
-    mi_estimates: [&OfflineVldaMiEstimate; 3],
-    pid_pairs: &BTreeMap<String, OfflineVldaPidPairMetrics>,
-    pls_selection: Option<&OfflineVldaPlsSelection>,
-    pls_control: Option<&OfflineVldaPidScreenMetrics>,
-    pls_control_seed: Option<u64>,
-    options: &OfflineVldaHarnessOptions,
-    expects_pls_control: bool,
+fn validate_categorical_warning_contract(
+    outcome: &OfflineVldaOutcome,
+    pid_mode: PidMode,
+    saturation_warning: Option<bool>,
     context: &str,
 ) -> Result<()> {
+    let expected_reason = match (pid_mode, saturation_warning.unwrap_or(false)) {
+        (PidMode::CategoricalSxPls, true) => {
+            Some(SCIENTIFIC_REASON_SUPERVISED_SAME_ROW_AND_SATURATION)
+        }
+        (PidMode::CategoricalSxPls, false) => Some(SCIENTIFIC_REASON_SUPERVISED_SAME_ROW),
+        (PidMode::CategoricalSx, true) => Some(SCIENTIFIC_REASON_CATEGORICAL_SATURATION),
+        (PidMode::CategoricalSx, false) => None,
+        _ => return Ok(()),
+    };
+    match expected_reason {
+        Some(reason) => ensure!(
+            outcome.status == OfflineVldaEstimateStatus::ProducedWithWarning
+                && outcome.scientific_gates.estimator == OfflineVldaScientificGateVerdict::Blocked
+                && outcome.scientific_gates.application
+                    == OfflineVldaScientificGateVerdict::Blocked
+                && !outcome.scientific_gates.interpretation_allowed
+                && outcome.scientific_gates.reason_code.as_deref() == Some(reason)
+                && outcome
+                    .reason_detail
+                    .as_ref()
+                    .is_some_and(|detail| !detail.trim().is_empty()),
+            "{context}: categorical warning does not match the fitted-preprocessing contract"
+        ),
+        None => ensure!(
+            outcome.status == OfflineVldaEstimateStatus::Produced,
+            "{context}: warning is not justified by saturation or supervised same-row preprocessing"
+        ),
+    }
+    Ok(())
+}
+
+struct OfflineVldaPidScreenValidation<'a> {
+    mi_estimates: [&'a OfflineVldaMiEstimate; 3],
+    pid_pairs: &'a BTreeMap<String, OfflineVldaPidPairMetrics>,
+    quantization: &'a BTreeMap<String, OfflineVldaQuantizationReceipt>,
+    pls_selection: Option<&'a OfflineVldaPlsSelection>,
+    pls_control: Option<&'a OfflineVldaPidScreenMetrics>,
+    pls_control_seed: Option<u64>,
+    expects_pls_control: bool,
+    context: &'a str,
+}
+
+fn validate_pid_mode_screen_contract(
+    screen: OfflineVldaPidScreenValidation<'_>,
+    options: &OfflineVldaHarnessOptions,
+) -> Result<()> {
+    let OfflineVldaPidScreenValidation {
+        mi_estimates,
+        pid_pairs,
+        quantization,
+        pls_selection,
+        pls_control,
+        pls_control_seed,
+        expects_pls_control,
+        context,
+    } = screen;
     if options.pid_mode == PidMode::Disabled {
         for (axis, estimate) in ["V", "L", "D"].into_iter().zip(mi_estimates) {
             let expected = OfflineVldaMiEstimate {
@@ -4630,41 +5610,145 @@ fn validate_pid_mode_screen_contract(
         }
         ensure!(
             pid_pairs.is_empty()
+                && quantization.is_empty()
                 && pls_selection.is_none()
                 && pls_control.is_none()
                 && pls_control_seed.is_none(),
-            "{context}: disabled PID mode carries PID or PLS results"
+            "{context}: disabled PID mode carries PID, quantization, or PLS results"
         );
         return Ok(());
     }
 
     let (mi_measure, pid_measure) = match options.pid_mode {
         PidMode::Continuous => (MEASURE_CONTINUOUS_MI, MEASURE_CONTINUOUS_PID2),
-        PidMode::Discrete | PidMode::DiscretePls => (MEASURE_QUANTIZED_MI, MEASURE_QUANTIZED_PID2),
+        PidMode::CategoricalSx | PidMode::CategoricalSxPls => {
+            (MEASURE_CATEGORICAL_MI, MEASURE_CATEGORICAL_PID2)
+        }
         PidMode::Disabled => unreachable!("disabled mode returned above"),
     };
+    if matches!(
+        options.pid_mode,
+        PidMode::CategoricalSx | PidMode::CategoricalSxPls
+    ) {
+        ensure!(
+            quantization.len() == 4,
+            "{context}: categorical Sx screen must bind exactly V, L, D, and A quantizers"
+        );
+        for axis in ["V", "L", "D", "A"] {
+            let receipt = quantization
+                .get(axis)
+                .with_context(|| format!("{context}: missing {axis} quantizer receipt"))?;
+            let nominal_joint_cardinality = receipt
+                .nominal_joint_cardinality
+                .as_deref()
+                .map(str::parse::<u128>)
+                .transpose()
+                .with_context(|| {
+                    format!("{context}: {axis} nominal joint cardinality is not a u128")
+                })?;
+            let empty_joint_cells = receipt
+                .empty_joint_cells
+                .as_deref()
+                .map(str::parse::<u128>)
+                .transpose()
+                .with_context(|| {
+                    format!("{context}: {axis} empty joint-cell count is not a u128")
+                })?;
+            ensure!(
+                receipt.axis == axis
+                    && receipt.functional
+                        == "Makkeh-Gutknecht-Wibral averaged two-source categorical shared exclusions"
+                    && receipt.quantizer
+                        == "pid_core::stable::quantized::EqualWidthQuantizer"
+                    && receipt.estimator_revision == ESTIMATOR_CATEGORICAL_PID2
+                    && receipt.information_units == "nats"
+                    && receipt.bins_per_dimension == options.categorical_bins
+                    && receipt.samples > 0
+                    && receipt.dimensions > 0
+                    && receipt.fitted_edge_count
+                        == receipt
+                            .dimensions
+                            .checked_mul(
+                                receipt
+                                    .bins_per_dimension
+                                    .checked_add(1)
+                                    .context("quantizer receipt bin-edge count overflow")?,
+                            )
+                            .context("quantizer receipt edge-count overflow")?
+                    && receipt.out_of_range_policy == "error"
+                    && receipt.scaling_description
+                        == "per-variable standardization followed by fitted equal-width bins"
+                    && receipt.estimand_statement
+                        == "PID of the declared fitted equal-width quantized variables; not continuous PID"
+                    && receipt.observed_joint_cardinality > 0
+                    && receipt.observed_joint_cardinality <= receipt.samples
+                    && receipt.low_count_joint_cells <= receipt.observed_joint_cardinality
+                    && receipt.minimum_observed_cell_count > 0
+                    && receipt.maximum_observed_cell_count
+                        >= receipt.minimum_observed_cell_count
+                    && receipt.maximum_observed_cell_count <= receipt.samples,
+                "{context}: {axis} quantizer receipt contradicts the categorical Sx contract"
+            );
+            match (nominal_joint_cardinality, empty_joint_cells) {
+                (Some(nominal), Some(empty)) => ensure!(
+                    nominal >= receipt.observed_joint_cardinality as u128
+                        && empty == nominal - receipt.observed_joint_cardinality as u128,
+                    "{context}: {axis} quantizer receipt has inconsistent nominal and empty cardinalities"
+                ),
+                (None, None) => {}
+                _ => bail!(
+                    "{context}: {axis} quantizer receipt must record nominal and empty cardinalities together"
+                ),
+            }
+            for digest in [
+                &receipt.fitted_edges_sha256,
+                &receipt.training_input_sha256,
+                &receipt.transform_input_sha256,
+                &receipt.categorical_output_sha256,
+            ] {
+                ensure!(
+                    digest.len() == 64
+                        && digest
+                            .bytes()
+                            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)),
+                    "{context}: {axis} quantizer receipt has an invalid SHA-256"
+                );
+            }
+        }
+    } else {
+        ensure!(
+            quantization.is_empty(),
+            "{context}: non-categorical PID mode carries quantizer receipts"
+        );
+    }
     for (axis, estimate) in ["V", "L", "D"].into_iter().zip(mi_estimates) {
         ensure!(
             estimate.outcome.status != OfflineVldaEstimateStatus::NotRequested
                 && estimate.outcome.measure == mi_measure
-                && estimate.outcome.estimator_revision == ESTIMATOR_REVISION
+                && estimate.outcome.estimator_revision
+                    == estimator_revision_for_measure(mi_measure)
                 && estimate.outcome.axes == [axis.to_string(), "A".to_string()],
             "{context}: MI({axis};A) identity contradicts the recorded PID mode"
         );
-        if matches!(options.pid_mode, PidMode::Discrete | PidMode::DiscretePls) {
+        if matches!(
+            options.pid_mode,
+            PidMode::CategoricalSx | PidMode::CategoricalSxPls
+        ) {
             ensure!(
                 estimate.outcome.produced(),
-                "{context}: quantized MI({axis};A) was not produced"
+                "{context}: fitted-categorical MI({axis};A) was not produced"
             );
-            if estimate.outcome.status == OfflineVldaEstimateStatus::ProducedWithWarning {
-                ensure!(
-                    estimate.outcome.scientific_gates.estimator
-                        == OfflineVldaScientificGateVerdict::Blocked
-                        && estimate.outcome.scientific_gates.reason_code.as_deref()
-                            == Some("discrete_saturation"),
-                    "{context}: quantized MI({axis};A) warning is not a typed saturation warning"
-                );
-            }
+            let saturation_warning = matches!(
+                estimate.outcome.scientific_gates.reason_code.as_deref(),
+                Some(SCIENTIFIC_REASON_CATEGORICAL_SATURATION)
+                    | Some(SCIENTIFIC_REASON_SUPERVISED_SAME_ROW_AND_SATURATION)
+            );
+            validate_categorical_warning_contract(
+                &estimate.outcome,
+                options.pid_mode,
+                Some(saturation_warning),
+                &format!("{context}: fitted-categorical MI({axis};A)"),
+            )?;
         }
     }
 
@@ -4683,49 +5767,66 @@ fn validate_pid_mode_screen_contract(
                 && pair.target == "A"
                 && pair.outcome.status != OfflineVldaEstimateStatus::NotRequested
                 && pair.outcome.measure == pid_measure
-                && pair.outcome.estimator_revision == ESTIMATOR_REVISION
+                && pair.outcome.estimator_revision == estimator_revision_for_measure(pid_measure)
                 && pair.outcome.axes
                     == [source_1.to_string(), source_2.to_string(), "A".to_string(),],
             "{context}: PID pair {pair_name} identity contradicts the recorded PID mode"
         );
         match options.pid_mode {
             PidMode::Continuous => ensure!(
-                pair.discrete_saturation.is_none(),
-                "{context}: continuous PID pair {pair_name} carries discrete saturation data"
+                pair.categorical_saturation.is_none(),
+                "{context}: continuous PID pair {pair_name} carries categorical saturation data"
             ),
-            PidMode::Discrete | PidMode::DiscretePls => ensure!(
-                pair.discrete_saturation.is_some() == pair.outcome.produced(),
-                "{context}: discrete PID pair {pair_name} saturation data contradicts its outcome"
+            PidMode::CategoricalSx | PidMode::CategoricalSxPls => ensure!(
+                pair.categorical_saturation.is_some() == pair.outcome.produced(),
+                "{context}: categorical PID pair {pair_name} saturation data contradicts its outcome"
             ),
             PidMode::Disabled => unreachable!("disabled mode returned above"),
         }
+        if matches!(
+            options.pid_mode,
+            PidMode::CategoricalSx | PidMode::CategoricalSxPls
+        ) {
+            validate_categorical_warning_contract(
+                &pair.outcome,
+                options.pid_mode,
+                pair.categorical_saturation
+                    .as_ref()
+                    .map(|saturation| saturation.saturation_warning),
+                &format!("{context}: categorical PID pair {pair_name}"),
+            )?;
+        }
     }
 
-    if options.pid_mode == PidMode::DiscretePls {
-        let selection = pls_selection
-            .with_context(|| format!("{context}: discrete-pls mode lacks PLS selection data"))?;
+    if options.pid_mode == PidMode::CategoricalSxPls {
+        let selection = pls_selection.with_context(|| {
+            format!("{context}: categorical-sx-pls mode lacks PLS selection data")
+        })?;
         validate_pls_selection_contract(selection, options.pls, context)?;
         if expects_pls_control {
             ensure!(
                 pls_control_seed == Some(PLS_CONTROL_SEED),
-                "{context}: discrete-pls control seed is absent or incorrect"
+                "{context}: categorical-sx-pls control seed is absent or incorrect"
             );
             let control = pls_control.with_context(|| {
-                format!("{context}: discrete-pls mode lacks its shuffled-target control")
+                format!("{context}: categorical-sx-pls mode lacks its shuffled-target control")
             })?;
             validate_pid_mode_screen_contract(
-                [
-                    &control.mi_v_action,
-                    &control.mi_l_action,
-                    &control.mi_d_action,
-                ],
-                &control.pid_pairs,
-                control.pls_selection.as_ref(),
-                control.pls_shuffled_target_control.as_deref(),
-                control.pls_control_seed,
+                OfflineVldaPidScreenValidation {
+                    mi_estimates: [
+                        &control.mi_v_action,
+                        &control.mi_l_action,
+                        &control.mi_d_action,
+                    ],
+                    pid_pairs: &control.pid_pairs,
+                    quantization: &control.categorical_quantization,
+                    pls_selection: control.pls_selection.as_ref(),
+                    pls_control: control.pls_shuffled_target_control.as_deref(),
+                    pls_control_seed: control.pls_control_seed,
+                    expects_pls_control: false,
+                    context: &format!("{context} shuffled-target control"),
+                },
                 options,
-                false,
-                &format!("{context} shuffled-target control"),
             )?;
         } else {
             ensure!(
@@ -4747,18 +5848,21 @@ fn validate_report_pid_mode_contract(
     options: &OfflineVldaHarnessOptions,
 ) -> Result<()> {
     validate_pid_mode_screen_contract(
-        [
-            &report.metrics.mi_v_action,
-            &report.metrics.mi_l_action,
-            &report.metrics.mi_d_action,
-        ],
-        &report.metrics.pid_pairs,
-        report.metrics.pls_selection.as_ref(),
-        report.metrics.pls_shuffled_target_control.as_deref(),
-        report.metrics.pls_control_seed,
+        OfflineVldaPidScreenValidation {
+            mi_estimates: [
+                &report.metrics.mi_v_action,
+                &report.metrics.mi_l_action,
+                &report.metrics.mi_d_action,
+            ],
+            pid_pairs: &report.metrics.pid_pairs,
+            quantization: &report.metrics.categorical_quantization,
+            pls_selection: report.metrics.pls_selection.as_ref(),
+            pls_control: report.metrics.pls_shuffled_target_control.as_deref(),
+            pls_control_seed: report.metrics.pls_control_seed,
+            expects_pls_control: true,
+            context: "full-data PID screen",
+        },
         options,
-        true,
-        "full-data PID screen",
     )?;
     if let Some(train) = &report.train_split_pid {
         match (&train.metrics, options.pid_mode) {
@@ -4773,18 +5877,21 @@ fn validate_report_pid_mode_contract(
                     "available train-split PID screen has inconsistent status fields"
                 );
                 validate_pid_mode_screen_contract(
-                    [
-                        &metrics.mi_v_action,
-                        &metrics.mi_l_action,
-                        &metrics.mi_d_action,
-                    ],
-                    &metrics.pid_pairs,
-                    metrics.pls_selection.as_ref(),
-                    metrics.pls_shuffled_target_control.as_deref(),
-                    metrics.pls_control_seed,
+                    OfflineVldaPidScreenValidation {
+                        mi_estimates: [
+                            &metrics.mi_v_action,
+                            &metrics.mi_l_action,
+                            &metrics.mi_d_action,
+                        ],
+                        pid_pairs: &metrics.pid_pairs,
+                        quantization: &metrics.categorical_quantization,
+                        pls_selection: metrics.pls_selection.as_ref(),
+                        pls_control: metrics.pls_shuffled_target_control.as_deref(),
+                        pls_control_seed: metrics.pls_control_seed,
+                        expects_pls_control: true,
+                        context: "train-split PID screen",
+                    },
                     options,
-                    true,
-                    "train-split PID screen",
                 )?;
             }
             (None, PidMode::Disabled) => ensure!(
@@ -4800,6 +5907,86 @@ fn validate_report_pid_mode_contract(
                 "unavailable train-split PID screen lacks a typed error status"
             ),
         }
+    }
+    Ok(())
+}
+
+fn validate_report_continuous_tuple_bindings(
+    report: &OfflineVldaReport,
+    options: &OfflineVldaHarnessOptions,
+) -> Result<()> {
+    let declared: BTreeMap<String, OfflineVldaContinuousTupleSupport> = serde_json::from_value(
+        report
+            .config
+            .get("continuous_tuple_support")
+            .context("offline VLDA report lacks continuous tuple-support declarations")?
+            .clone(),
+    )
+    .context("offline VLDA report has malformed continuous tuple-support declarations")?;
+    ensure!(
+        declared
+            .keys()
+            .all(|key| CONTINUOUS_TUPLE_KEYS.contains(&key.as_str())),
+        "offline VLDA report has an unknown continuous tuple-support key"
+    );
+    let expected_contract = if options.pid_mode == PidMode::Continuous {
+        "each_complete_mi_or_pid_tuple_requires_a_caller_declared_regular_full_dimensional_finite_information_joint_law"
+    } else {
+        "not_applicable"
+    };
+    ensure!(
+        report.config["metric_pipeline"]["continuous_support_contract"] == expected_contract,
+        "offline VLDA report has an invalid continuous-support contract description"
+    );
+    if options.pid_mode != PidMode::Continuous {
+        return Ok(());
+    }
+    let validate_outcomes =
+        |outcomes: [(&str, &OfflineVldaOutcome); 6], context: &str| -> Result<()> {
+            for (key, outcome) in outcomes {
+                ensure!(
+                    outcome.declared_continuous_tuple_support == declared.get(key).copied(),
+                    "{context}: {key} outcome contradicts the report tuple-support declaration"
+                );
+            }
+            Ok(())
+        };
+    validate_outcomes(
+        [
+            (CONTINUOUS_TUPLE_V_A, &report.metrics.mi_v_action.outcome),
+            (CONTINUOUS_TUPLE_L_A, &report.metrics.mi_l_action.outcome),
+            (CONTINUOUS_TUPLE_D_A, &report.metrics.mi_d_action.outcome),
+            (
+                CONTINUOUS_TUPLE_V_L_A,
+                &report.metrics.pid_pairs["VL"].outcome,
+            ),
+            (
+                CONTINUOUS_TUPLE_V_D_A,
+                &report.metrics.pid_pairs["VD"].outcome,
+            ),
+            (
+                CONTINUOUS_TUPLE_L_D_A,
+                &report.metrics.pid_pairs["LD"].outcome,
+            ),
+        ],
+        "full-data PID screen",
+    )?;
+    if let Some(metrics) = report
+        .train_split_pid
+        .as_ref()
+        .and_then(|train| train.metrics.as_ref())
+    {
+        validate_outcomes(
+            [
+                (CONTINUOUS_TUPLE_V_A, &metrics.mi_v_action.outcome),
+                (CONTINUOUS_TUPLE_L_A, &metrics.mi_l_action.outcome),
+                (CONTINUOUS_TUPLE_D_A, &metrics.mi_d_action.outcome),
+                (CONTINUOUS_TUPLE_V_L_A, &metrics.pid_pairs["VL"].outcome),
+                (CONTINUOUS_TUPLE_V_D_A, &metrics.pid_pairs["VD"].outcome),
+                (CONTINUOUS_TUPLE_L_D_A, &metrics.pid_pairs["LD"].outcome),
+            ],
+            "train-split PID screen",
+        )?;
     }
     Ok(())
 }
@@ -4887,10 +6074,10 @@ fn report_resource_binding(report: &OfflineVldaReport) -> Result<ReportResourceB
         deserialize_config_value(&report.config, "/resource_usage", "resource usage")?;
     let pid_mode: PidMode =
         deserialize_config_value(&report.config, "/metric_pipeline/pid_mode", "PID mode")?;
-    let discrete_bins: usize = deserialize_config_value(
+    let categorical_bins: usize = deserialize_config_value(
         &report.config,
-        "/metric_pipeline/discrete_bins",
-        "discrete bin count",
+        "/metric_pipeline/categorical_bins",
+        "categorical Sx bin count",
     )?;
     let pls_value = report
         .config
@@ -4898,7 +6085,7 @@ fn report_resource_binding(report: &OfflineVldaReport) -> Result<ReportResourceB
         .context("offline VLDA report configuration is missing its PLS component selection")?;
     let options = OfflineVldaHarnessOptions {
         pid_mode,
-        discrete_bins,
+        categorical_bins,
         pls: parse_recorded_pls_selection(pls_value)?,
     };
     validate_harness_options(&options)?;
@@ -5017,6 +6204,10 @@ fn report_resource_binding(report: &OfflineVldaReport) -> Result<ReportResourceB
         usage.projected_dense_solver_operations <= limits.max_dense_solver_operations,
         "offline VLDA report projected dense-solver usage exceeds its limit"
     );
+    ensure!(
+        usage.projected_categorical_pid_operations <= limits.max_categorical_pid_operations,
+        "offline VLDA report projected categorical-PID usage exceeds its limit"
+    );
 
     let pairwise_scope = report
         .config
@@ -5032,6 +6223,7 @@ fn report_resource_binding(report: &OfflineVldaReport) -> Result<ReportResourceB
                         "resource_usage_scope": "main_harness_analysis",
                         "distance_projection_model": "pairwise_units_times_max_combined_axis_width_v2",
                         "dense_solver_projection_model": "pid_core_0_9_logreg_pls_worst_case_v1",
+                        "categorical_pid_projection_model": "pid_core_0_9_fitted_quantization_and_two_source_averaged_sxpid_v1",
                         "optional_uncertainty": "not_included_by_single_analysis_api",
                     }),
                 "offline VLDA report has an invalid single-analysis resource-accounting contract"
@@ -5058,6 +6250,7 @@ fn report_resource_binding(report: &OfflineVldaReport) -> Result<ReportResourceB
                         "resource_usage_scope": "complete_cli_invocation_projection",
                         "distance_projection_model": "pairwise_units_times_max_combined_axis_width_v2",
                         "dense_solver_projection_model": "pid_core_0_9_logreg_pls_worst_case_v1",
+                        "categorical_pid_projection_model": "pid_core_0_9_fitted_quantization_and_two_source_averaged_sxpid_v1",
                         "optional_uncertainty": "included_or_typed_skip_in_aggregate_preflight",
                     }),
                 "offline VLDA report has an invalid aggregate resource-accounting contract"
@@ -5096,6 +6289,7 @@ fn report_resource_binding(report: &OfflineVldaReport) -> Result<ReportResourceB
                 request
                     == &json!({
                         "enabled": config.enabled(),
+                        "preprocessing_resampling": OFFLINE_UNCERTAINTY_PREPROCESSING_RESAMPLING,
                         "n_boot": config.n_boot,
                         "n_perm": config.n_perm,
                         "block_size": config.block_size,
@@ -5167,6 +6361,17 @@ fn validate_offline_vlda_report(report: &OfflineVldaReport) -> Result<()> {
             == Some(OFFLINE_VLDA_REPORT_SCHEMA),
         "offline VLDA report configuration has an unsupported report schema"
     );
+    let recorded_input_uri = match report.config.get("input_uri") {
+        Some(Value::Null) => None,
+        Some(Value::String(value)) => Some(value.as_str()),
+        _ => bail!("offline VLDA report input_uri must be a string or null"),
+    };
+    let recorded_input_sha256 = match report.config.get("input_sha256") {
+        Some(Value::Null) => None,
+        Some(Value::String(value)) => Some(value.as_str()),
+        _ => bail!("offline VLDA report input_sha256 must be a string or null"),
+    };
+    validate_optional_input_binding(recorded_input_uri, recorded_input_sha256)?;
     ensure!(
         report.config.get("samples").and_then(Value::as_u64)
             == u64::try_from(report.dims.samples).ok(),
@@ -5178,21 +6383,26 @@ fn validate_offline_vlda_report(report: &OfflineVldaReport) -> Result<()> {
         report.config.get("dims") == Some(&expected_dims),
         "offline VLDA report dimensions contradict its configuration"
     );
+    validate_temporal_report(&report.temporal, &report.dims)?;
     let resource_binding = report_resource_binding(report)?;
     let expected_metric_pipeline = offline_vlda_metric_pipeline_config(
         &resource_binding.options,
-        &report.preprocessing,
-        &report.geometry,
-        report.train_split_pid.as_ref(),
-        report.heldout_split.as_ref(),
-        report.heldout_class_coverage.as_ref(),
-        report.heldout_episode_disjoint.as_ref(),
+        OfflineVldaMetricPipelineInputs {
+            preprocessing: &report.preprocessing,
+            geometry: &report.geometry,
+            temporal: &report.temporal,
+            train_split_pid: report.train_split_pid.as_ref(),
+            heldout_split: report.heldout_split.as_ref(),
+            heldout_class_coverage: report.heldout_class_coverage.as_ref(),
+            heldout_episode_disjoint: report.heldout_episode_disjoint.as_ref(),
+        },
     );
     ensure!(
         report.config.get("metric_pipeline") == Some(&expected_metric_pipeline),
         "offline VLDA report metric-pipeline configuration does not reconstruct from the report"
     );
     validate_report_pid_mode_contract(report, &resource_binding.options)?;
+    validate_report_continuous_tuple_bindings(report, &resource_binding.options)?;
     let metrics = &report.metrics;
     validate_pid_screen_contract(
         "full-data PID screen",
@@ -5224,6 +6434,155 @@ fn validate_offline_vlda_report(report: &OfflineVldaReport) -> Result<()> {
         }
     }
     validate_heldout_prediction_contract(report)?;
+    Ok(())
+}
+
+fn validate_temporal_report(
+    temporal: &OfflineVldaTemporalReport,
+    dims: &OfflineVldaDims,
+) -> Result<()> {
+    ensure!(
+        temporal.interpretation
+            == "descriptive_within_unit_step_run_pearson_lag1_not_estimator_effective_sample_size_or_block_selector",
+        "offline VLDA temporal report carries an unknown interpretation"
+    );
+    ensure!(
+        matches!(
+            temporal.scope.as_str(),
+            "within_episode"
+                | "unidentified_without_episode_ids"
+                | "known_episode_segments_only_mixed_ids"
+        ),
+        "offline VLDA temporal report carries an unknown scope"
+    );
+    ensure!(
+        matches!(
+            temporal.ordering_basis.as_str(),
+            "strict_canonical_metadata_sequence_index_unit_steps_within_segments"
+                | "missing_or_nonmonotone_metadata_sequence_index_no_lag_pairs"
+                | "episode_identity_absent_no_lag_pairs"
+                | "no_within_segment_pair"
+        ),
+        "offline VLDA temporal report carries an unknown ordering basis"
+    );
+    ensure!(
+        temporal.segments <= dims.samples,
+        "offline VLDA temporal report carries an invalid segment count"
+    );
+    ensure!(
+        temporal.potential_lag_pairs
+            == if temporal.scope == "unidentified_without_episode_ids" {
+                0
+            } else {
+                dims.samples - temporal.segments
+            },
+        "offline VLDA temporal potential lag-pair count contradicts its segment count"
+    );
+    ensure!(
+        temporal.scope != "within_episode" || temporal.segments > 0,
+        "offline VLDA within-episode scope must contain at least one segment"
+    );
+    ensure!(
+        temporal.scope != "unidentified_without_episode_ids" || temporal.segments == 0,
+        "offline VLDA unidentified temporal scope must contain no segment"
+    );
+    ensure!(
+        temporal.scope != "known_episode_segments_only_mixed_ids" || temporal.segments >= 2,
+        "offline VLDA mixed-id temporal scope must contain at least two segments"
+    );
+    let expected_lag_pairs = match temporal.ordering_basis.as_str() {
+        "strict_canonical_metadata_sequence_index_unit_steps_within_segments" => {
+            ensure!(
+                temporal.potential_lag_pairs > 0,
+                "offline VLDA strict temporal order receipt has no potential lag pair"
+            );
+            temporal
+                .potential_lag_pairs
+                .checked_sub(temporal.sequence_index_gap_pairs)
+                .ok_or_else(|| anyhow!("offline VLDA temporal sequence-gap count is invalid"))?
+        }
+        "missing_or_nonmonotone_metadata_sequence_index_no_lag_pairs" => {
+            ensure!(
+                temporal.potential_lag_pairs > 0,
+                "offline VLDA missing temporal order receipt has no potential lag pair"
+            );
+            0
+        }
+        "episode_identity_absent_no_lag_pairs" => {
+            ensure!(
+                temporal.scope == "unidentified_without_episode_ids"
+                    && temporal.potential_lag_pairs == 0,
+                "offline VLDA absent-episode order basis contradicts its topology"
+            );
+            0
+        }
+        "no_within_segment_pair" => {
+            ensure!(
+                temporal.scope != "unidentified_without_episode_ids"
+                    && temporal.potential_lag_pairs == 0,
+                "offline VLDA zero-pair order basis contradicts its topology"
+            );
+            0
+        }
+        _ => unreachable!("ordering basis allowlist was checked above"),
+    };
+    ensure!(
+        temporal.lag_pairs == expected_lag_pairs,
+        "offline VLDA temporal admitted lag-pair count contradicts its order receipt"
+    );
+    ensure!(
+        temporal.sequence_index_gap_pairs <= temporal.potential_lag_pairs,
+        "offline VLDA temporal sequence-gap count exceeds its potential lag-pair count"
+    );
+    ensure!(
+        temporal.correlation_lag_pairs <= temporal.lag_pairs,
+        "offline VLDA temporal correlation-pair count exceeds its admitted lag-pair count"
+    );
+    ensure!(
+        temporal.correlation_lag_pairs == 0 || temporal.correlation_lag_pairs >= 3,
+        "offline VLDA temporal correlation-pair count cannot come from the minimum three-pair runs"
+    );
+    ensure!(
+        temporal.ordering_basis
+            == "strict_canonical_metadata_sequence_index_unit_steps_within_segments"
+            || temporal.sequence_index_gap_pairs == 0,
+        "offline VLDA temporal sequence gaps require a strict order receipt"
+    );
+    let expected_dimensions =
+        BTreeMap::from([("V", dims.v), ("L", dims.l), ("D", dims.d), ("A", dims.a)]);
+    ensure!(
+        temporal.variables.len() == expected_dimensions.len()
+            && temporal
+                .variables
+                .keys()
+                .map(String::as_str)
+                .eq(expected_dimensions.keys().copied()),
+        "offline VLDA temporal report must contain exactly V, L, D, and A"
+    );
+    for (axis, expected_dimension) in expected_dimensions {
+        let variable = &temporal.variables[axis];
+        ensure!(
+            variable.dimensions_total == expected_dimension
+                && variable.dimensions_with_defined_lag1 <= variable.dimensions_total,
+            "offline VLDA temporal {axis} dimension coverage contradicts the report dimensions"
+        );
+        ensure!(
+            temporal.correlation_lag_pairs > 0 || variable.dimensions_with_defined_lag1 == 0,
+            "offline VLDA temporal {axis} cannot define lag-1 columns without centered correlation pairs"
+        );
+        ensure!(
+            variable.lag1_autocorr.is_some()
+                == (temporal.correlation_lag_pairs > 0
+                    && variable.dimensions_with_defined_lag1 > 0),
+            "offline VLDA temporal {axis} lag-1 presence contradicts its defined-dimension coverage"
+        );
+        if let Some(lag1) = variable.lag1_autocorr {
+            ensure!(
+                lag1.is_finite() && (-1.0..=1.0).contains(&lag1),
+                "offline VLDA temporal {axis} lag-1 value is invalid"
+            );
+        }
+    }
     Ok(())
 }
 
@@ -5330,12 +6689,16 @@ fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> 
         "PID uncertainty dataset content SHA-256 must be 64 lowercase hexadecimal characters"
     );
     ensure!(
-        uncertainty.estimator_revision == ESTIMATOR_REVISION,
+        uncertainty.estimator_revision == ESTIMATOR_CONTINUOUS_PID2,
         "PID uncertainty estimator revision does not match the pinned review surface"
     );
     ensure!(
         uncertainty.stability_interpretation == RAW_M_SAMPLE_STABILITY_INTERPRETATION,
         "PID uncertainty stability interpretation must be {RAW_M_SAMPLE_STABILITY_INTERPRETATION}"
+    );
+    ensure!(
+        uncertainty.preprocessing_resampling == OFFLINE_UNCERTAINTY_PREPROCESSING_RESAMPLING,
+        "PID uncertainty preprocessing-resampling contract must be {OFFLINE_UNCERTAINTY_PREPROCESSING_RESAMPLING}"
     );
     ensure!(
         uncertainty.alpha.is_finite() && uncertainty.alpha > 0.0 && uncertainty.alpha < 1.0,
@@ -5513,13 +6876,15 @@ fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> 
         let synthetic_outcome = OfflineVldaOutcome {
             status: pair.status,
             measure: MEASURE_CONTINUOUS_PID2.to_string(),
-            estimator_revision: ESTIMATOR_REVISION.to_string(),
+            estimator_revision: ESTIMATOR_CONTINUOUS_PID2.to_string(),
+            information_units: "nats".to_string(),
             axes: vec![
                 "source_1".to_string(),
                 "source_2".to_string(),
                 "A".to_string(),
             ],
             scientific_gates: pair.scientific_gates.clone(),
+            declared_continuous_tuple_support: pair.declared_continuous_tuple_support,
             reason_code: pair.reason_code,
             reason_detail: pair.reason_detail.clone(),
             axis_diagnostics: Vec::new(),
@@ -5647,6 +7012,7 @@ pub fn write_offline_vlda_summary(
     report: &OfflineVldaReport,
 ) -> Result<()> {
     validate_offline_vlda_report(report)?;
+    validate_offline_vlda_report_analysis_seal(report)?;
     ensure_parent(path.as_ref())?;
     pid_runlog::write_json_file_with_limits(
         path,
@@ -5712,11 +7078,11 @@ pub fn write_offline_vlda_runlog_with_options_and_uncertainty(
         uncertainty_path,
         uncertainty,
     } = artifacts;
-    // `OfflineVldaReport` is a public serde type. Constructors in this crate preserve the
-    // status/value invariant, but a caller can deserialize or mutate an arbitrary report. Recheck
-    // its structural estimate invariants and dataset binding before creating a run log. This keeps
-    // an abstention from acquiring a numeric placeholder at the publication boundary.
+    // `OfflineVldaReport` is a public serde type. Recheck its structural invariants, process-local
+    // analysis seal, and dataset binding before publication. The seal detects changes to fields
+    // that structural reconstruction cannot derive from the dataset without rerunning analysis.
     validate_offline_vlda_report(report)?;
+    validate_offline_vlda_report_analysis_seal(report)?;
     let expected_dims = validate_dataset(dataset)?;
     ensure!(
         report.dims == expected_dims,
@@ -5857,6 +7223,10 @@ pub fn write_offline_vlda_runlog_with_options_and_uncertainty(
                     .get("dataset_content_sha256")
                     .and_then(Value::as_str)
                     == Some(dataset_content_sha256.as_str())
+                && request
+                    .get("preprocessing_resampling")
+                    .and_then(Value::as_str)
+                    == Some(recorded.preprocessing_resampling.as_str())
                 && request.get("n_boot").and_then(Value::as_u64)
                     == u64::try_from(recorded.n_boot).ok()
                 && request.get("n_perm").and_then(Value::as_u64)
@@ -6150,10 +7520,16 @@ pub fn write_offline_vlda_runlog_with_options_and_uncertainty(
             kind: "pid_uncertainty_json".to_string(),
             uri: uncertainty_uri,
             sha256: uncertainty_sha256,
-            metadata: BTreeMap::from([(
-                "stability_interpretation".to_string(),
-                RAW_M_SAMPLE_STABILITY_INTERPRETATION.to_string(),
-            )]),
+            metadata: BTreeMap::from([
+                (
+                    "stability_interpretation".to_string(),
+                    RAW_M_SAMPLE_STABILITY_INTERPRETATION.to_string(),
+                ),
+                (
+                    "preprocessing_resampling".to_string(),
+                    OFFLINE_UNCERTAINTY_PREPROCESSING_RESAMPLING.to_string(),
+                ),
+            ]),
         })?;
         next_timestamp_ns += 1;
     }
@@ -6445,11 +7821,23 @@ fn offline_vlda_required_failures(
 }
 
 fn validate_dataset_publication_eligibility(dataset: &OfflineVldaDataset) -> Result<()> {
+    if let Some(verified_sha256) = &dataset.publication_receipt_verified_content_sha256 {
+        let current_sha256 = offline_vlda_dataset_content_sha256(dataset)
+            .context("failed to bind the verified NCP publication receipt to dataset content")?;
+        if &current_sha256 != verified_sha256 {
+            bail!(
+                "dataset content changed after NCP publication receipt verification; reread and reverify the committed artifact"
+            );
+        }
+    }
     if offline_vlda_has_ncp_markers(dataset) {
         if dataset.source.as_deref() != Some("ncp") {
             bail!("NCP-marked dataset must declare source=\"ncp\"");
         }
-        if !dataset.publication_receipt_verified {
+        if dataset
+            .publication_receipt_verified_content_sha256
+            .is_none()
+        {
             bail!("NCP dataset lacks a verified committed publication receipt");
         }
         if !matches!(
@@ -6720,9 +8108,11 @@ struct PreparedVldaMatrices {
 fn compute_analysis(
     samples: &[OfflineVldaSample],
     support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
+    continuous_tuple_support: &BTreeMap<String, OfflineVldaContinuousTupleSupport>,
     dims: &OfflineVldaDims,
     options: &OfflineVldaHarnessOptions,
     dense_solver_budget: ResourceBudget,
+    categorical_pid_budget: ResourceBudget,
 ) -> Result<OfflineVldaAnalysis> {
     let prepared = prepare_standardized_embeddings(samples, dims)?;
     let heldout_split = heldout_split_plan(samples);
@@ -6766,14 +8156,21 @@ fn compute_analysis(
     let heldout_episode_disjoint = heldout_split
         .as_ref()
         .map(|split| heldout_episode_disjoint_report(samples, &split.roles));
+    let pid_contract = OfflineVldaPidScreenContract {
+        support,
+        continuous_tuple_support,
+        options,
+        budgets: OfflineVldaPidResourceBudgets {
+            dense_solver: dense_solver_budget,
+            categorical_pid: categorical_pid_budget,
+        },
+    };
     let (metrics, heldout_predictions) = compute_metrics(
         samples,
-        support,
         &prepared,
         heldout_split.as_ref(),
         success_labels.as_deref(),
-        options,
-        dense_solver_budget,
+        pid_contract,
     )?;
     let heldout_failure_diagnostics = heldout_failure_diagnostics(&heldout_predictions);
     let geometry = compute_geometry_report(&prepared)?;
@@ -6788,9 +8185,9 @@ fn compute_analysis(
     drop((v, l, d, a));
     // A train-only screen must fit its own preprocessing. Release the larger
     // all-sample matrices before allocating that independent analysis.
-    let train_split_pid = heldout_split.as_ref().map(|split| {
-        train_split_pid_report(samples, support, dims, split, options, dense_solver_budget)
-    });
+    let train_split_pid = heldout_split
+        .as_ref()
+        .map(|split| train_split_pid_report(samples, dims, split, pid_contract));
     Ok(OfflineVldaAnalysis {
         metrics,
         preprocessing,
@@ -6935,15 +8332,12 @@ fn zero_variance_dims(data: &[f64], n: usize, dim: usize) -> usize {
 
 fn compute_metrics(
     samples: &[OfflineVldaSample],
-    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
     prepared: &PreparedVldaMatrices,
     heldout_split: Option<&OfflineVldaHeldoutSplitPlan>,
     success_labels: Option<&[bool]>,
-    options: &OfflineVldaHarnessOptions,
-    dense_solver_budget: ResourceBudget,
+    contract: OfflineVldaPidScreenContract<'_>,
 ) -> Result<(OfflineVldaMetrics, Vec<OfflineVldaHeldoutPredictionRecord>)> {
-    let pid_screen =
-        compute_pid_screen_metrics_with_control(prepared, support, options, dense_solver_budget)?;
+    let pid_screen = compute_pid_screen_metrics_with_control(prepared, contract)?;
     let (success_rate, majority_success_accuracy) = success_metrics(success_labels);
     let episode_ids = episode_ids(samples);
     let episode_loo_majority_success_accuracy = success_labels
@@ -7152,7 +8546,7 @@ fn compute_metrics(
             labels,
             roles,
             model,
-            dense_solver_budget,
+            contract.budgets.dense_solver,
         )?;
     }
     let heldout_logreg_vlda_success_metrics =
@@ -7175,6 +8569,7 @@ fn compute_metrics(
         synergy_v_l_action,
         estimate_denominators,
         pid_pairs,
+        categorical_quantization,
         pls_selection,
         pls_shuffled_target_control,
         pls_control_seed,
@@ -7190,6 +8585,7 @@ fn compute_metrics(
         unique_l_action,
         synergy_v_l_action,
         estimate_denominators,
+        categorical_quantization,
         pls_selection,
         pls_shuffled_target_control,
         pls_control_seed,
@@ -7258,6 +8654,7 @@ fn compute_pid_pair_metrics(
     source_2: OfflineVldaSourceMatrix<'_>,
     target: OfflineVldaTargetMatrix<'_>,
     diagnostics: Vec<OfflineVldaAxisDiagnostics>,
+    tuple_support: Option<OfflineVldaContinuousTupleSupport>,
     pid_cfg: &Pid2Config,
 ) -> Result<OfflineVldaPidPairMetrics> {
     let axes = [source_1.name, source_2.name, target.name];
@@ -7274,12 +8671,14 @@ fn compute_pid_pair_metrics(
         unique_source_1: None,
         unique_source_2: None,
         synergy: None,
-        discrete_saturation: None,
+        categorical_sx_components: None,
+        categorical_saturation: None,
     };
 
     // The estimate is requested only when the COMPLETE source-target tuple is support-compatible
     // and its observed sample survives preflight.
-    let (diagnostics, rejection) = continuous_preflight_from_diagnostics(diagnostics);
+    let (diagnostics, rejection) =
+        continuous_preflight_from_diagnostics(diagnostics, tuple_support);
     if let Some((reason, detail)) = rejection {
         return Ok(empty(abstained_outcome(
             MEASURE_CONTINUOUS_PID2,
@@ -7287,6 +8686,7 @@ fn compute_pid_pair_metrics(
             diagnostics,
             reason,
             detail,
+            tuple_support,
         )));
     }
 
@@ -7307,6 +8707,7 @@ fn compute_pid_pair_metrics(
                     diagnostics,
                     reason,
                     message,
+                    tuple_support,
                 ))),
                 None => Err(anyhow::anyhow!(
                     "pid2_isx({}, {} -> {}) failed: {message}",
@@ -7322,7 +8723,7 @@ fn compute_pid_pair_metrics(
         source_1: source_1.name.to_string(),
         source_2: source_2.name.to_string(),
         target: target.name.to_string(),
-        outcome: produced_outcome(MEASURE_CONTINUOUS_PID2, &axes, diagnostics),
+        outcome: produced_outcome(MEASURE_CONTINUOUS_PID2, &axes, diagnostics, tuple_support),
         mi_source_1_action: Some(est.mi_s1_t),
         mi_source_2_action: Some(est.mi_s2_t),
         mi_joint_action: Some(est.mi_s1s2_t),
@@ -7331,17 +8732,39 @@ fn compute_pid_pair_metrics(
         unique_source_1: Some(pid.unique_s1),
         unique_source_2: Some(pid.unique_s2),
         synergy: Some(pid.synergy),
-        discrete_saturation: None,
+        categorical_sx_components: None,
+        categorical_saturation: None,
     })
 }
 
-/// Exact estimator revision stamped on every requested estimate. Update with the submodule pin.
-const ESTIMATOR_REVISION: &str = "pid-core 0.9.0 (pid-rs 796c11e)";
+const MEASURE_CONTINUOUS_MI: &str = "shannon_mutual_information_on_continuous_tuple";
+const MEASURE_CONTINUOUS_PID2: &str =
+    "ehrlich_schick_poland_makkeh_lanfermann_wollstadt_wibral_2024_continuous_shared_exclusions_pid2";
+const MEASURE_CATEGORICAL_MI: &str =
+    "shannon_mutual_information_on_fitted_equal_width_categorical_tuple";
+const MEASURE_CATEGORICAL_PID2: &str =
+    "makkeh_gutknecht_wibral_2021_averaged_categorical_shared_exclusions_pid2_on_fitted_equal_width_categories";
 
-const MEASURE_CONTINUOUS_MI: &str = "ksg_mi";
-const MEASURE_CONTINUOUS_PID2: &str = "continuous_isx_pid2";
-const MEASURE_QUANTIZED_MI: &str = "plugin_quantized_mi";
-const MEASURE_QUANTIZED_PID2: &str = "quantized_imin_pid2";
+// Scientific-object firewall. The pin alone is not an estimator identity. Each value names the
+// specific reviewed implementation route. Update these strings only with a reviewed pin or route.
+const ESTIMATOR_CONTINUOUS_MI: &str =
+    "pid-rs@796c11e/pid-core-0.9.0::experimental::continuous::raw_scalars::ksg_mi";
+const ESTIMATOR_CONTINUOUS_PID2: &str =
+    "pid-rs@796c11e/pid-core-0.9.0::experimental::continuous::pid2_isx_estimate/ehrlich_ksg";
+const ESTIMATOR_CATEGORICAL_MI: &str =
+    "pid-rs@796c11e/pid-core-0.9.0::stable::quantized::fitted_quantized_sxpid2_with_budget/marginal_mi";
+const ESTIMATOR_CATEGORICAL_PID2: &str =
+    "pid-rs@796c11e/pid-core-0.9.0::stable::quantized::fitted_quantized_sxpid2_with_budget/mgw_averaged_pid2";
+
+fn estimator_revision_for_measure(measure: &str) -> &'static str {
+    match measure {
+        MEASURE_CONTINUOUS_MI => ESTIMATOR_CONTINUOUS_MI,
+        MEASURE_CONTINUOUS_PID2 => ESTIMATOR_CONTINUOUS_PID2,
+        MEASURE_CATEGORICAL_MI => ESTIMATOR_CATEGORICAL_MI,
+        MEASURE_CATEGORICAL_PID2 => ESTIMATOR_CATEGORICAL_PID2,
+        _ => "unreviewed_measure_has_no_estimator_identity",
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 struct RowBits<'a>(&'a [f64]);
@@ -7407,6 +8830,7 @@ fn axis_diagnostics(
 /// regardless of what this particular sample looks like.
 fn continuous_preflight_from_diagnostics(
     diagnostics: Vec<OfflineVldaAxisDiagnostics>,
+    tuple_support: Option<OfflineVldaContinuousTupleSupport>,
 ) -> (
     Vec<OfflineVldaAxisDiagnostics>,
     Option<(OfflineVldaAbstainReason, String)>,
@@ -7442,6 +8866,28 @@ fn continuous_preflight_from_diagnostics(
             Some((
                 OfflineVldaAbstainReason::DeclaredSupportIncompatibleContinuous,
                 detail,
+            )),
+        );
+    }
+
+    let Some(tuple_support) = tuple_support else {
+        return (
+            diagnostics,
+            Some((
+                OfflineVldaAbstainReason::TupleSupportContractUnspecified,
+                "no complete-tuple joint-law and finite-information support contract was declared"
+                    .to_string(),
+            )),
+        );
+    };
+    if !tuple_support.is_regular() {
+        return (
+            diagnostics,
+            Some((
+                OfflineVldaAbstainReason::DeclaredTupleSupportIncompatibleContinuous,
+                format!(
+                    "complete continuous estimator tuple declared {tuple_support:?}; the required joint law is not regular full-dimensional with finite information"
+                ),
             )),
         );
     }
@@ -7501,12 +8947,15 @@ fn abstained_outcome(
     diagnostics: Vec<OfflineVldaAxisDiagnostics>,
     reason: OfflineVldaAbstainReason,
     detail: String,
+    tuple_support: Option<OfflineVldaContinuousTupleSupport>,
 ) -> OfflineVldaOutcome {
     OfflineVldaOutcome {
         status: OfflineVldaEstimateStatus::Abstained,
         measure: measure.to_string(),
-        estimator_revision: ESTIMATOR_REVISION.to_string(),
+        estimator_revision: estimator_revision_for_measure(measure).to_string(),
+        information_units: "nats".to_string(),
         axes: axes.iter().map(|a| (*a).to_string()).collect(),
+        declared_continuous_tuple_support: tuple_support,
         scientific_gates: abstained_scientific_gates(reason),
         reason_code: Some(reason),
         reason_detail: Some(detail),
@@ -7524,6 +8973,16 @@ fn abstained_scientific_gates(reason: OfflineVldaAbstainReason) -> OfflineVldaSc
         OfflineVldaAbstainReason::SupportContractUnspecified => (
             OfflineVldaScientificGateVerdict::NotEvaluated,
             OfflineVldaScientificGateVerdict::NotEvaluated,
+            OfflineVldaScientificGateVerdict::NotEvaluated,
+        ),
+        OfflineVldaAbstainReason::TupleSupportContractUnspecified => (
+            OfflineVldaScientificGateVerdict::NotEvaluated,
+            OfflineVldaScientificGateVerdict::NotEvaluated,
+            OfflineVldaScientificGateVerdict::NotEvaluated,
+        ),
+        OfflineVldaAbstainReason::DeclaredTupleSupportIncompatibleContinuous => (
+            OfflineVldaScientificGateVerdict::Conditional,
+            OfflineVldaScientificGateVerdict::Blocked,
             OfflineVldaScientificGateVerdict::NotEvaluated,
         ),
         OfflineVldaAbstainReason::ObservedSampleIncompatibleExactTies
@@ -7573,13 +9032,16 @@ fn produced_outcome(
     measure: &str,
     axes: &[&str],
     diagnostics: Vec<OfflineVldaAxisDiagnostics>,
+    tuple_support: Option<OfflineVldaContinuousTupleSupport>,
 ) -> OfflineVldaOutcome {
     let scientific_gates = produced_scientific_gates(&diagnostics);
     OfflineVldaOutcome {
         status: OfflineVldaEstimateStatus::Produced,
         measure: measure.to_string(),
-        estimator_revision: ESTIMATOR_REVISION.to_string(),
+        estimator_revision: estimator_revision_for_measure(measure).to_string(),
+        information_units: "nats".to_string(),
         axes: axes.iter().map(|a| (*a).to_string()).collect(),
+        declared_continuous_tuple_support: tuple_support,
         scientific_gates,
         reason_code: None,
         reason_detail: None,
@@ -7587,12 +9049,44 @@ fn produced_outcome(
     }
 }
 
+/// Mark a value whose sources were projected toward the same target rows later analyzed.
+///
+/// The computation remains a valid evaluation of its fitted empirical categorical law. It is not
+/// an unbiased held-out estimate of a pre-existing transform or a valid rescue for high-dimensional
+/// continuous PID. The warning survives alongside the separate empirical-PMF saturation warning.
+fn mark_supervised_same_row_warning(outcome: &mut OfflineVldaOutcome) {
+    debug_assert!(outcome.produced());
+    let saturated = outcome.scientific_gates.reason_code.as_deref()
+        == Some(SCIENTIFIC_REASON_CATEGORICAL_SATURATION);
+    outcome.status = OfflineVldaEstimateStatus::ProducedWithWarning;
+    outcome.scientific_gates.estimator = OfflineVldaScientificGateVerdict::Blocked;
+    outcome.scientific_gates.application = OfflineVldaScientificGateVerdict::Blocked;
+    outcome.scientific_gates.interpretation_allowed = false;
+    outcome.scientific_gates.reason_code = Some(
+        if saturated {
+            SCIENTIFIC_REASON_SUPERVISED_SAME_ROW_AND_SATURATION
+        } else {
+            SCIENTIFIC_REASON_SUPERVISED_SAME_ROW
+        }
+        .to_string(),
+    );
+    let design_warning = "PLS selected a target-supervised transform from the same rows used by \
+                          this fitted-categorical screen; the value is a descriptive \
+                          selection-inflation diagnostic, not held-out or application-valid";
+    outcome.reason_detail = Some(match outcome.reason_detail.take() {
+        Some(existing) => format!("{existing}; {design_warning}"),
+        None => design_warning.to_string(),
+    });
+}
+
 fn not_requested_outcome(axes: &[&str]) -> OfflineVldaOutcome {
     OfflineVldaOutcome {
         status: OfflineVldaEstimateStatus::NotRequested,
         measure: "not_requested_pid_disabled".to_string(),
         estimator_revision: "not_applicable_pid_disabled".to_string(),
+        information_units: "not_applicable".to_string(),
         axes: axes.iter().map(|axis| (*axis).to_string()).collect(),
+        declared_continuous_tuple_support: None,
         scientific_gates: OfflineVldaScientificGates {
             population: OfflineVldaScientificGateVerdict::NotApplicable,
             measure: OfflineVldaScientificGateVerdict::NotApplicable,
@@ -7625,6 +9119,7 @@ fn disabled_pid_screen_metrics() -> OfflineVldaPidScreenMetrics {
         synergy_v_l_action: None,
         estimate_denominators: OfflineVldaEstimateDenominators::default(),
         pid_pairs: BTreeMap::new(),
+        categorical_quantization: BTreeMap::new(),
         pls_selection: None,
         pls_shuffled_target_control: None,
         pls_control_seed: None,
@@ -7633,24 +9128,40 @@ fn disabled_pid_screen_metrics() -> OfflineVldaPidScreenMetrics {
 
 /// One requested continuous marginal MI, `I(source; target)`.
 fn continuous_mi_estimate(
-    source_name: &'static str,
-    source: MatRef<'_>,
-    target_name: &'static str,
-    target: MatRef<'_>,
+    source: OfflineVldaSourceMatrix<'_>,
+    target: OfflineVldaTargetMatrix<'_>,
     diagnostics: Vec<OfflineVldaAxisDiagnostics>,
+    tuple_support: Option<OfflineVldaContinuousTupleSupport>,
+    precomputed_value: Option<f64>,
     ksg: &KsgConfig,
 ) -> Result<OfflineVldaMiEstimate> {
+    let source_name = source.name;
+    let target_name = target.name;
     let axes = [source_name, target_name];
-    let (diagnostics, rejection) = continuous_preflight_from_diagnostics(diagnostics);
+    let (diagnostics, rejection) =
+        continuous_preflight_from_diagnostics(diagnostics, tuple_support);
     if let Some((reason, detail)) = rejection {
         return Ok(OfflineVldaMiEstimate {
-            outcome: abstained_outcome(MEASURE_CONTINUOUS_MI, &axes, diagnostics, reason, detail),
+            outcome: abstained_outcome(
+                MEASURE_CONTINUOUS_MI,
+                &axes,
+                diagnostics,
+                reason,
+                detail,
+                tuple_support,
+            ),
             value: None,
         });
     }
-    match ksg_mi(source, target, ksg) {
+    if let Some(value) = precomputed_value {
+        return Ok(OfflineVldaMiEstimate {
+            outcome: produced_outcome(MEASURE_CONTINUOUS_MI, &axes, diagnostics, tuple_support),
+            value: Some(value),
+        });
+    }
+    match ksg_mi(source.matrix, target.matrix, ksg) {
         Ok(value) => Ok(OfflineVldaMiEstimate {
-            outcome: produced_outcome(MEASURE_CONTINUOUS_MI, &axes, diagnostics),
+            outcome: produced_outcome(MEASURE_CONTINUOUS_MI, &axes, diagnostics, tuple_support),
             value: Some(value),
         }),
         Err(err) => {
@@ -7663,6 +9174,7 @@ fn continuous_mi_estimate(
                         diagnostics,
                         reason,
                         message,
+                        tuple_support,
                     ),
                     value: None,
                 }),
@@ -7707,8 +9219,15 @@ fn pid2_config(ksg: &KsgConfig) -> Pid2Config {
 /// reproduces the legacy in-sample binning exactly. `grandplan.md` §7.6 requires the codebook to be
 /// fit on training rows only in an inferential workflow; these screens are descriptive, and the
 /// caller passes the train split where one exists.
-fn quantize(x: MatRef<'_>, bins: usize) -> Result<QuantizedData> {
-    let quantizer = EqualWidthQuantizer::fit(x, bins, QuantizerConfig::default())
+fn quantize(x: MatRef<'_>, bins: usize, budget: ResourceBudget) -> Result<QuantizedData> {
+    let config = QuantizerConfig::new(
+        pid_core::stable::quantized::OutOfRangePolicy::Error,
+        true,
+        5,
+        "per-variable standardization followed by fitted equal-width bins",
+        budget,
+    )?;
+    let quantizer = EqualWidthQuantizer::fit(x, bins, config)
         .map_err(|e| anyhow::anyhow!("quantizer fit: {e}"))?;
     quantizer
         .transform_with_report(x)
@@ -7721,8 +9240,63 @@ struct PreparedQuantizedAxis {
     unique_fraction: f64,
 }
 
-fn prepare_quantized_axis(matrix: MatRef<'_>, bins: usize) -> Result<PreparedQuantizedAxis> {
-    let data = quantize(matrix, bins)?;
+fn quantization_receipt(
+    axis: &str,
+    prepared: &PreparedQuantizedAxis,
+) -> Result<OfflineVldaQuantizationReceipt> {
+    let report = &prepared.data.report;
+    let training_input_hash = report
+        .training_input_hash
+        .context("categorical Sx quantization omitted its required fitted-training input hash")?;
+    let fitted_edge_count = report.bin_edges.iter().try_fold(0usize, |total, edges| {
+        total
+            .checked_add(edges.len())
+            .context("categorical quantizer edge count overflow")
+    })?;
+    let out_of_range_policy = match report.out_of_range_policy {
+        OutOfRangePolicy::Error => "error",
+        OutOfRangePolicy::ClampToBoundary => "clamp_to_boundary",
+        _ => "unknown_non_exhaustive",
+    };
+    ensure!(
+        out_of_range_policy != "unknown_non_exhaustive",
+        "unreviewed categorical quantizer out-of-range policy"
+    );
+    Ok(OfflineVldaQuantizationReceipt {
+        axis: axis.to_string(),
+        functional: "Makkeh-Gutknecht-Wibral averaged two-source categorical shared exclusions"
+            .to_string(),
+        quantizer: "pid_core::stable::quantized::EqualWidthQuantizer".to_string(),
+        estimator_revision: ESTIMATOR_CATEGORICAL_PID2.to_string(),
+        information_units: "nats".to_string(),
+        fitted_edges_sha256: pid_runlog::canonical_json_hash_v2(&report.bin_edges)?,
+        fitted_edge_count,
+        training_input_sha256: crate::lowercase_hex(training_input_hash),
+        transform_input_sha256: crate::lowercase_hex(report.transform_input_hash),
+        categorical_output_sha256: crate::lowercase_hex(report.categorical_output_hash),
+        out_of_range_policy: out_of_range_policy.to_string(),
+        scaling_description: report.scaling_description.clone(),
+        samples: report.n_samples,
+        dimensions: report.dimensions,
+        bins_per_dimension: report.bins_per_dimension,
+        nominal_joint_cardinality: report
+            .nominal_joint_cardinality
+            .map(|value| value.to_string()),
+        observed_joint_cardinality: report.observed_joint_cardinality,
+        empty_joint_cells: report.empty_joint_cells.map(|value| value.to_string()),
+        low_count_joint_cells: report.low_count_joint_cells,
+        minimum_observed_cell_count: report.minimum_observed_cell_count,
+        maximum_observed_cell_count: report.maximum_observed_cell_count,
+        estimand_statement: report.estimand_statement.to_string(),
+    })
+}
+
+fn prepare_quantized_axis(
+    matrix: MatRef<'_>,
+    bins: usize,
+    budget: ResourceBudget,
+) -> Result<PreparedQuantizedAxis> {
+    let data = quantize(matrix, bins, budget)?;
     let category_ids = category_ids(&data)?;
     let unique_fraction = if category_ids.is_empty() {
         0.0
@@ -7788,7 +9362,7 @@ fn paired_unique_fraction(left: &[u32], right: &[u32]) -> f64 {
         / left.len() as f64
 }
 
-fn discrete_mi_outcome(
+fn categorical_mi_outcome(
     source_name: &'static str,
     diagnostics: Vec<OfflineVldaAxisDiagnostics>,
     source: &PreparedQuantizedAxis,
@@ -7802,60 +9376,69 @@ fn discrete_mi_outcome(
         source_target_unique_fraction,
     ]
     .into_iter()
-    .any(|fraction| fraction > OFFLINE_DISCRETE_SATURATION_UNIQUE_FRACTION_MAX);
-    let mut outcome = produced_outcome(MEASURE_QUANTIZED_MI, &[source_name, "A"], diagnostics);
+    .any(|fraction| fraction > OFFLINE_CATEGORICAL_SATURATION_UNIQUE_FRACTION_MAX);
+    let mut outcome = produced_outcome(
+        MEASURE_CATEGORICAL_MI,
+        &[source_name, "A"],
+        diagnostics,
+        None,
+    );
     if saturation_warning {
         outcome.status = OfflineVldaEstimateStatus::ProducedWithWarning;
         outcome.scientific_gates.estimator = OfflineVldaScientificGateVerdict::Blocked;
-        outcome.scientific_gates.reason_code = Some("discrete_saturation".to_string());
+        outcome.scientific_gates.reason_code =
+            Some(SCIENTIFIC_REASON_CATEGORICAL_SATURATION.to_string());
         outcome.reason_detail = Some(format!(
-            "quantized plug-in MI is saturated: source_unique_fraction={:.6}, \
-             target_unique_fraction={:.6}, source_target_unique_fraction={:.6}; nearly unique \
-             bins make MI track sample size rather than dependence (grandplan section 7.6)",
+            "fitted-categorical empirical-PMF MI is support-sparse: source_unique_fraction={:.6}, \
+             target_unique_fraction={:.6}, source_target_unique_fraction={:.6}; occupancy is too \
+             high relative to sample count for stable application interpretation (grandplan section 7.6)",
             source.unique_fraction, target.unique_fraction, source_target_unique_fraction
         ));
     }
     outcome
 }
 
-/// Discrete-mode PID pair metrics: quantization + counting-based entropy instead of kNN.
+/// Quantized categorical shared-exclusions PID pair metrics.
 ///
-/// Redundancy is the Williams–Beer-style `I_min` functional (grandplan §7.6), not
-/// discrete `i^sx_∩`. Saturation diagnostics flag regimes where plug-in MI is pinned
-/// to entropy ceilings by unique-bin sparsity.
-fn compute_pid_pair_metrics_discrete(
+/// The fitted equal-width transforms define the variables. The categorical estimator returns the
+/// informative, misinformative, and net parts of every atom. Saturation diagnostics flag regimes
+/// where an empirical PMF is too sparse for application interpretation.
+struct PreparedCategoricalSxPair<'a> {
+    source_1: &'a PreparedQuantizedAxis,
+    source_2: &'a PreparedQuantizedAxis,
+    target: &'a PreparedQuantizedAxis,
+}
+
+fn compute_pid_pair_metrics_categorical_sx(
     source_1: OfflineVldaSourceMatrix<'_>,
     source_2: OfflineVldaSourceMatrix<'_>,
     target: OfflineVldaTargetMatrix<'_>,
-    source_1_quantized: &PreparedQuantizedAxis,
-    source_2_quantized: &PreparedQuantizedAxis,
-    target_quantized: &PreparedQuantizedAxis,
+    prepared: PreparedCategoricalSxPair<'_>,
     pair_diagnostics: Vec<OfflineVldaAxisDiagnostics>,
+    estimator_budget: ResourceBudget,
 ) -> Result<OfflineVldaPidPairMetrics> {
     let axes = [source_1.name, source_2.name, target.name];
-    // The quantized `I_min` estimand is defined for any declared support, so there is no continuity
-    // preflight here. It is a DIFFERENT measure with its own estimand identity and output
-    // namespace — never an automatic substitute for an abstained continuous estimate, and never
-    // pooled with one (grandplan §7.6).
-    let pid = imin_pid2(
-        source_1_quantized.data.matrix.as_ref(),
-        source_2_quantized.data.matrix.as_ref(),
-        target_quantized.data.matrix.as_ref(),
+    // This is a separately requested quantized estimand. It is never an automatic fallback for a
+    // failed continuous estimate and is never pooled with another preprocessing regime.
+    let fitted = fitted_quantized_sxpid2_with_budget(
+        &prepared.source_1.data,
+        &prepared.source_2.data,
+        &prepared.target.data,
+        estimator_budget,
     )?;
-    // `IminPid2Result` carries the joint MI of the same quantized variables, so the atoms and the
-    // co-information stay on one consistent decomposition (Red + U1 + U2 + Syn = mi_s1s2_t).
-    // Recomputing it from a separately-binned concat could break that identity.
+    let pid = fitted.pid;
+    let empirical_pmf = &pid.empirical_pmf;
     let mi_s1s2_t = pid.mi_s1s2_t;
     // Co-information: MI(S1;T) + MI(S2;T) - MI(S1,S2;T)
     let co_information = pid.mi_s1_t + pid.mi_s2_t - mi_s1s2_t;
     // Saturation diagnostics (grandplan §7.6).
-    let unique_fraction_source_1 = source_1_quantized.unique_fraction;
-    let unique_fraction_source_2 = source_2_quantized.unique_fraction;
-    let unique_fraction_target = target_quantized.unique_fraction;
+    let unique_fraction_source_1 = prepared.source_1.unique_fraction;
+    let unique_fraction_source_2 = prepared.source_2.unique_fraction;
+    let unique_fraction_target = prepared.target.unique_fraction;
     let unique_fraction_joint = triple_unique_fraction(
-        &source_1_quantized.category_ids,
-        &source_2_quantized.category_ids,
-        &target_quantized.category_ids,
+        &prepared.source_1.category_ids,
+        &prepared.source_2.category_ids,
+        &prepared.target.category_ids,
     );
     let saturation_warning = [
         unique_fraction_source_1,
@@ -7864,15 +9447,17 @@ fn compute_pid_pair_metrics_discrete(
         unique_fraction_joint,
     ]
     .iter()
-    .any(|&fraction| fraction > OFFLINE_DISCRETE_SATURATION_UNIQUE_FRACTION_MAX);
-    let mut outcome = produced_outcome(MEASURE_QUANTIZED_PID2, &axes, pair_diagnostics);
+    .any(|&fraction| fraction > OFFLINE_CATEGORICAL_SATURATION_UNIQUE_FRACTION_MAX);
+    let mut outcome = produced_outcome(MEASURE_CATEGORICAL_PID2, &axes, pair_diagnostics, None);
     if saturation_warning {
         outcome.status = OfflineVldaEstimateStatus::ProducedWithWarning;
         outcome.scientific_gates.estimator = OfflineVldaScientificGateVerdict::Blocked;
-        outcome.scientific_gates.reason_code = Some("discrete_saturation".to_string());
+        outcome.scientific_gates.reason_code =
+            Some(SCIENTIFIC_REASON_CATEGORICAL_SATURATION.to_string());
         outcome.reason_detail = Some(
-            "quantized plug-in entropies are saturated: nearly every sample occupies its own \
-             joint bin, so MI measures sample size rather than dependence (grandplan §7.6)"
+            "fitted-categorical empirical-PMF terms are support-sparse: nearly every sample occupies \
+             its own joint bin, so plug-in bias and atom allocation are not application-valid \
+             (grandplan §7.6)"
                 .to_string(),
         );
     }
@@ -7885,36 +9470,73 @@ fn compute_pid_pair_metrics_discrete(
         mi_source_2_action: Some(pid.mi_s2_t),
         mi_joint_action: Some(mi_s1s2_t),
         co_information: Some(co_information),
-        redundancy: Some(pid.redundancy),
-        unique_source_1: Some(pid.unique_s1),
-        unique_source_2: Some(pid.unique_s2),
-        synergy: Some(pid.synergy),
-        discrete_saturation: Some(OfflineVldaDiscreteSaturation {
+        redundancy: Some(pid.red.net),
+        unique_source_1: Some(pid.unq1.net),
+        unique_source_2: Some(pid.unq2.net),
+        synergy: Some(pid.syn.net),
+        categorical_sx_components: Some(OfflineVldaCategoricalSxComponents {
+            redundancy: OfflineVldaCategoricalSxAtom {
+                informative: pid.red.informative,
+                misinformative: pid.red.misinformative,
+                net: pid.red.net,
+            },
+            unique_source_1: OfflineVldaCategoricalSxAtom {
+                informative: pid.unq1.informative,
+                misinformative: pid.unq1.misinformative,
+                net: pid.unq1.net,
+            },
+            unique_source_2: OfflineVldaCategoricalSxAtom {
+                informative: pid.unq2.informative,
+                misinformative: pid.unq2.misinformative,
+                net: pid.unq2.net,
+            },
+            synergy: OfflineVldaCategoricalSxAtom {
+                informative: pid.syn.informative,
+                misinformative: pid.syn.misinformative,
+                net: pid.syn.net,
+            },
+        }),
+        categorical_saturation: Some(OfflineVldaCategoricalSaturation {
             unique_fraction_source_1,
             unique_fraction_source_2,
             unique_fraction_target,
             unique_fraction_joint,
+            empirical_sample_count: empirical_pmf.sample_count,
+            observed_joint_states: empirical_pmf.observed_joint_states,
+            singleton_joint_states: empirical_pmf.singleton_joint_states,
+            low_count_joint_states: empirical_pmf.low_count_joint_states,
+            minimum_observed_count: empirical_pmf.minimum_observed_count,
+            maximum_observed_count: empirical_pmf.maximum_observed_count,
+            observed_coverage_indicator: empirical_pmf.observed_coverage_indicator,
+            population_caveat: empirical_pmf.population_caveat.to_string(),
             saturation_warning,
         }),
     })
 }
 
-/// Dimension-averaged lag-1 autocorrelation of one standardized axis matrix.
-/// Lag pairs never cross episode boundaries when episode identifiers exist.
-fn axis_lag1_autocorr(matrix: &MatOwned, segments: &[std::ops::Range<usize>]) -> Option<f64> {
+/// Mean Pearson lag-1 correlation across the defined columns of one standardized axis matrix.
+/// Lag pairs never cross episode boundaries. Each unit-step run's left and right lag vectors are
+/// centered separately before their residual products are pooled. This prevents between-run level
+/// differences from appearing as temporal dependence.
+fn axis_lag1_autocorr(
+    matrix: &MatOwned,
+    segments: &[std::ops::Range<usize>],
+) -> (Option<f64>, usize) {
     let m = matrix.as_ref();
     let d = m.ncols();
-    let lag_pairs = segments
+    let correlation_segments = segments
         .iter()
-        .map(|segment| segment.len().saturating_sub(1))
-        .sum::<usize>();
-    if d == 0 || lag_pairs == 0 {
-        return None;
+        .filter(|segment| segment.len() >= 4)
+        .cloned()
+        .collect::<Vec<_>>();
+    if d == 0 || correlation_segments.is_empty() {
+        return (None, 0);
     }
     let mut correlation_sum = 0.0;
+    let mut defined_dimensions = 0usize;
     for column in 0..d {
         // Scale first so finite, extreme inputs cannot overflow the sums of squares.
-        let scale = segments
+        let scale = correlation_segments
             .iter()
             .flat_map(|segment| segment.start..segment.end.saturating_sub(1))
             .fold(0.0_f64, |maximum, row| {
@@ -7925,29 +9547,43 @@ fn axis_lag1_autocorr(matrix: &MatOwned, segments: &[std::ops::Range<usize>]) ->
         if scale == 0.0 {
             continue;
         }
-        let mut cross = 0.0;
-        let mut left_square = 0.0;
-        let mut right_square = 0.0;
-        for segment in segments {
+        let mut centered_cross = 0.0;
+        let mut centered_left_square = 0.0;
+        let mut centered_right_square = 0.0;
+        for segment in &correlation_segments {
+            let segment_pairs = segment.len().saturating_sub(1);
+            let (left_sum, right_sum) =
+                (segment.start..segment.end - 1).fold((0.0, 0.0), |(left_sum, right_sum), row| {
+                    (
+                        left_sum + m.row(row)[column] / scale,
+                        right_sum + m.row(row + 1)[column] / scale,
+                    )
+                });
+            let left_mean = left_sum / segment_pairs as f64;
+            let right_mean = right_sum / segment_pairs as f64;
             for row in segment.start..segment.end.saturating_sub(1) {
-                let left = m.row(row)[column] / scale;
-                let right = m.row(row + 1)[column] / scale;
-                cross += left * right;
-                left_square += left * left;
-                right_square += right * right;
+                let left = m.row(row)[column] / scale - left_mean;
+                let right = m.row(row + 1)[column] / scale - right_mean;
+                centered_cross += left * right;
+                centered_left_square += left * left;
+                centered_right_square += right * right;
             }
         }
-        let denominator = left_square.sqrt() * right_square.sqrt();
+        let denominator = centered_left_square.sqrt() * centered_right_square.sqrt();
         if denominator > 0.0 {
-            correlation_sum += (cross / denominator).clamp(-1.0, 1.0);
+            correlation_sum += (centered_cross / denominator).clamp(-1.0, 1.0);
+            defined_dimensions += 1;
         }
     }
-    Some((correlation_sum / d as f64).clamp(-0.99, 0.99))
+    (
+        (defined_dimensions > 0)
+            .then(|| (correlation_sum / defined_dimensions as f64).clamp(-1.0, 1.0)),
+        defined_dimensions,
+    )
 }
 
-/// See [`OfflineVldaTemporalReport`]. Segments are maximal runs of consecutive
-/// rows sharing an `episode_id`; without ids the whole row order is one segment
-/// (and the report says so).
+/// See [`OfflineVldaTemporalReport`]. Segments are maximal runs of consecutive rows sharing an
+/// `episode_id`. Without ids, the report has no within-series segment and emits no lag statistic.
 fn compute_temporal_report(
     samples: &[OfflineVldaSample],
     prepared: &PreparedVldaMatrices,
@@ -7965,9 +9601,7 @@ fn compute_temporal_report(
                 start = idx;
             }
         }
-    } else if have_no_ids {
-        segments.push(0..n);
-    } else {
+    } else if !have_no_ids {
         // Missing ids do not authorize a synthetic bridge between two known episode segments.
         // Retain only maximal runs with the same known id. Treat each missing-id row as a
         // singleton, which contributes no lag pair.
@@ -7988,66 +9622,66 @@ fn compute_temporal_report(
     }
 
     let mut variables = BTreeMap::new();
-    let lag_pairs = segments
+    let potential_lag_pairs = segments
         .iter()
         .map(|segment| segment.len().saturating_sub(1))
         .sum::<usize>();
-    // Row order alone does not identify one time series. Emit AR(1)-derived values only when
-    // every row declares the same episode, that episode spans the full dataset, and each row has
-    // a strict canonical `metadata.sequence_index`. An episode id groups rows but does not order
-    // them.
-    let one_declared_complete_series = have_ids
-        && segments.len() == 1
-        && segments
-            .first()
-            .is_some_and(|segment| segment.start == 0 && segment.end == n)
-        && has_strict_sequence_index(samples);
-    let mut recommended_block_len = None::<usize>;
+    let order_verified =
+        potential_lag_pairs > 0 && segments_have_strict_sequence_index(samples, &segments);
+    let (unit_step_segments, sequence_index_gap_pairs) = if order_verified {
+        split_segments_at_sequence_index_gaps(samples, &segments)
+    } else {
+        (Vec::new(), 0)
+    };
+    let lag_pairs = if order_verified {
+        potential_lag_pairs - sequence_index_gap_pairs
+    } else {
+        0
+    };
+    let correlation_lag_pairs = unit_step_segments
+        .iter()
+        .filter(|segment| segment.len() >= 4)
+        .map(|segment| segment.len() - 1)
+        .sum();
     for (name, matrix) in [
         ("V", &prepared.v),
         ("L", &prepared.l),
         ("D", &prepared.d),
         ("A", &prepared.a),
     ] {
-        let r1 = axis_lag1_autocorr(matrix, &segments);
-        let (n_eff, block) = if let Some(r1) = r1.filter(|_| one_declared_complete_series) {
-            let n_eff = (n as f64 * (1.0 - r1) / (1.0 + r1)).clamp(1.0, n as f64);
-            // Integrated autocorrelation time under a descriptive AR(1) approximation. The cap
-            // keeps the hint syntactically admissible but does not validate it for inference.
-            let tau = ((1.0 + r1) / (1.0 - r1)).max(1.0);
-            let max_admissible_block = n.saturating_sub(1).div_euclid(2).max(1);
-            let block = (tau.ceil() as usize).clamp(1, max_admissible_block);
-            recommended_block_len = Some(recommended_block_len.unwrap_or(1).max(block));
-            (Some(n_eff), Some(block))
-        } else {
-            (None, None)
-        };
+        let (r1, dimensions_with_defined_lag1) = axis_lag1_autocorr(matrix, &unit_step_segments);
         variables.insert(
             name.to_string(),
             OfflineVldaTemporalVariable {
                 lag1_autocorr: r1,
-                effective_sample_size: n_eff,
-                recommended_block_len: block,
+                dimensions_total: matrix.as_ref().ncols(),
+                dimensions_with_defined_lag1,
             },
         );
     }
     OfflineVldaTemporalReport {
         variables,
-        recommended_block_len,
         segments: segments.len(),
+        potential_lag_pairs,
         lag_pairs,
+        correlation_lag_pairs,
+        sequence_index_gap_pairs,
         scope: if have_ids {
             "within_episode".to_string()
         } else if have_no_ids {
-            "row_order".to_string()
+            "unidentified_without_episode_ids".to_string()
         } else {
             "known_episode_segments_only_mixed_ids".to_string()
         },
-        interpretation: "descriptive_ar1_screen_not_estimator_effective_sample_size_or_block_selector;ar1_heuristics_only_for_one_declared_episode_with_strict_metadata_sequence_index".to_string(),
-        ordering_basis: if has_strict_sequence_index(samples) {
-            "strict_canonical_metadata_sequence_index".to_string()
+        interpretation: "descriptive_within_unit_step_run_pearson_lag1_not_estimator_effective_sample_size_or_block_selector".to_string(),
+        ordering_basis: if order_verified {
+            "strict_canonical_metadata_sequence_index_unit_steps_within_segments".to_string()
+        } else if have_no_ids {
+            "episode_identity_absent_no_lag_pairs".to_string()
+        } else if potential_lag_pairs == 0 {
+            "no_within_segment_pair".to_string()
         } else {
-            "dataset_row_order_only_unverified".to_string()
+            "missing_or_nonmonotone_metadata_sequence_index_no_lag_pairs".to_string()
         },
     }
 }
@@ -9554,6 +11188,19 @@ fn write_metric_events<W: Write>(
         })?;
         idx += 1;
     }
+    if let Some(pair) = report.metrics.pid_pairs.get("VL") {
+        write_categorical_sx_component_metric_events(
+            writer,
+            report,
+            pair,
+            OfflineVldaPidMetricEventScope {
+                prefix: "offline_vlda.pid",
+                train_pid: None,
+            },
+            timestamp_base_ns,
+            &mut idx,
+        )?;
+    }
 
     // Structured abstention records + the eligibility denominators.
     for (axis, estimate) in [
@@ -10137,7 +11784,7 @@ fn offline_vlda_pid_metric_metadata(
     // Every information quantity in this crate is in nats (pid-core convention,
     // both KSG/I^sx continuous and plug-in discrete paths). Stamp it so a
     // standalone JSONL consumer never has to guess nats vs bits.
-    metadata.insert("units".to_string(), "nats".to_string());
+    metadata.insert("units".to_string(), outcome.information_units.clone());
     let metric = name
         .strip_prefix("offline_vlda.pid.train_split.")
         .or_else(|| name.strip_prefix("offline_vlda.pid."))
@@ -10240,7 +11887,10 @@ fn offline_vlda_pid_pair_metric_metadata(
     train_pid: Option<&OfflineVldaTrainSplitPidReport>,
 ) -> BTreeMap<String, String> {
     let mut metadata = offline_vlda_pid_scope_metadata(report, train_pid);
-    metadata.insert("units".to_string(), "nats".to_string());
+    metadata.insert(
+        "units".to_string(),
+        metrics.outcome.information_units.clone(),
+    );
     metadata.insert("pid_pair".to_string(), pair.to_string());
     metadata.insert("source_1".to_string(), metrics.source_1.clone());
     metadata.insert("source_2".to_string(), metrics.source_2.clone());
@@ -10672,6 +12322,19 @@ fn write_train_split_pid_metric_events<W: Write>(
         })?;
         *idx += 1;
     }
+    if let Some(pair) = metrics.pid_pairs.get("VL") {
+        write_categorical_sx_component_metric_events(
+            writer,
+            report,
+            pair,
+            OfflineVldaPidMetricEventScope {
+                prefix: "offline_vlda.pid.train_split",
+                train_pid: Some(train_pid),
+            },
+            timestamp_base_ns,
+            idx,
+        )?;
+    }
     for (axis, estimate) in [
         ("V", &metrics.mi_v_action),
         ("L", &metrics.mi_l_action),
@@ -10778,6 +12441,77 @@ fn write_pid_pair_metric_events<W: Write>(
             metadata: offline_vlda_pid_pair_metric_metadata(report, pair, metrics, scope.train_pid),
         })?;
         *idx += 1;
+    }
+    write_categorical_sx_component_metric_events(
+        writer,
+        report,
+        metrics,
+        scope,
+        timestamp_base_ns,
+        idx,
+    )?;
+    Ok(())
+}
+
+fn write_categorical_sx_component_metric_events<W: Write>(
+    writer: &mut RunLogWriter<W>,
+    report: &OfflineVldaReport,
+    metrics: &OfflineVldaPidPairMetrics,
+    scope: OfflineVldaPidMetricEventScope<'_>,
+    timestamp_base_ns: u64,
+    idx: &mut u64,
+) -> Result<()> {
+    let Some(components) = &metrics.categorical_sx_components else {
+        return Ok(());
+    };
+    let source_1 = metrics.source_1.to_ascii_lowercase();
+    let source_2 = metrics.source_2.to_ascii_lowercase();
+    for (atom_name, atom) in [
+        (
+            format!("redundancy_{source_1}_{source_2}_action"),
+            components.redundancy,
+        ),
+        (
+            format!("unique_{source_1}_given_{source_2}_action"),
+            components.unique_source_1,
+        ),
+        (
+            format!("unique_{source_2}_given_{source_1}_action"),
+            components.unique_source_2,
+        ),
+        (
+            format!("synergy_{source_1}_{source_2}_action"),
+            components.synergy,
+        ),
+    ] {
+        for (component_name, value) in [
+            ("informative", atom.informative),
+            ("misinformative", atom.misinformative),
+        ] {
+            let mut metadata = offline_vlda_pid_pair_metric_metadata(
+                report,
+                &format!(
+                    "{}{}",
+                    metrics.source_1.to_ascii_uppercase(),
+                    metrics.source_2.to_ascii_uppercase()
+                ),
+                metrics,
+                scope.train_pid,
+            );
+            metadata.insert("sx_atom".to_string(), atom_name.clone());
+            metadata.insert("sx_component".to_string(), component_name.to_string());
+            writer.append(&RunLogEvent::PidMetric {
+                step: report.dims.samples as u64,
+                timestamp_ns: timestamp_base_ns + *idx,
+                name: format!(
+                    "{}.categorical_sx.{atom_name}.{component_name}",
+                    scope.prefix
+                ),
+                value,
+                metadata,
+            })?;
+            *idx += 1;
+        }
     }
     Ok(())
 }
@@ -10945,6 +12679,72 @@ mod tests {
     }
 
     #[test]
+    fn analysis_rejects_incomplete_or_malformed_input_provenance() {
+        let error = run_offline_vlda_harness(
+            fixture_dataset(),
+            Some("memory://fixture.json".to_string()),
+            None,
+        )
+        .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("input URI and exact-byte SHA-256 must be supplied together"));
+
+        let error = run_offline_vlda_harness(
+            fixture_dataset(),
+            Some("memory://fixture.json".to_string()),
+            Some("not-a-sha256".to_string()),
+        )
+        .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("input SHA-256 must be 64 lowercase hexadecimal characters"));
+    }
+
+    #[test]
+    fn publication_rejects_structurally_valid_metric_mutation_after_analysis() {
+        let mut report = run_offline_vlda_harness(fixture_dataset(), None, None).unwrap();
+        let original = report
+            .metrics
+            .success_rate
+            .expect("fixture carries complete success labels");
+        report.metrics.success_rate = Some(if original < 0.75 { 0.75 } else { 0.25 });
+
+        let directory = tempfile::tempdir().unwrap();
+        let summary_path = directory.path().join("mutated-analysis-summary.json");
+        let error = write_offline_vlda_summary(&summary_path, &report).unwrap_err();
+
+        assert!(
+            error
+                .to_string()
+                .contains("changed after analysis and cannot be published"),
+            "unexpected error: {error:#}"
+        );
+        assert!(!summary_path.exists());
+    }
+
+    #[test]
+    fn deserialized_report_is_read_only_evidence_not_publication_authority() {
+        let report = run_offline_vlda_harness(fixture_dataset(), None, None).unwrap();
+        let serialized = serde_json::to_vec(&report).unwrap();
+        let decoded: OfflineVldaReport = serde_json::from_slice(&serialized).unwrap();
+        assert_eq!(serde_json::to_vec(&decoded).unwrap(), serialized);
+        assert_eq!(decoded, report);
+
+        let directory = tempfile::tempdir().unwrap();
+        let summary_path = directory.path().join("republished-summary.json");
+        let error = write_offline_vlda_summary(&summary_path, &decoded).unwrap_err();
+
+        assert!(
+            error
+                .to_string()
+                .contains("lacks its in-process analysis seal"),
+            "unexpected error: {error:#}"
+        );
+        assert!(!summary_path.exists());
+    }
+
+    #[test]
     fn publication_rejects_pid_mode_that_contradicts_the_metric_family() {
         let mut report = run_offline_vlda_harness_with_options(
             fixture_dataset(),
@@ -11032,6 +12832,8 @@ mod tests {
         let mut report = run_offline_vlda_harness(dataset.clone(), None, None).unwrap();
         assert_eq!(report.axis_provenance.len(), 4);
         report.axis_provenance.clear();
+        report.analysis_seal =
+            OfflineVldaAnalysisSeal(Some(offline_vlda_report_analysis_seal(&report).unwrap()));
         let directory = tempfile::tempdir().unwrap();
         let runlog_path = directory.path().join("forged-axis-provenance.jsonl");
 
@@ -11167,6 +12969,7 @@ mod tests {
             max_distance_coordinate_evaluations: observed
                 .projected_total_distance_coordinate_evaluations,
             max_dense_solver_operations: observed.projected_dense_solver_operations.max(1),
+            max_categorical_pid_operations: observed.projected_categorical_pid_operations.max(1),
         };
 
         let report = run_offline_vlda_harness_with_options_and_limits(
@@ -11270,6 +13073,88 @@ mod tests {
                 .unwrap()
                 .operations_hint
         );
+    }
+
+    #[test]
+    fn categorical_pid_projection_matches_pinned_pid_core_resource_contract() {
+        let dataset = fixture_dataset();
+        let dims = validate_dataset(&dataset).unwrap();
+        let prepared = prepare_standardized_embeddings(&dataset.samples, &dims).unwrap();
+        let budget = ResourceBudget::default();
+        let v = prepare_quantized_axis(prepared.v.as_ref(), 6, budget).unwrap();
+        let l = prepare_quantized_axis(prepared.l.as_ref(), 6, budget).unwrap();
+        let a = prepare_quantized_axis(prepared.a.as_ref(), 6, budget).unwrap();
+
+        assert_eq!(
+            projected_categorical_sxpid2_operations(
+                dims.samples as u128,
+                dims.v as u128,
+                dims.l as u128,
+                dims.a as u128,
+            )
+            .unwrap(),
+            fitted_quantized_sxpid2_resource_estimate(&v.data, &l.data, &a.data)
+                .unwrap()
+                .operations_hint
+        );
+    }
+
+    #[test]
+    fn categorical_pid_projection_uses_pls_output_widths() {
+        let mut dataset = fixture_dataset();
+        for sample in &mut dataset.samples {
+            sample.metadata.remove("split");
+        }
+        let options = OfflineVldaHarnessOptions {
+            pid_mode: PidMode::CategoricalSxPls,
+            categorical_bins: 6,
+            pls: PlsComponentSelection::Fixed(1),
+        };
+        let dims = validate_dataset(&dataset).unwrap();
+        let samples = dims.samples as u128;
+        let projected = projected_categorical_pid_operations(&dataset, &options).unwrap();
+        let one_screen = projected_categorical_pid_screen_operations(
+            samples,
+            [1, 1, 1, dims.a as u128],
+            options.categorical_bins as u128,
+        )
+        .unwrap();
+
+        assert_eq!(projected, 2 * one_screen);
+        assert!(
+            projected
+                < 2 * projected_categorical_pid_screen_operations(
+                    samples,
+                    [dims.v, dims.l, dims.d, dims.a].map(|dimension| dimension as u128),
+                    options.categorical_bins as u128,
+                )
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn categorical_pid_aggregate_limit_rejects_before_analysis() {
+        let dataset = fixture_dataset();
+        let options = OfflineVldaHarnessOptions {
+            pid_mode: PidMode::CategoricalSx,
+            categorical_bins: 6,
+            pls: PlsComponentSelection::Fixed(2),
+        };
+        let projected = projected_categorical_pid_operations(&dataset, &options).unwrap();
+        assert!(projected > 1);
+        let limits = OfflineVldaResourceLimits {
+            max_categorical_pid_operations: u64::try_from(projected - 1).unwrap(),
+            ..OfflineVldaResourceLimits::default()
+        };
+
+        let error = run_offline_vlda_harness_with_options_and_limits(
+            dataset, None, None, &options, &limits,
+        )
+        .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("aggregate categorical-PID operations"));
     }
 
     #[test]
@@ -11898,10 +13783,7 @@ mod tests {
     #[test]
     fn temporal_report_distinguishes_persistent_from_alternating_series() {
         // One long episode; V is a slow ramp (lag-1 near +1), L alternates
-        // sign every step (lag-1 near -1). The diagnostic must give the ramp a
-        // small effective sample size and a block length > 1, and the
-        // alternating axis the full n with block 1 (negative dependence does
-        // not lengthen blocks).
+        // sign every step (lag-1 near -1). Both are descriptive correlations.
         let n = 32usize;
         let samples: Vec<OfflineVldaSample> = (0..n)
             .map(|idx| {
@@ -11936,30 +13818,19 @@ mod tests {
         let l_r1 = l.lag1_autocorr.expect("alternating series has lag pairs");
         assert!(v_r1 > 0.8, "ramp lag1 = {v_r1}");
         assert!(l_r1 < -0.8, "alternating lag1 = {l_r1}");
-        let v_n_eff = v
-            .effective_sample_size
-            .expect("ramp has an AR(1) approximation");
-        assert!(
-            v_n_eff < n as f64 / 4.0,
-            "persistent axis must shrink the descriptive AR(1) value: {v_n_eff}"
-        );
-        assert!(v.recommended_block_len.is_some_and(|value| value > 1));
-        assert_eq!(
-            l.recommended_block_len,
-            Some(1),
-            "negative r1 does not lengthen the heuristic"
-        );
-        assert!(t.recommended_block_len >= v.recommended_block_len);
-        assert!(t
-            .recommended_block_len
-            .is_some_and(|value| value <= (n - 1) / 2));
         assert_eq!(t.segments, 1);
+        assert_eq!(t.potential_lag_pairs, n - 1);
         assert_eq!(t.lag_pairs, n - 1);
+        assert_eq!(t.correlation_lag_pairs, n - 1);
+        assert_eq!(t.sequence_index_gap_pairs, 0);
         assert_eq!(
             t.interpretation,
-            "descriptive_ar1_screen_not_estimator_effective_sample_size_or_block_selector;ar1_heuristics_only_for_one_declared_episode_with_strict_metadata_sequence_index"
+            "descriptive_within_unit_step_run_pearson_lag1_not_estimator_effective_sample_size_or_block_selector"
         );
-        assert_eq!(t.ordering_basis, "strict_canonical_metadata_sequence_index");
+        assert_eq!(
+            t.ordering_basis,
+            "strict_canonical_metadata_sequence_index_unit_steps_within_segments"
+        );
         // The fixture's own report carries the diagnostic too.
         let base = run_offline_vlda_harness(fixture_dataset(), None, None).unwrap();
         assert_eq!(base.temporal.variables.len(), 4);
@@ -11988,16 +13859,165 @@ mod tests {
     }
 
     #[test]
-    fn lag1_uses_only_paired_rows_within_episode_segments() {
-        let matrix = MatOwned::new(vec![-1.0, -1.0, 1.0, 1.0], 4, 1).unwrap();
+    fn report_validation_checks_temporal_coverage() {
+        let n = 24usize;
+        let samples = (0..n)
+            .map(|idx| OfflineVldaSample {
+                sample_id: format!("temporal-validation-{idx}"),
+                episode_id: Some("episode".to_string()),
+                v: vec![idx as f64, 0.0],
+                l: vec![if idx % 2 == 0 { -1.0 } else { 1.0 }],
+                d: vec![(idx % 3) as f64],
+                a: vec![(idx % 5) as f64],
+                labels: BTreeMap::new(),
+                metadata: [("sequence_index".to_string(), idx.to_string())]
+                    .into_iter()
+                    .collect(),
+            })
+            .collect();
+        let dataset = OfflineVldaDataset {
+            samples,
+            ..fixture_dataset()
+        };
+        let report = run_offline_vlda_harness(dataset, None, None).unwrap();
+        assert_eq!(report.temporal.variables["V"].dimensions_total, 2);
+        assert_eq!(
+            report.temporal.variables["V"].dimensions_with_defined_lag1,
+            1
+        );
+        validate_offline_vlda_report(&report).unwrap();
 
-        let correlation = axis_lag1_autocorr(&matrix, &[0..2, 2..4]);
+        let mut forged_coverage = report.clone();
+        forged_coverage
+            .temporal
+            .variables
+            .get_mut("V")
+            .unwrap()
+            .dimensions_with_defined_lag1 = 0;
+        assert!(validate_offline_vlda_report(&forged_coverage)
+            .unwrap_err()
+            .to_string()
+            .contains("lag-1 presence contradicts"));
 
-        assert_eq!(correlation, Some(0.99));
+        let mut forged_order = report;
+        forged_order.temporal.ordering_basis =
+            "missing_or_nonmonotone_metadata_sequence_index_no_lag_pairs".to_string();
+        assert!(validate_offline_vlda_report(&forged_order)
+            .unwrap_err()
+            .to_string()
+            .contains("admitted lag-pair count contradicts"));
+
+        let mut forged_minimum = run_offline_vlda_harness(
+            OfflineVldaDataset {
+                samples: (0..24)
+                    .map(|idx| OfflineVldaSample {
+                        sample_id: format!("forged-minimum-{idx}"),
+                        episode_id: Some("episode".to_string()),
+                        v: vec![idx as f64],
+                        l: vec![idx as f64],
+                        d: vec![idx as f64],
+                        a: vec![idx as f64],
+                        labels: BTreeMap::new(),
+                        metadata: [("sequence_index".to_string(), idx.to_string())]
+                            .into_iter()
+                            .collect(),
+                    })
+                    .collect(),
+                ..fixture_dataset()
+            },
+            None,
+            None,
+        )
+        .unwrap();
+        forged_minimum.temporal.correlation_lag_pairs = 2;
+        assert!(validate_offline_vlda_report(&forged_minimum)
+            .unwrap_err()
+            .to_string()
+            .contains("minimum three-pair runs"));
     }
 
     #[test]
-    fn temporal_report_withholds_ar1_values_without_within_series_pairs() {
+    fn lag1_does_not_treat_between_episode_offsets_as_temporal_dependence() {
+        let matrix = MatOwned::new(vec![-1.0, -1.0, 1.0, 1.0], 4, 1).unwrap();
+
+        assert_eq!(axis_lag1_autocorr(&matrix, &[0..2, 2..4]), (None, 0));
+    }
+
+    #[test]
+    fn temporal_report_distinguishes_admitted_pairs_from_correlation_pairs() {
+        let mut dataset = fixture_dataset();
+        for (idx, sample) in dataset.samples.iter_mut().enumerate() {
+            sample.episode_id = Some(format!("pair-{}", idx / 2));
+            sample
+                .metadata
+                .insert("sequence_index".to_string(), (idx % 2).to_string());
+        }
+
+        let report = run_offline_vlda_harness(dataset, None, None).unwrap();
+
+        assert_eq!(report.temporal.lag_pairs, report.dims.samples / 2);
+        assert_eq!(report.temporal.correlation_lag_pairs, 0);
+        assert!(report.temporal.variables.values().all(|variable| {
+            variable.lag1_autocorr.is_none() && variable.dimensions_with_defined_lag1 == 0
+        }));
+        validate_offline_vlda_report(&report).unwrap();
+    }
+
+    #[test]
+    fn lag1_pools_centered_residuals_without_crossing_segments() {
+        let matrix = MatOwned::new(vec![1.0, 2.0, 3.0, 4.0, 10.0, 8.0, 6.0, 4.0], 8, 1).unwrap();
+
+        let correlation = axis_lag1_autocorr(&matrix, &[0..4, 4..8]);
+
+        assert!(correlation
+            .0
+            .is_some_and(|value| (value - 1.0).abs() < 1e-12));
+        assert_eq!(correlation.1, 1);
+    }
+
+    #[test]
+    fn lag1_scaling_ignores_runs_that_cannot_support_centering() {
+        let matrix = MatOwned::new(vec![1.0, 2.0, 3.0, 4.0, 1.0e300, -1.0e300], 6, 1).unwrap();
+
+        let (correlation, dimensions) = axis_lag1_autocorr(&matrix, &[0..4, 4..6]);
+        assert!(correlation.is_some_and(|value| (value - 1.0).abs() < 1e-12));
+        assert_eq!(dimensions, 1);
+    }
+
+    #[test]
+    fn lag1_excludes_undefined_constant_dimensions_from_the_axis_mean() {
+        let one_defined =
+            MatOwned::new(vec![1.0, 0.0, 2.0, 0.0, 3.0, 0.0, 4.0, 0.0, 5.0, 0.0], 5, 2).unwrap();
+        let all_undefined = MatOwned::new(vec![0.0; 10], 5, 2).unwrap();
+        let segment = 0..5;
+        let segments = std::slice::from_ref(&segment);
+
+        let (defined_value, defined_count) = axis_lag1_autocorr(&one_defined, segments);
+        assert!(defined_value.is_some_and(|value| (value - 1.0).abs() < 1e-12));
+        assert_eq!(defined_count, 1);
+        assert_eq!(axis_lag1_autocorr(&all_undefined, segments), (None, 0));
+    }
+
+    #[test]
+    fn lag1_centers_each_side_within_one_unit_step_run() {
+        // A ramp remains perfectly positive after centering each lagged side.
+        let matrix = MatOwned::new(vec![1.0, 2.0, 3.0, 4.0], 4, 1).unwrap();
+        let segment = 0..4;
+        let segments = std::slice::from_ref(&segment);
+
+        let (correlation, dimensions) = axis_lag1_autocorr(&matrix, segments);
+        assert!(correlation.is_some_and(|value| (value - 1.0).abs() < 1e-12));
+        assert_eq!(dimensions, 1);
+
+        // This sequence has a positive uncentered cosine but a negative Pearson correlation.
+        let reversed = MatOwned::new(vec![0.0, 2.0, 0.0, 3.0], 4, 1).unwrap();
+        assert!(axis_lag1_autocorr(&reversed, segments)
+            .0
+            .is_some_and(|value| value < -0.8));
+    }
+
+    #[test]
+    fn temporal_report_withholds_lag1_without_within_series_pairs() {
         let mut dataset = fixture_dataset();
         for (idx, sample) in dataset.samples.iter_mut().enumerate() {
             sample.episode_id = Some(format!("singleton-{idx}"));
@@ -12007,13 +14027,26 @@ mod tests {
 
         assert_eq!(report.temporal.scope, "within_episode");
         assert_eq!(report.temporal.segments, report.dims.samples);
+        assert_eq!(report.temporal.potential_lag_pairs, 0);
         assert_eq!(report.temporal.lag_pairs, 0);
-        assert_eq!(report.temporal.recommended_block_len, None);
+        assert_eq!(report.temporal.correlation_lag_pairs, 0);
+        assert_eq!(report.temporal.sequence_index_gap_pairs, 0);
         assert!(report.temporal.variables.values().all(|variable| {
-            variable.lag1_autocorr.is_none()
-                && variable.effective_sample_size.is_none()
-                && variable.recommended_block_len.is_none()
+            variable.lag1_autocorr.is_none() && variable.dimensions_with_defined_lag1 == 0
         }));
+        validate_offline_vlda_report(&report).unwrap();
+
+        let mut forged_coverage = report;
+        forged_coverage
+            .temporal
+            .variables
+            .get_mut("V")
+            .unwrap()
+            .dimensions_with_defined_lag1 = 1;
+        assert!(validate_offline_vlda_report(&forged_coverage)
+            .unwrap_err()
+            .to_string()
+            .contains("cannot define lag-1 columns without centered correlation pairs"));
     }
 
     #[test]
@@ -12025,16 +14058,20 @@ mod tests {
 
         let report = run_offline_vlda_harness(dataset, None, None).unwrap();
 
-        assert_eq!(report.temporal.scope, "row_order");
-        assert_eq!(report.temporal.segments, 1);
-        assert_eq!(report.temporal.lag_pairs, report.dims.samples - 1);
-        assert!(report.temporal.variables.values().all(|variable| {
-            variable.effective_sample_size.is_none() && variable.recommended_block_len.is_none()
-        }));
-        assert_eq!(report.temporal.recommended_block_len, None);
+        assert_eq!(report.temporal.scope, "unidentified_without_episode_ids");
+        assert_eq!(report.temporal.segments, 0);
+        assert_eq!(report.temporal.potential_lag_pairs, 0);
+        assert_eq!(report.temporal.lag_pairs, 0);
+        assert_eq!(report.temporal.correlation_lag_pairs, 0);
+        assert_eq!(report.temporal.sequence_index_gap_pairs, 0);
+        assert!(report
+            .temporal
+            .variables
+            .values()
+            .all(|variable| variable.lag1_autocorr.is_none()));
         assert_eq!(
             report.temporal.ordering_basis,
-            "dataset_row_order_only_unverified"
+            "episode_identity_absent_no_lag_pairs"
         );
     }
 
@@ -12048,14 +14085,47 @@ mod tests {
 
         let report = run_offline_vlda_harness(dataset, None, None).unwrap();
 
-        assert!(report.temporal.variables.values().all(|variable| {
-            variable.effective_sample_size.is_none() && variable.recommended_block_len.is_none()
-        }));
-        assert_eq!(report.temporal.recommended_block_len, None);
+        assert_eq!(report.temporal.potential_lag_pairs, report.dims.samples - 1);
+        assert_eq!(report.temporal.lag_pairs, 0);
+        assert_eq!(report.temporal.correlation_lag_pairs, 0);
+        assert_eq!(report.temporal.sequence_index_gap_pairs, 0);
+        assert!(report
+            .temporal
+            .variables
+            .values()
+            .all(|variable| variable.lag1_autocorr.is_none()));
         assert_eq!(
             report.temporal.ordering_basis,
-            "dataset_row_order_only_unverified"
+            "missing_or_nonmonotone_metadata_sequence_index_no_lag_pairs"
         );
+    }
+
+    #[test]
+    fn temporal_report_rejects_a_nonmonotone_sequence_receipt() {
+        let mut dataset = fixture_dataset();
+        for (idx, sample) in dataset.samples.iter_mut().enumerate() {
+            sample.episode_id = Some("one-episode".to_string());
+            let sequence = if idx == 8 { 7 } else { idx };
+            sample
+                .metadata
+                .insert("sequence_index".to_string(), sequence.to_string());
+        }
+
+        let report = run_offline_vlda_harness(dataset, None, None).unwrap();
+
+        assert_eq!(report.temporal.potential_lag_pairs, report.dims.samples - 1);
+        assert_eq!(report.temporal.lag_pairs, 0);
+        assert_eq!(report.temporal.correlation_lag_pairs, 0);
+        assert_eq!(report.temporal.sequence_index_gap_pairs, 0);
+        assert_eq!(
+            report.temporal.ordering_basis,
+            "missing_or_nonmonotone_metadata_sequence_index_no_lag_pairs"
+        );
+        assert!(report
+            .temporal
+            .variables
+            .values()
+            .all(|variable| variable.lag1_autocorr.is_none()));
     }
 
     #[test]
@@ -12072,11 +14142,55 @@ mod tests {
             "known_episode_segments_only_mixed_ids"
         );
         assert_eq!(report.temporal.segments, report.dims.samples - 1);
-        assert_eq!(report.temporal.lag_pairs, 1);
-        assert!(report.temporal.variables.values().all(|variable| {
-            variable.effective_sample_size.is_none() && variable.recommended_block_len.is_none()
-        }));
-        assert_eq!(report.temporal.recommended_block_len, None);
+        assert_eq!(report.temporal.potential_lag_pairs, 1);
+        assert_eq!(report.temporal.lag_pairs, 0);
+        assert_eq!(report.temporal.correlation_lag_pairs, 0);
+        assert_eq!(report.temporal.sequence_index_gap_pairs, 0);
+        assert!(report
+            .temporal
+            .variables
+            .values()
+            .all(|variable| variable.lag1_autocorr.is_none()));
+    }
+
+    #[test]
+    fn temporal_report_accepts_per_episode_sequence_resets_and_records_gaps() {
+        let mut dataset = fixture_dataset();
+        for (idx, sample) in dataset.samples.iter_mut().enumerate() {
+            let episode = idx / 8;
+            let within_episode = idx % 8;
+            sample.episode_id = Some(format!("episode-{episode}"));
+            let sequence = if within_episode >= 4 {
+                within_episode + 2
+            } else {
+                within_episode
+            };
+            sample
+                .metadata
+                .insert("sequence_index".to_string(), sequence.to_string());
+        }
+
+        let report = run_offline_vlda_harness(dataset, None, None).unwrap();
+
+        assert_eq!(report.temporal.scope, "within_episode");
+        assert_eq!(report.temporal.segments, report.dims.samples / 8);
+        assert_eq!(
+            report.temporal.lag_pairs,
+            report.dims.samples - (2 * report.temporal.segments)
+        );
+        assert_eq!(
+            report.temporal.sequence_index_gap_pairs,
+            report.temporal.segments
+        );
+        assert_eq!(
+            report.temporal.correlation_lag_pairs,
+            report.temporal.lag_pairs
+        );
+        assert_eq!(
+            report.temporal.ordering_basis,
+            "strict_canonical_metadata_sequence_index_unit_steps_within_segments"
+        );
+        validate_offline_vlda_report(&report).unwrap();
     }
 
     #[test]
@@ -12222,9 +14336,10 @@ mod tests {
                     OfflineVldaDeclaredSupport::ContinuousRegularFullDimensional,
                 ),
             ]),
+            continuous_tuple_support: BTreeMap::new(),
             capture_integrity: None,
             publication_receipt: None,
-            publication_receipt_verified: false,
+            publication_receipt_verified_content_sha256: None,
             samples,
         }
     }
@@ -12310,9 +14425,10 @@ mod tests {
             model: None,
             task: None,
             support: BTreeMap::new(),
+            continuous_tuple_support: BTreeMap::new(),
             capture_integrity: None,
             publication_receipt: None,
-            publication_receipt_verified: false,
+            publication_receipt_verified_content_sha256: None,
             samples,
         };
 
@@ -12363,7 +14479,7 @@ mod tests {
         dataset.run_id = Some("ncp-fixture".to_string());
         dataset.capture_integrity = Some(integrity.to_string());
         dataset.publication_receipt = Some(receipt_path.display().to_string());
-        dataset.publication_receipt_verified = false;
+        dataset.publication_receipt_verified_content_sha256 = None;
         let dataset_bytes = serde_json::to_vec_pretty(&dataset).unwrap();
         std::fs::write(&dataset_path, &dataset_bytes).unwrap();
 
@@ -12432,15 +14548,40 @@ mod tests {
 
     #[test]
     fn ncp_input_requires_committed_hash_verified_complete_publication() {
+        let mut unverified_ncp_convention = fixture_dataset();
+        for sample in &mut unverified_ncp_convention.samples {
+            sample
+                .metadata
+                .insert("l_source".to_string(), "channel".to_string());
+            sample
+                .metadata
+                .insert("d_source".to_string(), "source".to_string());
+        }
+        let error = run_offline_vlda_harness(unverified_ncp_convention, None, None).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("NCP-marked dataset must declare source=\"ncp\""));
+
         let (dataset_path, dir) = write_ncp_publication_fixture("complete");
         let dataset = read_offline_vlda_dataset(&dataset_path).unwrap();
-        assert!(dataset.publication_receipt_verified);
-        assert!(run_offline_vlda_harness(dataset, None, None).is_ok());
+        assert!(dataset
+            .publication_receipt_verified_content_sha256
+            .is_some());
+        assert!(run_offline_vlda_harness(dataset.clone(), None, None).is_ok());
+
+        let mut mutated = dataset;
+        mutated.samples[0].a[0] += 1.0;
+        let error = run_offline_vlda_harness(mutated, None, None).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("changed after NCP publication receipt verification"));
         std::fs::remove_dir_all(dir).ok();
 
         let (dataset_path, dir) = write_ncp_publication_fixture("complete_with_warning");
         let dataset = read_offline_vlda_dataset(&dataset_path).unwrap();
-        assert!(dataset.publication_receipt_verified);
+        assert!(dataset
+            .publication_receipt_verified_content_sha256
+            .is_some());
         std::fs::remove_dir_all(dir).ok();
 
         let (dataset_path, dir) = write_ncp_publication_fixture("invalid");
@@ -12986,37 +15127,74 @@ mod tests {
     }
 
     #[test]
-    fn discrete_mode_emits_imin_pairs_with_saturation_diagnostics() {
+    fn categorical_sx_mode_emits_components_and_saturation_diagnostics() {
         let dataset = fixture_dataset();
         let options = OfflineVldaHarnessOptions {
-            pid_mode: PidMode::Discrete,
-            discrete_bins: 6,
+            pid_mode: PidMode::CategoricalSx,
+            categorical_bins: 6,
             pls: PlsComponentSelection::Fixed(2),
         };
         let report =
             run_offline_vlda_harness_with_options(dataset.clone(), None, None, &options).unwrap();
         assert_eq!(report.metrics.pid_pairs.len(), 3);
+        assert_eq!(
+            report
+                .metrics
+                .categorical_quantization
+                .keys()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            ["A", "D", "L", "V"]
+        );
+        for (axis, receipt) in &report.metrics.categorical_quantization {
+            assert_eq!(&receipt.axis, axis);
+            assert_eq!(receipt.bins_per_dimension, 6);
+            assert_eq!(receipt.samples, report.dims.samples);
+            assert_eq!(receipt.training_input_sha256.len(), 64);
+            // The same matrix is bound in two deliberately domain-separated hashes.
+            assert_ne!(
+                receipt.training_input_sha256,
+                receipt.transform_input_sha256
+            );
+            assert_eq!(receipt.out_of_range_policy, "error");
+            assert!(receipt.functional.contains("Makkeh-Gutknecht-Wibral"));
+            assert_eq!(receipt.information_units, "nats");
+        }
         for (pair_name, pair) in &report.metrics.pid_pairs {
+            assert_eq!(pair.outcome.information_units, "nats");
             let saturation = pair
-                .discrete_saturation
+                .categorical_saturation
                 .as_ref()
                 .unwrap_or_else(|| panic!("{pair_name} missing saturation diagnostics"));
             assert!(saturation.unique_fraction_joint > 0.0);
-            // I_min identities: Red <= min marginal MI, so uniques are non-negative;
-            // atoms computed exactly on one empirical joint are non-negative.
-            let eps = 1e-9;
-            let (red, mi1, mi2, u1, u2, syn) = (
-                pair.redundancy.unwrap(),
-                pair.mi_source_1_action.unwrap(),
-                pair.mi_source_2_action.unwrap(),
-                pair.unique_source_1.unwrap(),
-                pair.unique_source_2.unwrap(),
-                pair.synergy.unwrap(),
+            assert_eq!(saturation.empirical_sample_count, report.dims.samples);
+            assert_eq!(
+                saturation.observed_joint_states as f64 / saturation.empirical_sample_count as f64,
+                saturation.unique_fraction_joint
             );
-            assert!(red <= mi1.min(mi2) + eps);
-            assert!(u1 >= -eps, "{pair_name} Unq1 negative");
-            assert!(u2 >= -eps, "{pair_name} Unq2 negative");
-            assert!(syn >= -eps, "{pair_name} Syn negative");
+            assert!(saturation
+                .population_caveat
+                .contains("plug-in bias remains"));
+            let components = pair
+                .categorical_sx_components
+                .as_ref()
+                .unwrap_or_else(|| panic!("{pair_name} missing categorical Sx components"));
+            for (atom, net) in [
+                (components.redundancy, pair.redundancy.unwrap()),
+                (components.unique_source_1, pair.unique_source_1.unwrap()),
+                (components.unique_source_2, pair.unique_source_2.unwrap()),
+                (components.synergy, pair.synergy.unwrap()),
+            ] {
+                assert!(atom.informative >= -1e-12);
+                assert!(atom.misinformative >= -1e-12);
+                assert!((atom.net - (atom.informative - atom.misinformative)).abs() < 1e-10);
+                assert_eq!(atom.net.to_bits(), net.to_bits());
+            }
+            let reconstructed = pair.redundancy.unwrap()
+                + pair.unique_source_1.unwrap()
+                + pair.unique_source_2.unwrap()
+                + pair.synergy.unwrap();
+            assert!((reconstructed - pair.mi_joint_action.unwrap()).abs() < 1e-10);
         }
 
         let stamp = SystemTime::now()
@@ -13024,7 +15202,7 @@ mod tests {
             .unwrap()
             .as_nanos();
         let runlog_path =
-            std::env::temp_dir().join(format!("pid-offline-vlda-discrete-{stamp}.jsonl"));
+            std::env::temp_dir().join(format!("pid-offline-vlda-categorical-sx-{stamp}.jsonl"));
         write_offline_vlda_runlog(&runlog_path, None, None, &dataset, &report).unwrap();
         let events = read_events_from_path(&runlog_path).unwrap();
         let warned_pair_metadata = events.iter().find_map(|event| match event {
@@ -13056,26 +15234,103 @@ mod tests {
         );
         assert_eq!(
             warned_pair_metadata.get("warning_code").map(String::as_str),
-            Some("discrete_saturation")
+            Some("categorical_saturation")
+        );
+        assert_eq!(
+            warned_pair_metadata.get("units").map(String::as_str),
+            Some("nats")
         );
         std::fs::remove_file(runlog_path).unwrap();
+
+        let mut forged_units = report.clone();
+        forged_units
+            .metrics
+            .categorical_quantization
+            .get_mut("V")
+            .unwrap()
+            .information_units = "bits".to_string();
+        assert!(validate_offline_vlda_report(&forged_units)
+            .unwrap_err()
+            .to_string()
+            .contains("quantizer receipt contradicts"));
+
+        let mut forged_estimand = report.clone();
+        forged_estimand
+            .metrics
+            .categorical_quantization
+            .get_mut("V")
+            .unwrap()
+            .estimand_statement = "continuous PID after quantization".to_string();
+        assert!(validate_offline_vlda_report(&forged_estimand)
+            .unwrap_err()
+            .to_string()
+            .contains("quantizer receipt contradicts"));
+
+        let mut forged_occupancy = report;
+        let receipt = forged_occupancy
+            .metrics
+            .categorical_quantization
+            .get_mut("V")
+            .unwrap();
+        let nominal = receipt
+            .nominal_joint_cardinality
+            .as_ref()
+            .expect("fixture cardinality fits u128")
+            .parse::<u128>()
+            .unwrap();
+        receipt.empty_joint_cells = Some(nominal.to_string());
+        assert!(validate_offline_vlda_report(&forged_occupancy)
+            .unwrap_err()
+            .to_string()
+            .contains("inconsistent nominal and empty cardinalities"));
     }
 
     #[test]
-    fn discrete_pls_mode_projects_then_quantizes() {
+    fn categorical_sx_pls_mode_projects_then_quantizes() {
         let dataset = fixture_dataset();
         let options = OfflineVldaHarnessOptions {
-            pid_mode: PidMode::DiscretePls,
-            discrete_bins: 6,
+            pid_mode: PidMode::CategoricalSxPls,
+            categorical_bins: 6,
             pls: PlsComponentSelection::Fixed(1),
         };
         let report = run_offline_vlda_harness_with_options(dataset, None, None, &options).unwrap();
         assert_eq!(report.metrics.pid_pairs.len(), 3);
+        assert_eq!(
+            report.config["metric_pipeline"]["pid_evaluation_relation"],
+            "same_rows_target_supervised_projection_and_fitted_quantization_warning"
+        );
+        for outcome in [
+            &report.metrics.mi_v_action.outcome,
+            &report.metrics.mi_l_action.outcome,
+            &report.metrics.mi_d_action.outcome,
+        ] {
+            assert_eq!(
+                outcome.status,
+                OfflineVldaEstimateStatus::ProducedWithWarning
+            );
+            assert_eq!(
+                outcome.scientific_gates.estimator,
+                OfflineVldaScientificGateVerdict::Blocked
+            );
+            assert!(matches!(
+                outcome.scientific_gates.reason_code.as_deref(),
+                Some(SCIENTIFIC_REASON_SUPERVISED_SAME_ROW)
+                    | Some(SCIENTIFIC_REASON_SUPERVISED_SAME_ROW_AND_SATURATION)
+            ));
+        }
         let vl = &report.metrics.pid_pairs["VL"];
-        assert!(vl.discrete_saturation.is_some());
+        assert!(vl.categorical_saturation.is_some());
         assert!(vl.mi_source_1_action.unwrap().is_finite());
+        assert_eq!(
+            vl.outcome.status,
+            OfflineVldaEstimateStatus::ProducedWithWarning
+        );
+        assert_eq!(
+            vl.outcome.scientific_gates.reason_code.as_deref(),
+            Some(SCIENTIFIC_REASON_SUPERVISED_SAME_ROW_AND_SATURATION)
+        );
         // Preregistered mitigations (grandplan §6.2 leakage-safe fitted preprocessing): selection
-        // provenance and the shuffled-target permutation control ride along.
+        // provenance and the fixed-seed shuffled-target negative-control draw ride along.
         let sel = report.metrics.pls_selection.as_ref().unwrap();
         assert_eq!(sel.method, "fixed");
         assert_eq!(
@@ -13086,7 +15341,7 @@ mod tests {
             .metrics
             .pls_shuffled_target_control
             .as_ref()
-            .expect("discrete-pls carries its selection-inflation control");
+            .expect("categorical-sx-pls carries its selection-inflation control");
         assert!(report.metrics.pls_control_seed.is_some());
         assert_eq!(control.pid_pairs.len(), 3);
         // The control ran the identical pipeline against a shuffled target;
@@ -13094,28 +15349,51 @@ mod tests {
         // control. NOTE the fixture is small enough that the binned joint
         // table has all-singleton cells under BOTH pairings, so the discrete
         // MI here saturates to a pure function of the marginals and the
-        // control EQUALS the real screen — which is precisely the verdict the
-        // control exists to deliver: in a saturated regime the discrete-pls
-        // numbers are all selection/saturation artifact, zero evidence. (The
-        // per-pair `discrete_saturation` diagnostic flags the same regime.)
+        // control EQUALS the real screen. This fixture therefore shows no separation from this one
+        // negative-control draw. One draw does not estimate a null distribution or prove that all
+        // signal is artifact. (The
+        // per-pair `categorical_saturation` diagnostic flags the same regime.)
         assert!(control.mi_v_action.value.unwrap().is_finite());
         assert_eq!(
             control.mi_v_action.value, report.metrics.mi_v_action.value,
-            "saturated fixture: the inflation floor equals the signal"
+            "saturated fixture: the negative-control draw equals the observed screen"
         );
         assert!(control.pls_shuffled_target_control.is_none());
         // Train-split screen must also run under the PLS-projected discrete path.
         let train_pid = report.train_split_pid.as_ref().unwrap();
         assert_eq!(train_pid.status, "available");
         assert_eq!(train_pid.metrics.as_ref().unwrap().pid_pairs.len(), 3);
+        assert!(train_pid
+            .metrics
+            .as_ref()
+            .unwrap()
+            .pid_pairs
+            .values()
+            .all(|pair| pair.outcome.status == OfflineVldaEstimateStatus::ProducedWithWarning));
+
+        let mut forged_clean = report;
+        forged_clean
+            .metrics
+            .pid_pairs
+            .get_mut("VL")
+            .unwrap()
+            .outcome
+            .status = OfflineVldaEstimateStatus::Produced;
+        let error = validate_offline_vlda_report(&forged_clean)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("categorical warning does not match the fitted-preprocessing contract"),
+            "unexpected validation error: {error}"
+        );
     }
 
     #[test]
-    fn discrete_pls_cv_selection_reports_components_and_q2() {
+    fn categorical_sx_pls_cv_selection_reports_components_and_q2() {
         let dataset = fixture_dataset();
         let options = OfflineVldaHarnessOptions {
-            pid_mode: PidMode::DiscretePls,
-            discrete_bins: 6,
+            pid_mode: PidMode::CategoricalSxPls,
+            categorical_bins: 6,
             pls: PlsComponentSelection::CvQ2 { max_components: 3 },
         };
         let report =
@@ -13142,6 +15420,7 @@ mod tests {
         assert!(report.metrics.pls_selection.is_none());
         assert!(report.metrics.pls_shuffled_target_control.is_none());
         assert!(report.metrics.pls_control_seed.is_none());
+        assert!(report.metrics.categorical_quantization.is_empty());
     }
 
     #[test]
@@ -13149,12 +15428,96 @@ mod tests {
         let dataset = fixture_dataset();
         let report = run_offline_vlda_harness(dataset, None, None).unwrap();
         for pair in report.metrics.pid_pairs.values() {
-            assert!(pair.discrete_saturation.is_none());
+            assert!(pair.categorical_saturation.is_none());
         }
     }
 
     #[test]
-    fn discrete_mode_marks_missing_population_support_not_evaluated() {
+    fn continuous_mode_requires_each_complete_tuple_support_contract() {
+        let mut missing = continuous_fixture_dataset();
+        missing
+            .continuous_tuple_support
+            .remove(CONTINUOUS_TUPLE_V_A);
+        let report =
+            run_offline_vlda_harness_with_options(missing, None, None, &continuous_options())
+                .unwrap();
+        assert_eq!(
+            report.metrics.mi_v_action.outcome.reason_code,
+            Some(OfflineVldaAbstainReason::TupleSupportContractUnspecified)
+        );
+        assert!(report.metrics.mi_v_action.value.is_none());
+        assert!(report
+            .metrics
+            .mi_l_action
+            .outcome
+            .declared_continuous_tuple_support
+            .is_some_and(OfflineVldaContinuousTupleSupport::is_regular));
+
+        let mut singular = continuous_fixture_dataset();
+        singular.continuous_tuple_support.insert(
+            CONTINUOUS_TUPLE_V_L_A.to_string(),
+            OfflineVldaContinuousTupleSupport::KnownSingularOrLowerDimensional,
+        );
+        let report =
+            run_offline_vlda_harness_with_options(singular, None, None, &continuous_options())
+                .unwrap();
+        let pair = &report.metrics.pid_pairs["VL"];
+        assert_eq!(
+            pair.outcome.reason_code,
+            Some(OfflineVldaAbstainReason::DeclaredTupleSupportIncompatibleContinuous)
+        );
+        assert_eq!(
+            pair.outcome.declared_continuous_tuple_support,
+            Some(OfflineVldaContinuousTupleSupport::KnownSingularOrLowerDimensional)
+        );
+        assert!(pair.redundancy.is_none());
+    }
+
+    #[test]
+    fn continuous_support_contract_rejects_internal_contradictions() {
+        let mut axis_conflict = continuous_fixture_dataset();
+        axis_conflict
+            .support
+            .insert("v".to_string(), OfflineVldaDeclaredSupport::Categorical);
+        let error =
+            run_offline_vlda_harness_with_options(axis_conflict, None, None, &continuous_options())
+                .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("axis \"v\" has an explicitly incompatible support declaration"));
+
+        let mut marginal_conflict = continuous_fixture_dataset();
+        marginal_conflict.continuous_tuple_support.insert(
+            CONTINUOUS_TUPLE_V_A.to_string(),
+            OfflineVldaContinuousTupleSupport::KnownSingularOrLowerDimensional,
+        );
+        let error = run_offline_vlda_harness_with_options(
+            marginal_conflict,
+            None,
+            None,
+            &continuous_options(),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains(
+            "tuple \"v_l_a\" declares every required marginal regular, but the explicit \"v_a\" declaration is incompatible"
+        ));
+
+        let mut compatible = continuous_fixture_dataset();
+        compatible.continuous_tuple_support.insert(
+            CONTINUOUS_TUPLE_V_L_A.to_string(),
+            OfflineVldaContinuousTupleSupport::KnownSingularOrLowerDimensional,
+        );
+        assert!(run_offline_vlda_harness_with_options(
+            compatible,
+            None,
+            None,
+            &continuous_options(),
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn categorical_sx_mode_marks_missing_population_support_not_evaluated() {
         let mut dataset = fixture_dataset();
         dataset.support.remove("v");
         let report = run_offline_vlda_harness_with_options(
@@ -13162,8 +15525,8 @@ mod tests {
             None,
             None,
             &OfflineVldaHarnessOptions {
-                pid_mode: PidMode::Discrete,
-                discrete_bins: 6,
+                pid_mode: PidMode::CategoricalSx,
+                categorical_bins: 6,
                 pls: PlsComponentSelection::Fixed(2),
             },
         )
@@ -13217,7 +15580,14 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(report.config["metric_pipeline"]["pid"], "disabled");
+        assert_eq!(
+            report.config["metric_pipeline"]["pid_functional"],
+            "not_requested"
+        );
+        assert_eq!(
+            report.config["metric_pipeline"]["pid_estimator"],
+            "not_applicable"
+        );
         assert_eq!(report.metrics.estimate_denominators.requested, 0);
         assert!(report.metrics.pid_pairs.is_empty());
         assert_eq!(
@@ -13523,34 +15893,16 @@ mod tests {
         let produced_mi_metadata = events.iter().find_map(|event| match event {
             RunLogEvent::PidMetric { metadata, .. }
                 if !metadata.contains_key("pid_pair")
-                    && metadata.get("measure").map(String::as_str) == Some("ksg_mi") =>
+                    && metadata.get("measure").map(String::as_str)
+                        == Some(MEASURE_CONTINUOUS_MI) =>
             {
                 Some(metadata)
             }
             _ => None,
         });
-        let produced_mi_metadata = produced_mi_metadata.expect("produced scalar MI metric");
-        assert_eq!(
-            produced_mi_metadata
-                .get("computation_status")
-                .map(String::as_str),
-            Some("produced")
-        );
-        assert_eq!(
-            produced_mi_metadata
-                .get("scientific_gate_application")
-                .map(String::as_str),
-            Some("blocked")
-        );
-        assert_eq!(
-            produced_mi_metadata
-                .get("interpretation_allowed")
-                .map(String::as_str),
-            Some("false")
-        );
-        assert_eq!(
-            produced_mi_metadata.get("measure").map(String::as_str),
-            Some("ksg_mi")
+        assert!(
+            produced_mi_metadata.is_none(),
+            "per-axis declarations must not silently promote to a joint-law contract"
         );
         // The abstention itself is preserved in the run log, with its stable reason code.
         for pair in ["VL", "VD", "LD"] {
@@ -13572,8 +15924,12 @@ mod tests {
         });
         assert!(has_denominators);
         for name in [
+            "offline_vlda.pid.abstained.V",
             "offline_vlda.pid.abstained.L",
+            "offline_vlda.pid.abstained.D",
+            "offline_vlda.pid.train_split.abstained.V",
             "offline_vlda.pid.train_split.abstained.L",
+            "offline_vlda.pid.train_split.abstained.D",
             "offline_vlda.pid.train_split.abstained.VL",
             "offline_vlda.pid.train_split.abstained.VD",
             "offline_vlda.pid.train_split.abstained.LD",
@@ -13800,16 +16156,15 @@ mod tests {
             .count();
         assert_eq!(success_labels, 16);
         assert!(summary.labels > success_labels);
-        // Only the two declared-support-compatible marginal MIs survive on this mixed-support fixture
-        // (`V→A`, `D→A`). Every pair abstains, and the train-split screen abstains too (12 rows
-        // put the continuous estimator into an ambiguous k-th-neighbor shell). 42 -> 2.
-        assert_eq!(summary.pid_metrics, 2);
+        // Per-axis continuity is insufficient for a joint KSG/Ehrlich assertion. This fixture
+        // intentionally omits complete-tuple contracts, so every continuous request abstains.
+        assert_eq!(summary.pid_metrics, 0);
         // `L` is binary: duplicate rows give a zero nearest-neighbor distance, so the current
         // pid-core review contract fails its geometry diagnostics closed (degenerate data /
         // ambiguous shell) and records the reason instead of emitting a number. 21 -> 19.
         assert!(summary.geometry_metrics >= 19);
         assert_eq!(summary.evaluation_metrics, 149);
-        assert_eq!(summary.pid_metric_events, 2);
+        assert_eq!(summary.pid_metric_events, 0);
         assert!(summary.geometry_metric_events >= 19);
         assert_eq!(summary.evaluation_metric_events, 238);
 
@@ -14478,6 +16833,28 @@ mod tests {
     }
 
     #[test]
+    fn permutation_calibration_names_the_exact_exchangeability_unit() {
+        assert_eq!(
+            permutation_calibration_label(PermutationScheme::FullShuffle, 1).unwrap(),
+            "monte_carlo_p_value_under_declared_row_exchangeability"
+        );
+        assert_eq!(
+            permutation_calibration_label(PermutationScheme::BlockShuffle { block_size: 2 }, 1,)
+                .unwrap(),
+            "monte_carlo_p_value_under_declared_whole_block_exchangeability"
+        );
+        assert_eq!(
+            permutation_calibration_label(PermutationScheme::CircularShift { min_shift: 1 }, 1)
+                .unwrap(),
+            "approximate_stationary_surrogate_score_not_p_value"
+        );
+        assert_eq!(
+            permutation_calibration_label(PermutationScheme::FullShuffle, 0).unwrap(),
+            "not_requested"
+        );
+    }
+
+    #[test]
     fn pid_uncertainty_continuous_emits_stability_envelopes_and_null_tail_fractions() {
         let dataset = as_single_ordered_episode(continuous_fixture_dataset());
         let cfg = OfflineVldaUncertaintyConfig {
@@ -14494,12 +16871,16 @@ mod tests {
             u.stability_interpretation,
             RAW_M_SAMPLE_STABILITY_INTERPRETATION
         );
+        assert_eq!(
+            u.preprocessing_resampling,
+            OFFLINE_UNCERTAINTY_PREPROCESSING_RESAMPLING
+        );
         assert_eq!(u.pairs.len(), 3);
         assert!(u.subsample_len >= 1);
         assert_eq!(u.permutation_scheme, "full_shuffle");
         assert_eq!(
             u.permutation_calibration,
-            "monte_carlo_p_value_under_declared_exchangeability"
+            "monte_carlo_p_value_under_declared_row_exchangeability"
         );
         assert_eq!(u.row_topology, "single_ordered_episode");
         // Deterministic given the same config.
@@ -14563,7 +16944,7 @@ mod tests {
             n_perm: 0,
             ..Default::default()
         };
-        let u = compute_offline_pid_uncertainty(&dataset, PidMode::Discrete, &cfg).unwrap();
+        let u = compute_offline_pid_uncertainty(&dataset, PidMode::CategoricalSx, &cfg).unwrap();
         assert!(u.mode.starts_with("skipped"), "mode={}", u.mode);
         assert!(u.pairs.is_empty());
     }
@@ -14762,7 +17143,7 @@ mod tests {
         for (mode, config) in [
             (PidMode::Continuous, OfflineVldaUncertaintyConfig::default()),
             (
-                PidMode::Discrete,
+                PidMode::CategoricalSx,
                 OfflineVldaUncertaintyConfig {
                     n_perm: 1,
                     ..OfflineVldaUncertaintyConfig::default()
@@ -14815,7 +17196,7 @@ mod tests {
     }
 
     #[test]
-    fn uncertainty_publication_rejects_ambiguous_stability_interpretation() {
+    fn uncertainty_publication_rejects_ambiguous_stability_scope() {
         let config = OfflineVldaUncertaintyConfig {
             n_boot: 8,
             ..Default::default()
@@ -14837,6 +17218,15 @@ mod tests {
         let error = write_offline_pid_uncertainty(&path, &uncertainty).unwrap_err();
         assert!(
             format!("{error:#}").contains(RAW_M_SAMPLE_STABILITY_INTERPRETATION),
+            "{error:#}"
+        );
+        assert!(!path.exists());
+
+        uncertainty.stability_interpretation = RAW_M_SAMPLE_STABILITY_INTERPRETATION.to_string();
+        uncertainty.preprocessing_resampling = "nested_refit".to_string();
+        let error = write_offline_pid_uncertainty(&path, &uncertainty).unwrap_err();
+        assert!(
+            format!("{error:#}").contains(OFFLINE_UNCERTAINTY_PREPROCESSING_RESAMPLING),
             "{error:#}"
         );
         assert!(!path.exists());
@@ -14997,6 +17387,8 @@ mod tests {
         };
         report.config["uncertainty_request"]["row_topology"] = json!(forged.label());
         report.config_hash = pid_runlog::canonical_json_hash_v2(&report.config).unwrap();
+        report.analysis_seal =
+            OfflineVldaAnalysisSeal(Some(offline_vlda_report_analysis_seal(&report).unwrap()));
 
         let directory = tempfile::tempdir().unwrap();
         let runlog_path = directory.path().join("forged-topology.jsonl");
@@ -15025,11 +17417,11 @@ mod tests {
         };
         let uncertainty = compute_offline_pid_uncertainty(
             &continuous_fixture_dataset(),
-            PidMode::Discrete,
+            PidMode::CategoricalSx,
             &config,
         )
         .unwrap();
-        assert_eq!(uncertainty.pid_mode, PidMode::Discrete);
+        assert_eq!(uncertainty.pid_mode, PidMode::CategoricalSx);
 
         let mut forged_mode = uncertainty.clone();
         forged_mode.pid_mode = PidMode::Continuous;

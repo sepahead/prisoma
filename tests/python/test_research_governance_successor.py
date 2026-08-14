@@ -29,10 +29,22 @@ SPEC.loader.exec_module(MODULE)
 SuccessorGovernanceError = MODULE.SuccessorGovernanceError
 validate_successor_document = MODULE.validate_successor_document
 
-SUCCESSOR = Path("protocols/m0_preregistration_successor_draft_v2.json")
+SUCCESSOR = Path("protocols/m0_preregistration_successor_draft_v3.json")
 V1 = Path("protocols/m0_preregistration_skeleton_v1.json")
 GRANDPLAN = Path("grandplan.md")
 FREEZE_RECEIPT = Path("protocols/test_m0_freeze_receipt_v1.json")
+H3_LANDMARK_DEFINITION = GRANDPLAN
+H3_SOURCE_TARGET_INVENTORY = Path("pidsplatspecs.md")
+H3_PRODUCER_IMPLEMENTATION = Path("experiments/safe_adapter/contract.py")
+H3_CONSUMER_VALIDATOR = Path("crates/pid-sim/src/offline_harness.rs")
+H3_PER_ROW_RECEIPT_SCHEMA = Path("protocols/research_claim_registry_v1.json")
+H3_ROLE_PATHS = (
+    H3_LANDMARK_DEFINITION,
+    H3_SOURCE_TARGET_INVENTORY,
+    H3_PRODUCER_IMPLEMENTATION,
+    H3_CONSUMER_VALIDATOR,
+    H3_PER_ROW_RECEIPT_SCHEMA,
+)
 
 EXPECTED_BLOCKERS = [
     "M0_SUCCESSOR_REVISION_UNREVIEWED",
@@ -48,6 +60,13 @@ EXPECTED_BLOCKERS = [
 ]
 
 
+def _candidate_blockers(*, h3_active: bool = True) -> list[str]:
+    blockers = ["M0_SUCCESSOR_FREEZE_CANDIDATE_REVIEW_PENDING"]
+    if h3_active:
+        blockers.insert(0, MODULE.H3_ANCESTRY_IMPLEMENTATION_BLOCKER)
+    return blockers
+
+
 def _load(root: Path = ROOT) -> dict:
     return json.loads((root / SUCCESSOR).read_text(encoding="utf-8"))
 
@@ -60,7 +79,7 @@ def _write(root: Path, document: dict) -> None:
 
 
 def _copy_bundle(tmp_path: Path) -> Path:
-    for relative in (SUCCESSOR, V1, GRANDPLAN):
+    for relative in dict.fromkeys((SUCCESSOR, V1, GRANDPLAN, *H3_ROLE_PATHS)):
         destination = tmp_path / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / relative, destination)
@@ -72,6 +91,68 @@ def _binding(root: Path = ROOT, relative: Path = GRANDPLAN) -> dict[str, str]:
     return {
         "path": relative.as_posix(),
         "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
+
+
+def _role_binding(
+    role: str,
+    relative: Path,
+    *,
+    root: Path = ROOT,
+) -> dict[str, str]:
+    return {"artifact_role": role, **_binding(root, relative)}
+
+
+def _h3_source_target_ancestry_contract(root: Path = ROOT) -> dict:
+    return {
+        "contract_version": 1,
+        "target_specific_prediction_landmark_definition_binding": _role_binding(
+            "target_specific_prediction_landmark_definition",
+            H3_LANDMARK_DEFINITION,
+            root=root,
+        ),
+        "source_target_inventory_binding": _role_binding(
+            "source_target_inventory", H3_SOURCE_TARGET_INVENTORY, root=root
+        ),
+        "producer_implementation_binding": _role_binding(
+            "producer_implementation", H3_PRODUCER_IMPLEMENTATION, root=root
+        ),
+        "consumer_validation_implementation_binding": _role_binding(
+            "consumer_validation_implementation", H3_CONSUMER_VALIDATOR, root=root
+        ),
+        "per_row_receipt_schema_binding": _role_binding(
+            "per_row_receipt_schema", H3_PER_ROW_RECEIPT_SCHEMA, root=root
+        ),
+        "source_availability_rule": (
+            "every_source_ancestor_must_be_observed_no_later_than_the_frozen_"
+            "target_specific_prediction_landmark"
+        ),
+        "landmark_target_order_rule": (
+            "the_frozen_target_specific_prediction_landmark_must_precede_target_"
+            "realization_or_availability"
+        ),
+        "target_exclusion_rule": (
+            "no_source_computation_graph_may_contain_the_pid_target_or_any_"
+            "descendant_of_that_target"
+        ),
+        "future_supervision_rule": (
+            "training_only_future_supervision_is_allowed_only_when_the_deployed_"
+            "capture_path_reads_no_post_landmark_observation"
+        ),
+        "candidate_action_rule": (
+            "a_candidate_action_conditioned_state_is_forbidden_as_a_source_when_"
+            "the_pid_target_is_that_exact_candidate_action"
+        ),
+        "candidate_action_comparator_rule": (
+            "when_a_source_is_conditioned_on_a_candidate_action_and_the_pid_target_is_"
+            "any_downstream_command_or_later_outcome_the_matched_baseline_must_receive_"
+            "that_exact_candidate_action"
+        ),
+        "downstream_action_interpretation_rule": (
+            "incremental_value_for_a_controller_or_executed_action_target_cannot_"
+            "establish_physical_forecast_validity"
+        ),
+        "fail_closed_on_missing_unknown_or_mismatch": True,
     }
 
 
@@ -411,6 +492,9 @@ def _materialized_candidate(
         }
     ]
     h3["allowlisted_use_output_warning_codes"]["value"] = []
+    h3["source_target_ancestry_binding"]["value"] = _h3_source_target_ancestry_contract(
+        root
+    )
     h3["primary_incremental_value_contract"]["value"] = {
         "endpoint_id": "full_population_pid_incremental_value",
         "active_parent_primary_endpoint_binding": _binding(root),
@@ -488,7 +572,7 @@ def _materialized_frozen(
     root: Path,
     *,
     candidate: dict | None = None,
-    frozen_at: str = "2026-08-12T12:00:00Z",
+    frozen_at: str = "2026-08-13T12:00:00Z",
 ) -> dict:
     reviewed_candidate = (
         _materialized_candidate(root) if candidate is None else copy.deepcopy(candidate)
@@ -568,8 +652,8 @@ def test_duplicate_keys_unknown_fields_and_nonnull_draft_values_fail(
     raw = path.read_text(encoding="utf-8")
     path.write_text(
         raw.replace(
-            '  "schema_version": 2,',
-            '  "schema_version": 2,\n  "schema_version": 2,',
+            '  "schema_version": 3,',
+            '  "schema_version": 3,\n  "schema_version": 3,',
             1,
         ),
         encoding="utf-8",
@@ -595,12 +679,11 @@ def test_fully_materialized_candidate_and_typed_frozen_receipt_validate(
 ) -> None:
     root = _copy_bundle(tmp_path)
     candidate = _materialized_candidate(root)
-    assert validate_successor_document(candidate, root=root) == [
-        "M0_SUCCESSOR_FREEZE_CANDIDATE_REVIEW_PENDING"
-    ]
+    assert validate_successor_document(candidate, root=root) == _candidate_blockers()
 
     frozen = _materialized_frozen(root, candidate=candidate)
-    assert validate_successor_document(frozen, root=root) == []
+    with pytest.raises(SuccessorGovernanceError, match="active H3 contract cannot"):
+        validate_successor_document(frozen, root=root)
 
     for selected_h1 in ("h1_protocol_a", "h1_protocol_b"):
         for selected_branch in ("H3", "H4"):
@@ -609,9 +692,13 @@ def test_fully_materialized_candidate_and_typed_frozen_receipt_validate(
                 selected_h1=selected_h1,
                 selected_branch=selected_branch,
             )
-            assert validate_successor_document(candidate, root=root) == [
-                "M0_SUCCESSOR_FREEZE_CANDIDATE_REVIEW_PENDING"
-            ]
+            assert validate_successor_document(
+                candidate, root=root
+            ) == _candidate_blockers(h3_active=selected_branch == "H3")
+
+    h4_candidate = _materialized_candidate(root, selected_branch="H4")
+    h4_frozen = _materialized_frozen(root, candidate=h4_candidate)
+    assert validate_successor_document(h4_frozen, root=root) == []
 
 
 def test_candidate_populates_only_selected_protocol_contracts() -> None:
@@ -633,16 +720,14 @@ def test_candidate_populates_only_selected_protocol_contracts() -> None:
         selected_branch="H4",
         selection_timing="after_h3_with_fresh_holdout_and_sequential_error_control",
     )
-    assert validate_successor_document(switched, root=ROOT) == [
-        "M0_SUCCESSOR_FREEZE_CANDIDATE_REVIEW_PENDING"
-    ]
+    assert validate_successor_document(switched, root=ROOT) == _candidate_blockers()
 
 
 def test_arbitrary_receipt_revision_or_post_review_candidate_drift_cannot_freeze(
     tmp_path: Path,
 ) -> None:
     root = _copy_bundle(tmp_path)
-    candidate = _materialized_candidate(root)
+    candidate = _materialized_candidate(root, selected_branch="H4")
 
     arbitrary_receipt = copy.deepcopy(candidate)
     arbitrary_receipt["status"] = "frozen"
@@ -1120,9 +1205,7 @@ def test_h2_requires_one_scoring_contract_and_non_rescuable_success_hierarchy() 
     score["score_family"] = "fixed_horizon_log_loss"
     score["censoring_handling"] = "full_eligible_population_complete_followup"
     score["evaluation_object"] = "proper_complete_data_score"
-    assert validate_successor_document(candidate, root=ROOT) == [
-        "M0_SUCCESSOR_FREEZE_CANDIDATE_REVIEW_PENDING"
-    ]
+    assert validate_successor_document(candidate, root=ROOT) == _candidate_blockers()
 
     for prediction_object, score_family, censoring_handling, evaluation_object in (
         (
@@ -1164,9 +1247,9 @@ def test_h2_requires_one_scoring_contract_and_non_rescuable_success_hierarchy() 
         score["score_family"] = score_family
         score["censoring_handling"] = censoring_handling
         score["evaluation_object"] = evaluation_object
-        assert validate_successor_document(candidate, root=ROOT) == [
-            "M0_SUCCESSOR_FREEZE_CANDIDATE_REVIEW_PENDING"
-        ]
+        assert (
+            validate_successor_document(candidate, root=ROOT) == _candidate_blockers()
+        )
 
     candidate = _materialized_candidate()
     score = candidate["typed_protocol_contracts"]["h2"]["slots"][
@@ -1387,6 +1470,93 @@ def test_h3_incremental_value_requires_useful_superiority_and_full_population() 
     ):
         validate_successor_document(candidate, root=ROOT)
 
+    candidate = _materialized_candidate()
+    candidate["typed_protocol_contracts"]["h3"]["slots"][
+        "source_target_ancestry_binding"
+    ]["value"] = None
+    with pytest.raises(
+        SuccessorGovernanceError, match="null active required freeze slots"
+    ):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate()
+    candidate["typed_protocol_contracts"]["h3"]["slots"][
+        "source_target_ancestry_binding"
+    ]["value"]["candidate_action_rule"] = (
+        "a_candidate_action_conditioned_state_is_forbidden_as_a_source_when_the_pid_"
+        "target_is_that_candidate_action_or_any_descendant_of_that_action"
+    )
+    with pytest.raises(
+        SuccessorGovernanceError, match="must equal the fail-closed ancestry rule"
+    ):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate()
+    candidate["typed_protocol_contracts"]["h3"]["slots"][
+        "source_target_ancestry_binding"
+    ]["value"][
+        "landmark_target_order_rule"
+    ] = "the_prediction_landmark_may_follow_target_availability"
+    with pytest.raises(
+        SuccessorGovernanceError, match="must equal the fail-closed ancestry rule"
+    ):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate()
+    candidate["typed_protocol_contracts"]["h3"]["slots"][
+        "source_target_ancestry_binding"
+    ]["value"][
+        "downstream_action_interpretation_rule"
+    ] = "executed_action_prediction_proves_physical_forecast_validity"
+    with pytest.raises(
+        SuccessorGovernanceError, match="must equal the fail-closed ancestry rule"
+    ):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate()
+    candidate["typed_protocol_contracts"]["h3"]["slots"][
+        "source_target_ancestry_binding"
+    ]["value"][
+        "candidate_action_comparator_rule"
+    ] = "the_candidate_action_may_be_hidden_from_the_matched_baseline"
+    with pytest.raises(
+        SuccessorGovernanceError, match="must equal the fail-closed ancestry rule"
+    ):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate()
+    candidate["typed_protocol_contracts"]["h3"]["slots"][
+        "source_target_ancestry_binding"
+    ]["value"]["fail_closed_on_missing_unknown_or_mismatch"] = False
+    with pytest.raises(
+        SuccessorGovernanceError,
+        match="fail_closed_on_missing_unknown_or_mismatch must be true",
+    ):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate()
+    ancestry = candidate["typed_protocol_contracts"]["h3"]["slots"][
+        "source_target_ancestry_binding"
+    ]["value"]
+    ancestry["producer_implementation_binding"]["artifact_role"] = (
+        "source_target_inventory"
+    )
+    with pytest.raises(SuccessorGovernanceError, match="artifact_role must equal"):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate()
+    ancestry = candidate["typed_protocol_contracts"]["h3"]["slots"][
+        "source_target_ancestry_binding"
+    ]["value"]
+    ancestry["source_target_inventory_binding"] = copy.deepcopy(
+        ancestry["target_specific_prediction_landmark_definition_binding"]
+    )
+    ancestry["source_target_inventory_binding"]["artifact_role"] = (
+        "source_target_inventory"
+    )
+    with pytest.raises(SuccessorGovernanceError, match="five distinct artifact paths"):
+        validate_successor_document(candidate, root=ROOT)
+
 
 def test_h4_tuple_simultaneous_inference_weight_uncertainty_and_power_are_joint() -> (
     None
@@ -1423,9 +1593,9 @@ def test_h4_tuple_simultaneous_inference_weight_uncertainty_and_power_are_joint(
     h4["simultaneous_inference_plan"]["value"][
         "target_weight_uncertainty_treatment"
     ] = "not_applicable_exact_finite_target_enumeration"
-    assert validate_successor_document(finite_target, root=ROOT) == [
-        "M0_SUCCESSOR_FREEZE_CANDIDATE_REVIEW_PENDING"
-    ]
+    assert validate_successor_document(finite_target, root=ROOT) == _candidate_blockers(
+        h3_active=False
+    )
 
 
 def test_base_v1_binding_drift_and_false_freeze_metadata_are_rejected(
@@ -1459,8 +1629,10 @@ def test_base_v1_binding_drift_and_false_freeze_metadata_are_rejected(
         validate_successor_document(candidate, root=ROOT)
 
     root = _copy_bundle(tmp_path / "predate")
+    candidate = _materialized_candidate(root, selected_branch="H4")
     frozen = _materialized_frozen(
         root,
+        candidate=candidate,
         frozen_at="2026-07-15T23:59:59Z",
     )
     with pytest.raises(SuccessorGovernanceError, match="cannot predate"):

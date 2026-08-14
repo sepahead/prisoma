@@ -49,6 +49,10 @@ name = "pid-sim-verify"
 path = "src/bin/verify.rs"
 
 [[bin]]
+name = "pid-world-model-reference"
+path = "src/bin/world_model_reference.rs"
+
+[[bin]]
 name = "pid-toy-harness"
 path = "src/bin/toy_harness.rs"
 required-features = ["analysis"]

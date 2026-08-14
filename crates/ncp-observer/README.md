@@ -32,14 +32,14 @@ in that repo.
 
 This crate is **optional and exploratory-only**. It is **not** on grandplan's critical
 path. Grandplan does not depend on Engram. `experiments/safe_adapter/` is the reference adapter
-implementation and the candidate critical-path real-data `(V,L,D,A)` producer. That adapter has
-not completed S2 or EC1. The core workspace builds
+for the preserved EC1/H diagnostic family. It is not the W1-W3 real-data path and has not
+completed D2 or EC1. The core workspace builds
 and tests with NCP/Engram/Zenoh
 absent, and the static factual-outcome baseline smoke requests no PID atoms; `ncp-observer` is **excluded from the
 default cargo workspace** (build it with `--manifest-path`, see below).
 
 It can support *exploratory* PID screens on a future conforming producer. It cannot enter a
-registered S2/EC1 evaluation (an optional M2 ecosystem item) until the gaps below close:
+registered D2/EC1 evaluation until the gaps below close:
 
 1. **D alignment — exact-only and immutable in-repo.** `ObservationFrame` carries
    a `source` echoing the driving `SensorFrame.stream`, and this observer joins D
@@ -103,11 +103,11 @@ complete, source-correlated tick into an `OfflineVldaSample`, writing:
 
 1. an **`OfflineVldaDataset` JSON artifact** — after receipt verification it can
    run through `pid-offline-harness` for diagnostics/baselines. It carries no
-   inferred population-support declaration: continuous KSG/shared-exclusions
-   requests abstain with `support_contract_unspecified`; `--pid-mode none`
-   requests no estimates; and quantized discrete `I_min` can run only as a
+   inferred population-support declaration or complete-tuple contract. Continuous
+   KSG/shared-exclusions requests abstain; `--pid-mode none`
+   requests no estimates; and fitted categorical MGW shared exclusions can run only as a
    non-evidentiary diagnostic with population `NotEvaluated` and application
-   `Blocked`, pending justified per-axis declarations and the remaining gates; and
+   `Blocked`, pending justified per-axis and per-tuple declarations plus the remaining gates; and
 2. **canonical run-log events** (the source of truth for accepted recorded events): one `EmbeddingContract`
    declaring the `(V,L,D,A)` variables, an `EmbeddingCaptured` per kept sample, a
    `LabelObserved` per success label, and — at finalize — an `ArtifactLogged`
@@ -201,6 +201,7 @@ cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml \
 The second command verifies `outputs/ncp_vlda.json.publication.json` first. PID
 mode is disabled intentionally: this adapter does not fabricate the current pid-rs
 population-support declaration from observed cardinalities.
+It also does not invent a complete-tuple joint-law or finite-information declaration.
 
 The observatory's built-in baseline is a finite hand-authored fixture. A supplied
 `--trace FROZEN_V1_BASELINE.json` must be an exact typed-semantic variant of that baseline and

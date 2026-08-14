@@ -1,34 +1,57 @@
-# PRISOMA: Intervention-Grounded Diagnostics for Sequential Embodied Policies
+# PRISOMA: Counterfactual Fidelity Tomography for Embodied World Models
 
-- **Document:** canonical `grandplan.md` — **docset v12.5** (living spec; prior versions in git history; the outgoing v10.7 is archived at `docs/archive/grandplan-v10.7.md`)
+- **Document:** canonical `grandplan.md` — **docset v13.0** (living spec; prior versions remain in git history; the reviewed v12.5 bundle is immutable under `docs/reviews/2026-07-12-grandplan-v12.5/`)
 - **Reviewed scientific base:** 2026-07-12
 - **Current first-principles reconciliation:** 2026-08-13
 - **Repository snapshot reviewed:** `sepahead/prisoma@64bd881248463e7142d022bb95a5850bcf8fced2`; second-round review bundle preserved at `docs/reviews/2026-07-12-grandplan-v12.5/`
-- **Status:** research specification and unfrozen claim-template registry; not a preregistration or empirical result
+- **Status:** world-model-first research specification plus a preserved, unfrozen v12.5 diagnostic claim family; not a preregistration or empirical result
 - **Repo-truth note (post-review):** the reviewed snapshot pinned NCP `v0.7.1`/wire 0.7 and `pid-rs@8a5a9dd`/0.4.0; the repository has since migrated to NCP **`v0.8.0`/wire 0.8** and the exact `pid-rs` **0.9.0 post-tag review source at `796c11e70f009634b853dc4ada6f565563d82f51`**, seven commits after the `v0.9.0` review tag, so active implementation-status statements below use the current pins while references to snapshot `64bd881…` remain historical; the 2026-08-13 network refresh rechecked `pid-rs`, NCP, and Paper2Brain public main; the Paper2Brain Prisoma descriptor bytes remained unchanged; none of these reviews supplied scientific conformance; this 0.9 review surface makes no 1.x compatibility or registry/wheel publication promise
 - **Seventh adversarial revision:** paired-estimand separation, causal-heterogeneity scoring repair, expanded 2025–2026 monitor/calibration/safety comparators, estimator-status reconciliation, post-pin `pid-rs` development review, full public-repository ecosystem audit, alarm-policy specification, and reference deduplication completed 2026-07-12
-- **Eighth first-principles reconciliation:** bounded claim language, H1 protocol identity, H2 scoring-rule and censoring-estimator separation, full-policy H3 semantics, tested-response H4 language, and an updated primary-source review completed 2026-08-12. This reconciliation reopens review of the all-null M0 successor draft. It does not authorize holdout access.
+- **Eighth first-principles reconciliation:** bounded claim language, H1 protocol identity, H2 scoring-rule and censoring-estimator separation, full-policy H3 semantics, tested-response H4 language, and an updated primary-source review completed 2026-08-12. This reconciliation reopens review of the all-null diagnostic successor draft. It does not authorize holdout access.
 - **Ninth frontier correction:** deployed-graph WAM taxonomy, causal simulator admission, planner qualification, and the low-overhead M4 path reconciled through 2026-08-13. The review does not promote a model or open any scientific gate.
+- **Tenth thesis reset:** exact-fork world-model decisions, linked dynamics/appearance/decision contrasts, and an M4-first execution ladder became the primary program on 2026-08-13. The prior EC1/H1–H4 family remains a secondary unfrozen diagnostic program. This reset creates no scientific result.
 
-> **Thesis in one sentence.** Prisoma is a bounded capture–intervention–replay research system that tests whether pre-treatment diagnostics predict frozen-snapshot response, randomized closed-loop effect modification, and future failure under frozen protocols, while preserving the evidence needed to audit each bounded conclusion.
+> **Thesis in one sentence.** Prisoma is a low-overhead, content-bound laboratory that tests whether an action-conditioned world model preserves declared reference-state consequences, and separately measured physical consequences where available, across exact simulator forks, matched mesh/3DGS observations, frozen policies, and closed-loop execution.
 
 ---
 
 ## Executive decision
 
-The scientifically defensible project is **not** “apply PID to Vision–Language–Action (VLA) models and interpret the atoms.” That formulation assumes four unproven propositions: that the population estimand is meaningful, that the finite-sample estimator recovers it in the intended regime, that observational information predicts response to a relevant intervention, and that PID adds value over simpler diagnostics. None may be assumed.
+The scientifically defensible project is **not** “apply PID to Vision–Language–Action (VLA)
+models and interpret the atoms.” It is also not “show photorealistic Gaussian-splat rollouts.”
+Both formulations skip the decision contract and the reference outcome.
 
 Prisoma should instead make three separable contributions:
 
-1. **Experimental infrastructure.** A source-independent envelope plus adapter-specific contracts records synchronized observations, instructions, internal states, policy distributions, controller transformations, executed actions, interventions, and outcomes. It reconstructs registered captured samples and supports the registered audit endpoints. It cannot prove events that the capture boundary never observed.
-2. **Intervention-grounded science.** Exact paired software interventions establish bounded frozen-snapshot algorithmic responses, while randomized closed-loop interventions establish population-level behavioral effects. Observational diagnostics are judged against the reference appropriate to the claim and against prospective failures on held-out task families.
-3. **Conditional PID contribution.** PID is one candidate diagnostic family. It becomes thesis-central only when the chosen measure and estimator pass pre-outcome frozen gates and its features provide reproducible incremental value over mutual information, uncertainty, temporal, geometry, attribution, and learned baselines.
+1. **Exact-fork decision evidence.** One immutable pre-action state produces either one ordered
+   feasible action pool or one fully recorded adaptive search. Every forecast and score commits
+   before reference labels. Every candidate runs from an independent restored branch. Only the
+   selected candidate reaches canonical execution through the Agent Bridge.
+2. **Linked fidelity tomography.** Prisoma separates reference dynamics, learned prediction,
+   observation substrate, frozen-policy response, and selection. It links matched panels by the
+   same fork and action identity. It does not force an additive error decomposition or call the
+   reference simulator physical truth.
+3. **Conditional diagnostic science.** Calibration, action sensitivity, geometry, attribution,
+   MI, PID, and prospective failure signals can explain or predict failures. PID is one optional
+   family. It becomes central only after its population, measure, estimator, and application gates
+   pass.
 
-The project therefore remains valuable if continuous PID fails. A negative result can be scientifically strong when it identifies the failure regime, calibrates abstention, compares alternative diagnostics, and releases a reusable benchmark. Conversely, a visually polished simulator or dashboard without a defensible estimand, intervention design, and external comparison is not a scientific contribution.
+The project remains valuable if continuous PID fails, if 3DGS adds no decision value, or if one
+world model does not beat a kinematic baseline. A negative result is useful when it localizes the
+failure boundary and preserves every denominator. A polished simulator or dashboard without a
+defensible decision contract is not a scientific contribution.
 
-### Primary question
+### Primary world-model question
 
-> **Can a reproducible system estimate how named interventions change an embodied policy, and can pre-outcome signals predict those responses and future failures across declared task, scene, and embodiment populations?**
+> **Under one exact fork and one frozen supported-action or search contract, when does an action-conditioned world model preserve a declared later reference-state outcome well enough to improve closed-loop decisions over strong non-model baselines? Does its candidate ranking also improve under a separately frozen secondary estimand? Which dynamics, observation-substrate, policy-response, or selector boundary explains each failure?**
+
+The primary target is the complete decision system. It includes proposal, prediction, score,
+selection, controller conversion, execution, and later outcome. Forecast quality and policy success
+remain separate endpoints.
+
+### Secondary diagnostic question
+
+> **Can pre-outcome diagnostics predict forecast error, ranking failure, intervention response, or future failure across held-out task, scene, policy, and embodiment families?**
 
 ### Conditional PID question
 
@@ -89,6 +112,9 @@ The novelty case in v10.7 is too broad. By August 13, 2026:
   action-conditioned transition despite its “Causal Joint Generation” label [R128];
 - current evidence favors hybridization rather than replacement: several “WAM” systems remove
   their future branch at deployment, while others retain a direct VLA interface [R129–R134];
+- direct policies remain active baselines rather than a dead class. OpenVLA, Octo, \(\pi_0\),
+  \(\pi_{0.5}\), SmolVLA, and OpenVLA-OFT span generalist, flow-policy, compact, and fine-tuned
+  designs [R21–R24, R49–R50];
 - ForeWAM and Rift replace iterative future rollout with one-pass, action-independent
   future-position state that conditions action generation. Rift also intervenes on that state and
   measures closed-loop response [R165–R166];
@@ -104,18 +130,26 @@ The novelty case in v10.7 is too broad. By August 13, 2026:
 - new benchmarks explicitly separate apparent capability from action-grounded use, test controlled physical reasoning, expose shortcutting or memorization, question whether task success identifies mechanism, and add process-level safety costs and risk-exposure time rather than relying on binary success alone [R27, R32–R36, R56];
 - robotics ecosystems already provide timestamped multimodal containers, standardized episodic datasets, cross-embodiment corpora, visualization, and replay [R42–R48].
 
-Prisoma should therefore claim novelty only for the **combination** of:
+WorldSimProbe already separates action calibration, source preservation, grounding, and interaction
+dynamics [R174]. Gaussian-splat simulators already separate appearance from dynamics and test
+policies under matched controls [R175–R176]. CoWAM already uses fixed candidate pools,
+pre-label commitments, abstention, and oracle proposal ceilings [R151]. World Action Planner
+already proposes, predicts, scores, and selects [R167]. These are minimum comparators, not
+unoccupied claims.
 
-1. an explicit availability–tested-response–closed-loop-effect distinction;
-2. paired frozen-snapshot responses and randomized closed-loop effects as distinct, claim-matched reference criteria;
-3. estimator validation and abstention tied to the exact regime;
-4. prospective, leakage-safe prediction on held-out task families;
-5. a portable capture/intervention/replay contract; and
-6. a head-to-head test of PID’s incremental value.
+Prisoma should claim novelty only for a narrower **linked protocol**:
 
-This is a dated, scoped source-review statement, not an absolute priority claim. Before
-submission, rerun the search with saved queries, databases, criteria, screening decisions, and a
-machine-readable ledger.
+1. one content-bound fork and action identity follows every panel;
+2. the declared simulator supplies reference transitions without being called physical truth;
+3. the same state and camera are rendered through mesh and 3DGS without changing physics;
+4. one frozen policy exposes immediate observation sensitivity before trajectories diverge;
+5. one action-conditioned model exposes forecast and ranking error on the same action pool;
+6. randomized complete-policy rollouts test downstream decision value under a frozen M4 budget;
+7. optional diagnostics, including PID, must add held-out value beyond simpler signals.
+
+This combination is a new integration and test protocol only if the final systematic search finds
+no equivalent. It is not a claim that exact forks, Gaussian splats, world models, candidate-set
+evaluation, provenance, or selective intervention are individually new.
 
 ## 1.2 Why the project matters even if niche
 
@@ -164,7 +198,7 @@ Model an episode as a partially observed controlled dynamical system. At time \(
 
 The schema must preserve these distinctions. **Policy output, executed command, and physical outcome are different targets.**
 
-## 2.2 Three target families
+## 2.2 Four target families
 
 ### Policy decision target
 
@@ -174,7 +208,13 @@ Examples: action-token distribution, continuous action density, denoising trajec
 
 This includes inverse kinematics, clipping, collision checking, force limiting, smoothing, latency compensation, and human override. It asks what information survives into actuation.
 
-### Physical-outcome target
+### Declared reference-state target
+
+This target is a later state or outcome from one versioned simulator or another declared reference
+system. It can use physical units and state semantics. It is not measured physical truth, and it
+does not identify the corresponding real-system transition.
+
+### Measured physical-outcome target
 
 Examples: next-state change, object flow, contact state, safety cost, progress, or success. This target mixes policy behavior with controller and environment dynamics.
 
@@ -317,7 +357,48 @@ These equations underdetermine redundancy \(R\), uniques \(U_i\), and synergy \(
 
 ## 3.2 Shared-exclusions PID
 
-Shared-exclusions PID defines redundancy through overlap in how source realizations exclude target outcomes. It has discrete, pointwise, measure-theoretic continuous, and kNN-estimated continuous formulations [R05–R07]. It is attractive because it is localizable and can represent informative and misinformative contributions. It is not uniquely forced by universal axioms, and signed values do not authorize semantic relabeling.
+Do not emit a `wibral_lineage` result identity. An author name does not identify a functional,
+estimator, evaluator, transform, or objective. Use a provenance and estimand graph when specifying
+or interpreting a method. Current reports bind a full-team functional ID, estimator revision,
+source and target roles, fitted-transform receipts, units, and gate status. A future declared-law
+or objective schema must also bind evaluation kind, input-law kind, aggregation scope, and any
+composition. Related objects remain typed and non-substitutable:
+
+1. Wibral et al.'s neural goal-function work motivates PID coordinates. It does not define the
+   later MGW shared-exclusions functional or implement an arbitrary objective [R169].
+2. Makkeh–Gutknecht–Wibral categorical shared exclusions defines a pointwise functional on
+   categorical probability laws [R05]. Its informative and misinformative parts are formal
+   surprisal components. They do not mean benefit/harm, truth/error, or honesty/deception.
+3. The mereological and formal-logic work states the event and parthood semantics. It does not
+   turn one estimator into another [R170–R171].
+4. Schick-Poland et al. and Ehrlich et al. develop distinct general and continuous
+   shared-exclusions objects and a kNN route under their declared measure, support, and gauge
+   assumptions [R06–R07]. They are inspired by the same exclusion principle. They are not the
+   categorical functional applied after binning.
+5. A plug-in empirical-PMF or kNN estimator maps observations to an estimate of one named
+   functional. A declared-law evaluator maps a specified law to that functional's value. Neither
+   is the functional itself.
+6. An infomorphic objective is a coefficient-weighted composition of declared PID atoms, often
+   with conditional entropy, through a stated binning and estimation route [R19, R172]. It is not
+   a new PID functional or estimator. The pinned count-law API does not certify arbitrary soft
+   weighted laws, adaptive bins, stopped binning gradients, or training guards.
+
+No result transfers between these objects without an explicit mapping theorem. In particular,
+quantization does not establish a discrete-to-continuous limit or an equivalence with the
+continuous Ehrlich formulation.
+
+Prisoma's fitted categorical route has one exact identity. Fitted equal-width quantizers define
+new categorical variables. The pinned
+`pid-rs@796c11e` function `fitted_quantized_sxpid2_with_budget` then evaluates the two-source
+averaged MGW functional on the resulting empirical count law. It emits informative,
+misinformative, and net atoms in nats. This route is neither generic “discrete PID,” Williams–Beer
+`I_min`, BROJA, continuous shared exclusions, nor an infomorphic objective.
+
+Other PID measures may remain inside `pid-rs` for upstream research and compatibility. Prisoma
+does not use Williams–Beer `I_min` or BROJA to define an active hypothesis, substitute for a failed
+shared-exclusions estimate, rescue a result, or form an active sensitivity branch. Those measures
+may appear only as clearly excluded historical context. Their atoms are never pooled, relabeled,
+or treated as replicated shared-exclusions evidence.
 
 The repository’s status must be stated at four levels. First, its high-dimensional MI/coherence checks are **NO-GO**. Second, the current pinned `pid-rs` review source has semi-analytic low-dimensional additive-Gaussian continuous-redundancy oracle checks with closed-form pointwise terms and discrete SxPID reference agreement, so it is inaccurate to say that no estimator validation exists. Third, current Experiment 0 never compares shared-exclusions redundancy with a zero target: its binary-default sweep covers 12 scenario–dimension cells over three deterministic seeds (36 case results), while the one-seed run-log recipe covers the same 12 cells once. Both report the high-dimensional MI/coherence verdict as **NO-GO**, atom-measure validation as `not_adjudicated`, and atom-estimator validation as `blocked`; the strict path gates only the curated analytic-MI band and reports atoms separately. Fourth, the repository now pins the exact `pid-rs` 0.9.0 post-tag review source at `796c11e70f009634b853dc4ada6f565563d82f51`, which includes the reproducible fixture against the authors’ public `csxpid` implementation, agreement within `1e-12` nats on that fixture, fail-closed continuous-support contracts, and report-first provenance. The migration changes what is runnable and which samples abstain; it does **not** validate dependent, high-dimensional VLA embeddings or make a 1.x compatibility promise. Continuous atoms on real embeddings therefore remain blocked [R61, R73].
 
@@ -392,13 +473,116 @@ Infrastructure and non-PID science continue under these outcomes.
 
 # 4. Confirmatory claim-template registry
 
-The thesis should contain no more than three confirmatory scientific claims. Engineering acceptance claims are separate. EC1 and H1–H4 are currently claim templates, not executable hypotheses. Each remains unfrozen until its population, treatment, outcome, identification assumptions, estimator or scoring contract, useful margin, multiplicity rule, and decision rule are fixed before holdout access.
+Docset v13.0 has two registries with different roles. **W1 and W2 are the proposed primary thesis
+claims.** EC1 and H1–H4 are the preserved v12.5 diagnostic claim family. No item is frozen.
 
-The planned family-selection rule permits H1, H2, and exactly one of H3 or H4. H3 and H4 cannot
-both be confirmatory in the same analysis family. The study must freeze that selection before it
-opens any outcome from either branch. A later switch after inspecting H3 results requires a fresh,
-previously untouched H4 confirmation sample and a prespecified sequential error-spending rule. It
-is not a continuation of the original confirmatory family.
+The thesis has at most two primary scientific claims. Engineering acceptance claims remain
+separate. A real study must freeze each population, action support, outcome, identification
+assumption, comparator, resource budget, useful margin, multiplicity rule, and decision rule before
+holdout access.
+
+## W1 — supported forecast fidelity
+
+**Question.** Under supported randomized actions from valid reset states, does a frozen
+action-conditioned model improve proper prediction of one declared later reference-state outcome
+beyond current-state, current-state-plus-action, and simple dynamics predictors of that same
+outcome? If a separate physical system is measured, that physical-outcome estimand must be frozen
+and reported separately. Candidate ranking is secondary unless it is promoted before holdout
+access.
+
+**Primary unit.** One immutable pre-action fork and one action assignment drawn from the frozen
+supported design. Every method receives the same history, language, observation, declared action
+fields, controller contract, and deadline. All predictions and abstentions commit before the shared
+reference label. Candidate ranking is a separate secondary unit. It uses either one fixed ordered
+pool or one fully recorded adaptive search trace.
+
+Freeze whether the randomized treatment and predictor query use the policy proposal
+\(A^\pi\), a controller-resolved \(A^{\mathrm{exec}}\), or both. Randomize at one declared level.
+Bind the conversion receipt and retain every mismatch, override, hold, or rejection in the
+intention-to-treat result. Every matched predictor receives the same declared action fields.
+
+**Primary estimand.** Freeze one later outcome (Y_{i,a,h}), one predictive object, one scoring
+rule, and one supported action distribution. If the object is a distribution, use a strictly proper
+score. If it is a point functional, use a loss that is strictly consistent for that functional.
+Orient the out-of-sample score difference so positive values favor the learned model over the
+strongest frozen matched-access baseline. Ranking accuracy, Policy Top-1, pairwise inversion,
+calibration, and action sensitivity are secondary unless one is promoted before holdout access.
+
+**Required controls.** Include current-only, current-plus-action direct prediction of the frozen
+outcome, known or kinematic dynamics, no-future, action-shuffled, future-shuffled, and
+repeated-query drift. When candidate selection is evaluated, also report the oracle best among
+the exact committed candidates and its denominator. Apply the same predictive object and score
+whenever a control enters the primary contrast. Preserve failed, reversed, no-op, and low-support
+actions. Abstain outside the frozen action-support envelope. A plausible video or latent is not a
+passing forecast.
+
+**Decision.** Orient improvement so positive is better. Success requires the one-sided lower
+confidence bound to exceed a positive useful margin under clustered, dependence-aware uncertainty.
+Freeze support, calibration, subgroup, and M4 resource gates as non-rescuable co-primary
+conditions.
+
+## W2 — closed-loop decision value under a local resource budget
+
+**Question.** Under a fixed M4 Max observation-to-command deadline, does the complete
+propose–predict–score–select policy improve episode-level task cost or success over the strongest
+same-budget non-model policy?
+
+**Unit and assignment.** Randomize complete deployed policies across independent reset blocks.
+One arm cannot borrow labels, candidates, extra proposals, or extra compute from another arm.
+Report intention-to-treat first. Keep fork-level selector evaluation separate from episode-level
+policy evaluation.
+
+**Primary estimand.** Freeze one episode-level cost, success, or constrained utility difference.
+Do not sum fork-local candidate-set regret and call it deployed-policy regret. Report oracle
+proposal headroom, selector error, and proposal failure as separate denominators.
+
+**Required arms.** Include a frozen nominal policy, a same-budget multiple-proposal direct policy,
+direct action-value or cost prediction, simple dynamics or kinematic MPC, the learned predictor with
+selection disabled, and the complete learned selector. Match proposal count, controller, action
+support, observation history, deadline, and evaluation.
+
+**Low-overhead contract.** Freeze p50, p95, and p99 observation-to-command latency, peak unified
+memory, energy or power proxy, missed-deadline rate, and abstention/fallback rate. “Runs on M4” and
+“low overhead” are not results. Each requires a bound and a measured receipt.
+
+## W3 — linked fidelity tomography (secondary or exploratory)
+
+W3 localizes W1/W2 failure through linked matched panels. It is not a third independent causal
+claim and it is not an additive decomposition.
+
+1. **Reference-transition panel:** run the same fork and action through the declared simulator.
+2. **Observation-substrate panel:** render the exact same state trajectory and camera through mesh
+   and 3DGS paths. Rendering must never alter collision geometry or dynamics.
+3. **Frozen-policy panel:** give matched observations to the same frozen policy. Estimate immediate
+   paired action response on the common trajectory. Estimate downstream policy effects only in a
+   separate randomized complete-policy rollout after trajectories can diverge.
+4. **Learned-model panel:** query the same candidate pool, commit before labels, and link forecast
+   errors to ranking, selection, and later policy outcomes.
+
+Every W3 row binds one authoritative simulator state and one pure observation function. The state
+receipt includes all dynamic bodies, joints, contacts, constraints, and controller state needed for
+replay. A representation manifest maps each body and link to collision, mesh, and 3DGS assets. It
+states how rigid, articulated, deformable, background, and robot elements move.
+
+The camera receipt binds intrinsics, distortion, crop, resolution, near and far planes, exposure,
+color transform, tone mapping, shutter, motion blur, world pose, and frame time. It also binds
+drop, reorder, and synchronization rules. Matched policy queries reset recurrent state, KV cache,
+history, and random state. Asset and reconstruction lineage define scene-family holdouts.
+
+The simulator is a declared reference, not physical truth. Mesh and 3DGS are representation
+treatments. Without paired real observations, their difference is not “rendering error.” Use linked
+contrasts rather than a nominal full factorial unless every Cartesian cell has a comparable
+estimand.
+
+## Preserved diagnostic claim family
+
+The v12.5 EC1/H1–H4 family remains useful for capture conformance, intervention response,
+prospective failure, PID value, and attribution. It is secondary to W1/W2 in v13.0. Its current
+machine-readable v1/v2/v3 governance files retain their identifiers and remain unfrozen.
+They must not be described as the active thesis registration.
+
+If a later diagnostic study activates the preserved family, its old selection rule permits H1,
+H2, and exactly one of H3 or H4. H3 and H4 cannot both be confirmatory in that analysis family.
 
 ## EC1 — registered capture–replay fidelity and fault detection
 
@@ -592,6 +776,21 @@ remain separate.
 
 H3 activates only after population, measure, estimator, and application gates in Section 7. The PID configuration is a tuple—not a generic method—containing source/target definitions, sampling law, measure, dimensionality, scaling/projection, estimator, neighborhood parameters, dependence treatment, local-score construction, and abstention rules.
 
+**Source–target ancestry gate.** Freeze one target-specific prediction landmark and one
+tensor-ancestry record before outcome access. The landmark must precede target realization or
+availability. Every source must be available at that landmark. No source may contain the target,
+read a post-landmark observation, or depend on the target by construction. In particular, a state
+computed as \(q(F \mid H,L,A^\pi)\) is not an admissible source for PID whose target is that same
+\(A^\pi\). Cross-fitting cannot remove this exact target injection. A controller command,
+executed action, later declared reference-state outcome, or separately measured physical outcome
+can be downstream without being contained in the source. For any such target, give the matched
+baseline that exact candidate action. A command target can test controller or execution
+prediction, not physical forecast validity. Use a separately measured physical outcome for that
+claim, or use the state in the frozen class-D/E comparison in Section 9.2. A future-supervised
+model may supply a source only through its deployed inference path. Bind
+that source to the target-specific prediction landmark. Also bind the exact runtime inputs and
+their maximum observation time.
+
 Compare capacity- and tuning-budget-matched nested models:
 
 - \(M_0\): design variables, assignment terms, base rate, and naive baselines;
@@ -608,10 +807,12 @@ abstention. Define the deployed \(M_2\) policy by
 \[
 \widetilde M_2(i)=
 \begin{cases}
-M_2(i), & \text{when the PID-augmented output is produced},\\
-M_1(i), & \text{when the PID path abstains}.
+M_2(i), & \text{for a clean produced output, or an allowlisted warning with use-output disposition},\\
+M_1(i), & \text{for an abstention, or a warning with fallback disposition}.
 \end{cases}
 \]
+Any warning with a block disposition makes the affected primary comparison unavailable. An
+unknown or malformed warning follows the fail-closed rule below.
 The fallback is the exact recorded \(M_1\) output for the same candidate and outer fold; it is not
 a numeric placeholder for an abstained PID estimate. Score \(M_1\) and \(\widetilde M_2\) with the
 same ordered IDs, outcomes, weights, clusters, folds, and primary endpoint. The primary denominator
@@ -793,34 +994,71 @@ A claim is downgraded automatically when any required cell is missing. Statistic
 
 ## 5.1 Gate sequence
 
-The program is staged. Later results cannot rescue an earlier failed gate through post-hoc reinterpretation.
+The program has one primary world-model ladder and one preserved diagnostic ladder. A diagnostic
+result cannot rescue a failed world-model gate. A world-model result cannot validate a diagnostic.
+Later results cannot rescue an earlier failed gate through post-hoc reinterpretation.
 
-| Stage | Purpose | Required output | Gate |
+| Primary stage | Purpose | Required output | Gate |
 |---|---|---|---|
-| S0 | Freeze variables, estimands, outcomes, and causal assumptions | variable dictionary, causal graph, analysis specification | all targets and units are unambiguous |
-| S1 | Validate information estimators and preprocessing | oracle recovery, coverage, stability, abstention map | at least one eligible diagnostic regime |
-| S2 | Validate capture, timing, intervention, and replay | conformance and external benchmark report | no unresolved corruption; replay tolerance met |
-| S3 | Pilot interventions | target-engagement, dose, carryover, placebo, OOD checks | nontrivial and interpretable intervention |
-| S4 | Confirmatory H1 | locked intervention-response study | held-out family result and replication plan |
-| S5 | Confirmatory H2 | prospective failure study | locked temporal/family holdout and calibration |
-| S6 | Conditional H3 or H4 | locked incremental-PID result or exact-construction availability–tested-intervention-effect result | frozen decision passes; replication precedes language beyond the tested regime or construction |
-| S7 | Transport study | cross-embodiment or real-robot replication | bounded claim of external validity |
+| WM0 | Freeze W1/W2 variables, actions, outcomes, resources, and decision rules | world-model analysis specification and untouched holdout ledger | target, action support, unit, comparator, and margins are unambiguous |
+| WM1 | Validate exact-fork and pre-oracle decision semantics | native reference, tamper tests, and replay receipt | no oracle leakage; bridge-only selected execution |
+| WM2 | Qualify one learned predictor on the named M4 Max | exact pins, action-sensitivity, CPU/MPS parity, search trace, latency, memory, and fallback receipt | supported actions change forecasts; resource and parity gates pass |
+| WM3 | Pilot W1 and linked W3 panels | support map, score calibration, nuisance controls, and decision-flip cases | at least one supported forecast regime and one discriminating matched panel |
+| WM4 | Confirmatory W1 | locked fork-level forecast study | proper or consistent score clears its positive useful margin |
+| WM5 | Confirmatory W2 | randomized complete-policy study | intention-to-treat utility clears its positive useful margin |
+| WM6 | Replication or bounded transport | second task family, environment, model, or embodiment | relationship replicates within the named target population |
 
-## 5.2 Policy and environment selection
+The diagnostic ladder remains available when it answers a separate question:
 
-The first policy should maximize identifiability, not benchmark prestige. Required properties are:
+| Diagnostic stage | Purpose | Required output | Gate |
+|---|---|---|---|
+| D0 | Freeze diagnostic variables, estimands, and outcomes | diagnostic analysis specification | all targets and units are unambiguous |
+| D1 | Validate the named measure, estimator, and preprocessing | oracle recovery, coverage, stability, and abstention map | at least one eligible diagnostic regime |
+| D2 | Validate capture, timing, intervention, and replay | conformance and benchmark report | no unresolved corruption; replay tolerance met |
+| D3 | Pilot interventions | engagement, dose, carryover, placebo, and OOD checks | nontrivial and interpretable intervention |
+| D4 | Confirmatory H1 | locked intervention-response study | held-out family result and replication plan |
+| D5 | Confirmatory H2 | prospective failure study | locked temporal or family holdout and calibration |
+| D6 | Conditional H3 or H4 | locked incremental-PID or exact-construction divergence study | frozen branch decision passes |
+| D7 | Diagnostic transport | cross-policy, simulator, embodiment, or robot replication | bounded claim of external validity |
 
-- legally instrumentable weights and inference code;
-- controllable randomness or sufficiently repeatable inference;
-- a documented representation site before or at a meaningful fusion/action boundary;
-- access to a policy distribution, logits, denoising path, or repeated samples rather than only one opaque action;
-- tractable closed-loop compute;
-- a reproducible environment with meaningful perturbations;
-- sufficient task and instruction diversity.
+## 5.2 Model, policy, and environment selection
 
-The second policy should differ on one scientifically relevant axis—such as autoregressive action tokens versus continuous action chunks—while keeping tasks, outcomes, and instrumentation as comparable as possible. A comparison that changes architecture, data, embodiment, simulator, tasks, source definitions, and controller simultaneously is descriptive, not causal.
+Select the first learned world model for identifiable action-conditioned prediction on the named
+M4 Max. Do not select it for benchmark prestige. It must have:
 
-Candidate ecosystems include OpenVLA/OpenVLA-OFT, Octo, SmolVLA, and other open policies with stable hooks [R21–R24, R49–R51]. Final selection must follow a frozen access-and-instrumentation audit. Proprietary systems can support black-box external validation but not internal-mechanism claims without access to the relevant variables.
+- exact, reviewable code, weights, preprocessing, and license terms;
+- a deployed query that clamps an action and predicts a later declared reference target;
+- a declared support set for every candidate action;
+- controllable randomness or a repeatable inference path;
+- a reconstructable propose–predict–score–select trace;
+- a CPU path and a credible MPS port that never hides CPU fallback;
+- tractable multi-replan compute under a frozen deadline and memory limit;
+- a reproducible environment with meaningful action consequences.
+
+The first external qualification candidate is the pinned LeWorldModel (LeWM) PushT stack in
+Section 10.4 [R181, R182]. It remains a candidate until WM2 passes. Its compact action-conditioned
+predictor and CEM planner are a better first M4 engineering target than the larger JEPA-WM stack.
+The upstream evaluator still hard-codes CUDA. The repository must not call LeWM MPS-supported
+before end-to-end parity, resource, and planner tests pass.
+
+An independent reproduction concerns LeWM TwoRoom, not PushT or M4 [R182]. It used one seed and
+does not qualify or disqualify the selected port. It does show that protocol identity is part of
+the result. On the same 50 episodes and released checkpoint, protocol-sensitive success moved
+from 84% to 8% through goal construction alone. The paper also found conflicts between released configuration and
+appendix values. WM2 must bind preprocessing, action gathering, normalization, episode selection,
+goal construction, step and replan budgets, and planner settings before outcome access. When
+authoritative sources disagree, freeze and report each feasible reading. Do not select a reading
+after observing its result.
+
+Select the companion direct policy separately. It needs reviewable action semantics, a frozen
+controller, and repeatable closed-loop execution. SmolVLA is a compact MPS-oriented direct-policy
+candidate, not a world model [R140]. A policy with a training-only predictor is also not an
+action-conditioned deployment model unless its deployed graph exposes that query.
+
+The second learned model should change one scientific axis while preserving the environment,
+action law, target, scorer, and resource budget. A comparison that also changes tasks, embodiment,
+controller, and target is descriptive. Proprietary systems can support black-box external tests.
+They cannot support internal-mechanism claims without access to the required variables.
 
 ## 5.3 Factorial task design
 
@@ -830,12 +1068,21 @@ Where feasible, cross these factors:
 - scene/layout and initial condition;
 - object identity and visual appearance;
 - instruction semantics and paraphrase;
+- learned world-model identity and checkpoint;
+- supported action family and forecast horizon;
+- predictor enabled, bypassed, or replaced by a matched baseline;
+- renderer substrate when W3 is active;
+- candidate-pool and search-budget regime;
+- selector and scorer;
 - intervention type and dose;
 - policy checkpoint or training regime;
 - action horizon/controller setting;
 - embodiment only in the transport stage.
 
-Use a balanced or documented fractional-factorial design rather than an unstructured collection of failures. The design must preserve independent variation among instruction, scene, state, decision, and execution factors.
+Use a balanced or documented fractional-factorial design rather than an unstructured collection of
+failures. Do not call linked matched panels a full factorial unless all required cells have the same
+estimand and support. Preserve independent variation among instruction, scene, state, prediction,
+selection, control, and execution factors.
 
 ### Instruction-diversity gate
 
@@ -887,7 +1134,23 @@ Required checks:
 
 An intervention can change behavior yet remain mechanistically uninterpretable when it creates states far outside the model’s natural activation distribution. Intervention support, dose, and geometric stability must therefore be measured rather than assumed [R53].
 
-### 5.4.3 Decision and execution interventions
+### 5.4.3 Prediction and selection interventions
+
+Examples include:
+
+- shuffle candidate actions while preserving the fork and pool size;
+- replace the learned prediction with a matched persistence or oracle-free baseline;
+- bypass the predictor while retaining the same proposal, scorer, and controller budget;
+- change one candidate while preserving pool order and all other candidates;
+- replace or perturb the scorer without changing predicted states;
+- vary search depth, population, or stopping rule under a matched compute budget.
+
+Every intervention must preserve the complete pre-oracle trace. Report action sensitivity,
+ranking changes, selected-action changes, abstention, and decision flips separately. A changed
+prediction without a changed choice is forecast sensitivity, not decision value. A changed choice
+without a better randomized outcome is not policy improvement.
+
+### 5.4.4 Decision and execution interventions
 
 Examples include:
 
@@ -938,6 +1201,17 @@ Required checks are:
 “Matched behavioral impact” is circular when behavior is the endpoint. Match dose, low-level input distance, activation norm, or an independently measured nuisance effect instead.
 
 ## 5.7 Outcome definitions
+
+### Forecast and selection outcomes
+
+Evaluate each prediction against one declared later reference target. Use a strictly proper score
+for a predictive distribution or a strictly consistent loss for its named point functional. Report
+support violations, calibration, action sensitivity, and abstention before selection performance.
+
+Evaluate ranking and selection as separate objects. Record candidate ranks, selected-candidate
+regret against the shared oracle-labeled pool, coverage, abstention, and decision flips. These are
+fork-level outcomes. They do not establish that the learned predictor is a physical transition or
+that the complete policy improves closed-loop behavior.
 
 ### Immediate policy outcomes
 
@@ -990,6 +1264,10 @@ Use three disjoint levels:
 3. **External or transport test:** second policy, simulator, embodiment, laboratory session, or dataset.
 
 A random frame split is prohibited. A random episode split is insufficient for a claim about unseen task families when near-duplicate scenes or instructions cross folds.
+
+Keep every action, forecast, score, and oracle label from one restored fork or adaptive search
+trace in one fold. Group task, dynamics, asset-lineage, and scene families when the claim concerns
+unseen families. Never split candidates from one pool across model-selection and evaluation data.
 
 Replication must predefine what is invariant. The strongest target is replication of the **relationship** between diagnostics and effects, not equality of raw atom values across architectures.
 
@@ -1054,7 +1332,12 @@ Changing any required scientific field after unblinding creates a new estimand a
 
 ## 6.2 Leakage and fitted preprocessing
 
-Any learned transform—including normalization, PCA, PLS, SAE, clustering, codebook, probe, local-information reference distribution, imputation, threshold, or feature selector—must be fit inside the training fold. Nested cross-fitting is required when the transform and outcome model are both learned.
+Any learned transform used for held-out, inferential, or predictive evaluation—including
+normalization, PCA, PLS, SAE, clustering, codebook, probe, local-information reference
+distribution, imputation, threshold, or feature selector—must be fit inside the training fold.
+Nested cross-fitting is required when the transform and outcome model are both learned. A
+same-row fit is eligible only for an explicit in-sample software screen. It cannot support a
+held-out or application claim.
 
 A transform record must include:
 
@@ -1067,7 +1350,93 @@ A transform record must include:
 
 Using all episodes to fit PCA and then cross-validating a classifier is leakage even when labels were not explicitly used, because test-distribution geometry informed the features. For temporal claims, transforms must also respect time order.
 
-## 6.3 H1 analysis: paired algorithmic and randomized closed-loop response
+## 6.3 W1 and W2 analysis: forecast fidelity is not policy value
+
+### W1 — supported fork-level prediction
+
+Let \(I\) index an independently sampled reset fork. Let \(R\sim g_I\) be the randomized action
+assignment at the one frozen level: policy proposal or controller-resolved executed action. Let
+\(Q_I(R)\) be the exact action-field tuple available to every predictor after the frozen controller
+conversion. Let \(Y_{I,R,h}\) be the declared later reference outcome under the complete frozen
+assignment-to-execution rule. For learned model \(m\), matched-access baseline \(b\), and frozen
+loss \(\ell\), define
+
+\[
+\Delta_{W1}=\mathbb{E}_{I,R}\left[
+  \ell\{b(H_I,Q_I(R)),Y_{I,R,h}\}-\ell\{m(H_I,Q_I(R)),Y_{I,R,h}\}
+\right].
+\]
+
+Positive values favor the learned model. The expectation covers the declared fork population and
+action-assignment design, not whichever candidates a proposer happens to prefer. If \(R\) is a
+proposal assignment, analyze it by intention-to-treat and retain the resolved command, override,
+hold, rejection, and executed-action receipts. If the model returns a distribution, \(\ell\) must
+be strictly proper for that distribution. If it returns a declared point functional, \(\ell\) must
+be strictly consistent for that functional. A Euclidean latent loss is an engineering target unless
+its relation to the physical outcome is separately validated.
+
+Use randomized supported executed actions where observational policy data do not identify the
+required transitions. Simulator forks can label every supported candidate for a finite software
+population, but they do not identify real-robot transitions. Cluster uncertainty at the independent
+reset, scene, and task-family levels required by the claim. Keep all actions from one fork in the
+same outer fold.
+
+Candidate ranking is a distinct secondary estimand. On one frozen ordered pool \(C_I\), report
+Policy Top-1, pairwise inversions, and selected-versus-best-in-pool loss. These condition on the
+realized proposer and pool. They do not estimate proposal quality or deployed-policy value. Report
+pool duplicates, infeasible proposals, support abstentions, and oracle headroom as separate
+denominators.
+
+### W2 — randomized complete-policy value
+
+Let \(Z_I(p)\) be the frozen episode utility under complete deployed policy variant \(p\). A variant
+includes proposal, prediction, selection, controller conversion, deadline handling, abstention, and
+fallback. For the learned selector \(p_m\) and strongest frozen same-budget comparator \(p_b\),
+define
+
+\[
+\Delta_{W2}=\mathbb{E}\left[Z_I(p_m)-Z_I(p_b)\right].
+\]
+
+Randomize complete variants across independent reset blocks. Analyze assignment by
+intention-to-treat. Count crashes, missed deadlines, abstentions, and fallbacks in the assigned arm.
+Do not replace this estimand with a sum of fork-level best-in-pool gaps along the selected policy's
+visited states. That sum is a path-conditional selector diagnostic under changing state support.
+
+Freeze one utility or task endpoint and one positive useful margin. Freeze latency, peak unified
+memory, power proxy, deadline-miss, and fallback limits as non-rescuable acceptance gates. A
+resource-normalized utility is allowed only when its units and trade-off weights are frozen before
+outcome access. Always report the raw task and resource endpoints too.
+
+### W3 — two matched designs, not one pseudo-factorial
+
+The observation-substrate panel first replays one authoritative state trajectory through two pure
+render functions. One function uses the mesh path. The other uses the 3DGS path. The panel estimates
+paired pixel, feature, and immediate frozen-policy response while state and camera stay fixed. It
+cannot estimate a closed-loop renderer effect because neither policy controls that common
+trajectory.
+
+Bind the full state, body-to-representation manifest, transforms, camera model, exposure and color
+pipeline, shutter, frame time, synchronization, and asset lineage. Reset policy memory, KV cache,
+history, and random state before each paired query. Separate rigid, articulated, deformable,
+background, and robot rendering rules. A mismatch makes the treatment undefined. It is not a null
+result.
+
+Estimate downstream renderer effects in a separate randomized complete-policy design. After the
+first policy-dependent action, trajectories can diverge and no longer form framewise pairs. Analyze
+episode outcomes by assigned renderer pipeline. Keep collision geometry and physical dynamics
+identical by construction. If either renderer changes those objects, the treatment is compound and
+the observation-substrate claim fails.
+
+A valid matched design can yield no useful decision effect. Report that as a negative W3 result.
+Do not convert it into an identity failure or a reason to discard the panel.
+
+W1 and W2 are the only proposed primary scientific claims. Freeze their joint gatekeeping or
+familywise-error rule before holdout access. W3, pool-level selector measures, and diagnostic
+localization remain secondary unless the claim registry is amended before any relevant outcome is
+seen.
+
+## 6.4 H1 analysis: paired algorithmic and randomized closed-loop response
 
 The analysis begins with a common preflight and then follows exactly one primary protocol. The other protocol may be a hierarchically secondary replication, but their endpoints and claim language remain separate.
 
@@ -1152,7 +1521,7 @@ belongs inside nested resampling.
 
 For multiple treatments or doses, either use a prespecified multinomial/dose-response learner or define a small contrast family. Pairwise fishing across modalities, layers, doses, outcomes, metrics, couplings, and horizons is not one H1 test. If Protocol A and Protocol B are both run, specify a testing hierarchy; Protocol B is required before using language about closed-loop robustness or physical outcome moderation.
 
-## 6.4 H2 analysis: prospective failure with time and censoring
+## 6.5 H2 analysis: prospective failure with time and censoring
 
 Choose the prediction target before model selection:
 
@@ -1220,12 +1589,12 @@ The reference flags `synthetic_fixture_only=true`, `establishes_h2_evidence=fals
 `comparator_frontier_complete=false`. It does not validate the conditional censoring assumption,
 does not implement calibration intercept/slope or uncertainty, does not supply the matched-access
 comparator frontier, and does not freeze the real domain target or scientific minimum useful
-effect. Real H2 remains blocked on the M0 domain-specific estimand/ontology/landmark freeze,
+effect. Real H2 remains blocked on its domain-specific estimand/ontology/landmark freeze,
 powered prospective capture, censoring and missing-sensor sensitivity, full nested calibration and
 threshold selection (or an independently justified external threshold), the comparator frontier,
 and an untouched later-time or external holdout.
 
-## 6.5 Baseline hierarchy
+## 6.6 Baseline hierarchy
 
 Baselines must be built and frozen before examining PID’s confirmatory endpoint.
 
@@ -1265,7 +1634,7 @@ Baselines must be built and frozen before examining PID’s confirmatory endpoin
 PID must be compared with every mandatory frozen comparator and the predeclared comparator
 selection or ensemble rule, not merely entropy or majority class.
 
-## 6.6 Multiplicity and researcher degrees of freedom
+## 6.7 Multiplicity and researcher degrees of freedom
 
 The analysis tree includes many source pairs, layers, targets, measures, estimators, dimensions, windows, horizons, tasks, and doses. Uncontrolled search makes nominal p-values meaningless.
 
@@ -1289,7 +1658,7 @@ the untouched randomized confirmation sample.
 
 Do not select a layer, projection dimension, PID measure, or temporal window because it maximizes the test statistic. A multiverse may be reported, but the confirmatory result must remain the locked branch.
 
-## 6.7 Uncertainty and dependence
+## 6.8 Uncertainty and dependence
 
 Use uncertainty at the level supporting the claim:
 
@@ -1302,11 +1671,16 @@ Use uncertainty at the level supporting the claim:
 
 A moving-block bootstrap over frames does not create new independent task families. Report the number of independent clusters and the distribution of cluster sizes.
 
-The current offline harness does not implement episode-aware cluster resampling. Its schema-2 uncertainty sidecar fails closed when multiple episodes contain repeated rows or episode identifiers are only partly present. Serial resampling requires one episode and a strictly increasing canonical decimal `metadata.sequence_index`. An episode identifier groups rows but does not establish their order. Missing episode identifiers do not establish a continuous series. Unit-block subsampling and full shuffle remain available only under the declared row-exchangeability null. A combined bootstrap and permutation request must declare one row-dependence class. One global block subsample or circular shift must never splice episodes into a synthetic stationary series. A restricted circular-shift tail fraction is an approximate stationary surrogate score, not a randomization-test p-value. The harness's lag-1 AR(1) output is a descriptive screen. AR(1)-derived hints require the same sequence-index receipt. They are not effective sample sizes for nonlinear MI/PID estimates and cannot select the confirmatory block length.
+The current offline harness does not implement episode-aware cluster resampling. Its schema-3 uncertainty sidecar fails closed when multiple episodes contain repeated rows or episode identifiers are only partly present. Serial resampling requires one episode and a strictly increasing canonical decimal `metadata.sequence_index`. An episode identifier groups rows but does not establish their order. Missing episode identifiers do not establish a continuous series. Unit-block subsampling and full shuffle remain available only under the declared row-exchangeability null. A combined bootstrap and permutation request must declare one row-dependence class. One global block subsample or circular shift must never splice episodes into a synthetic stationary series. A restricted circular-shift tail fraction is an approximate stationary surrogate score, not a randomization-test p-value. The harness's within-unit-step-run Pearson lag-1 output is a descriptive screen. It emits no lag pairs when episode identities are absent. Every non-singleton segment also needs a strict canonical `metadata.sequence_index` receipt. Only adjacent rows whose index advances by one contribute, and the report counts excluded gaps. The screen centers both lag vectors inside each contiguous run before pooling residual products. A run needs at least three lag pairs because two pairs force Pearson correlation to positive or negative one. It reports admitted and correlation-eligible pair counts. Each axis average excludes columns that are undefined after centering and reports the defined and total dimension counts. The report derives no effective sample size or block length. The frozen design must justify both quantities independently.
+
+Offline report publication requires the private process-local seal created by the analysis call.
+The seal covers every serialized report field. It detects mutation but provides no external
+authentication. A deserialized summary is read-only evidence and cannot mint a new summary or run
+log. Rerun the analysis from the exact input snapshot to publish again.
 
 Estimator uncertainty and downstream prediction uncertainty must both be propagated. Treating an estimated PID atom as error-free can attenuate or destabilize downstream effects.
 
-## 6.8 Power and design analysis
+## 6.9 Power and design analysis
 
 Power is a capture gate, not a generic sample-count paragraph. Use simulation based on the complete nested design:
 
@@ -1323,7 +1697,7 @@ Power is a capture gate, not a generic sample-count paragraph. Use simulation ba
 
 Define a minimum useful effect before simulation. Report operating characteristics across plausible nuisance parameters, not a single optimistic count. For H1 Protocol B, simulate effect-model selection and calibration under null, weak, nonlinear, and sign-changing heterogeneity rather than powering only the average effect. For H2, vary the number of independent failures, episodes, task families, censoring patterns, and false-alarm opportunities; the number of landmarks is not the event count. For H4, simulate the **joint** probability that the complete decision succeeds: availability exceeds its margin, effect equivalence is established, sampling and treatment support gates pass, engagement and both controls pass, estimated target weights carry their declared uncertainty, and the simultaneous intersection–union procedure certifies enough target mass. An exactly enumerated finite target has no weight-estimation uncertainty, but its fixed weights remain bound. Include global-null, availability-only, non-equivalent-effect, poor-overlap, weak-engagement, control-failure, sparse-cell, and weight-misspecification scenarios when weights are estimated, and verify familywise type-I error under the complete confirmatory procedure. Powering either availability or equivalence alone is insufficient. The final design must include enough independent families or embodiments for the claimed generalization level; more frames do not compensate for one family.
 
-## 6.9 Missingness, crashes, and intervention failures
+## 6.10 Missingness, crashes, and intervention failures
 
 Create a run-status ontology before collection:
 
@@ -1338,7 +1712,7 @@ Create a run-status ontology before collection:
 
 Never silently delete crashes or safety stops: they can be outcome-related. Report all assignments, treatment receipt, exclusions, and a flow diagram. Use intention-to-treat as the primary causal analysis when assignment is randomized, with treatment-received analyses secondary and explicitly assumption-dependent.
 
-## 6.10 Robustness and falsification checks
+## 6.11 Robustness and falsification checks
 
 Required checks include:
 
@@ -1358,7 +1732,7 @@ No robustness analysis may be used to replace the primary result post hoc.
 
 ---
 
-## 6.11 Sensitivity analyses tied to assumptions
+## 6.12 Sensitivity analyses tied to assumptions
 
 Sensitivity analyses are not an unbounded menu. Each addresses a named assumption:
 
@@ -1396,13 +1770,14 @@ At the current repository state, with the historical review snapshot preserved s
 implementation reconciled against the exact `pid-rs` 0.9.0 post-tag review source:
 
 - the high-dimensional MI/coherence path is **NO-GO** on nuisance-dimension controls;
-- `pid-rs` has meaningful low-dimensional implementation evidence: continuous shared-exclusions redundancy is checked against a semi-analytic additive-Gaussian oracle with closed-form pointwise terms and a paired finite-sample Monte Carlo expectation, and discrete SxPID is checked bit-faithfully against reference values; these results validate named fixtures, not arbitrary embedding regimes [R73];
+- `pid-rs` has meaningful low-dimensional implementation evidence: continuous shared-exclusions redundancy is checked against a semi-analytic additive-Gaussian oracle with closed-form pointwise terms and a paired finite-sample Monte Carlo expectation, and categorical SxPID is checked bit-faithfully against reference values; these results validate named fixtures, not arbitrary embedding regimes [R73];
 - Prisoma’s default Experiment 0 sweep never compares shared-exclusions redundancy with a zero target. Its default 12 cases yield a high-dimensional MI/coherence **NO-GO** while atom-measure validation remains `not_adjudicated` and atom-estimator validation remains `blocked`; the strict band gates analytically known MI terms rather than the full VLA application;
-- the current exact `pid-rs` 0.9.0 post-tag review-source pin at `796c11e70f009634b853dc4ada6f565563d82f51` includes a committed `csxpid` fixture with agreement within `1e-12` nats, fail-closed declared-support contracts, and structured reports; Prisoma’s migration reran the root integration suite and exposed formerly silent mixed-support estimates as abstentions, while the excluded NCP consumer and Python conformance surfaces require their own locked checks [R73];
+- the current exact `pid-rs` 0.9.0 post-tag review-source pin at `796c11e70f009634b853dc4ada6f565563d82f51` includes a committed `csxpid` fixture with agreement within `1e-12` nats, fail-closed declared-support contracts, and structured reports. Prisoma now requires per-axis support and a stronger declaration for each complete continuous estimator tuple. Marginal continuity does not imply joint absolute continuity or finite MI. The migration exposes unsupported tuples as abstentions [R73];
 - continuous shared-exclusions for the intended high-dimensional, dependent, transformed VLA tensors remains **NOT APPLICATION-VALIDATED**: a low-dimensional cross-implementation fixture does not establish broad estimator consistency or application validity, atom components combine estimators with different bias profiles, uncertainty procedures have kNN-specific caveats, and the application-support envelope has not passed [R61, R73];
 - no evidentiary real-VLA capture has yet passed all estimator, endpoint, power, and application-support prerequisites [R61].
 
-The v12.5 plan preserves these distinctions. Low-dimensional oracle success is real evidence; it is neither zero evidence nor permission to interpret high-dimensional VLA atoms.
+The v13.0 plan preserves these distinctions. Low-dimensional oracle success is real evidence. It
+is neither zero evidence nor permission to interpret high-dimensional representation atoms.
 
 Any future preregistration must freeze one estimator environment. The current software review
 environment pins `pid-rs` 0.9.0 post-tag source at
@@ -1423,11 +1798,19 @@ Validation must span families chosen to isolate failure modes, not just familiar
 ### A. Analytic or numerical-oracle families
 
 - independent Gaussian channels with known MI;
-- correlated Gaussian systems with analytic MMI/BROJA-compatible comparisons where applicable;
+- continuous shared-exclusions systems with a measure-specific analytic or numerical oracle;
 - discrete copy, unique, XOR, AND/OR, noisy XOR, and mixtures;
-- low-dimensional shared-exclusions examples reproduced from the reference implementation;
+- low-dimensional categorical MGW fixtures with exact rational or integer count laws;
 - continuous mixtures with numerical integration or high-precision Monte Carlo oracle;
 - mixed discrete–continuous targets when intended in application.
+
+The first project-owned categorical case study must sit outside the world-model and `(V,L,D,A)`
+harnesses. Freeze one alphabet, event map, two-source lattice, and canonical integer count table for
+each condition. If conditions reuse exactly the same source counts, their averaged MGW informative
+atom vectors are identical. Any net-atom difference then equals the negative of the corresponding
+misinformative-component difference. Do not say “only misinformation changes.” The
+misinformative components may also be equal, and their formal name does not imply error or harm.
+Independent samples from one source population do not preserve exact empirical equality.
 
 ### B. Geometry and nuisance families
 
@@ -1482,22 +1865,39 @@ A continuous \(I_\cap^{sx}\) regime is eligible only when all of the following h
 
 High-dimensional atom drift without an oracle is labeled **sensitivity**, not estimator validation.
 
-## 7.6 Discrete PID gate
+## 7.6 Fitted categorical shared-exclusions gate
 
-Discrete PID is not an automatic escape from continuous geometry. It changes the estimand and introduces discretization bias.
+Fitted categorical shared exclusions is not an automatic escape from continuous geometry. The
+quantizer creates new categorical variables. The empirical-PMF plug-in then targets the MGW
+categorical functional on those variables. This is a different object from the continuous Ehrlich
+functional, even when both use shared-exclusions language.
 
 Required checks:
 
-- codebook/binning fitted on training data only;
+- an explicit fit/evaluation scope and a content-bound row-identity receipt;
+- training-only fitting for every held-out, inferential, or predictive evaluation;
+- an explicit `descriptive_same_rows` label when a same-row fit is used only for an in-sample
+  software screen; that screen cannot support held-out, predictive, or application claims;
+- exact function, backend revision, log unit, source order, target, and atom convention;
 - minimum cell occupancy and effective support;
 - held-out assignment stability;
 - sensitivity to codebook size and seed;
-- bias correction or Bayesian/smoothed estimates where justified;
+- informative, misinformative, and net reconstruction for every atom;
 - saturation diagnostics;
-- cross-measure analysis when scientific conclusions depend on the PID measure;
-- explicit statement that continuous and discrete atoms are different quantities.
+- explicit statement that fitted-categorical and continuous atoms are different quantities;
+- no fallback to `I_min`, BROJA, or another PID functional.
 
-For categorical outcomes and deliberately discrete mechanism variables, discrete PID may be the cleanest primary route. For arbitrary clustered hidden states, it is exploratory until stability and meaning are established.
+For deliberately categorical mechanism variables, MGW may be the cleanest primary route. For
+quantized hidden states, it is exploratory until the quantizer and empirical support pass the
+application gate. PLS creates a supervised transformed estimand and requires a separately fitted,
+leakage-safe regime.
+
+The current `categorical-sx-pls` software screen is not that regime. Each screen fits PLS toward
+the target and evaluates MGW on the same rows. The optional split screen uses train rows only. It
+does not score held-out categorical rows. Every estimate must serialize as
+`produced_with_warning`, with an estimator-blocked `supervised_same_row_preprocessing` reason.
+When saturation also applies, use the combined typed reason. Treat both the observed and shuffled
+screens as selection-inflation diagnostics. Neither can support H3 or rescue a continuous route.
 
 ## 7.7 Mutual information and Shannon-invariant gate
 
@@ -1599,7 +1999,15 @@ For each estimator configuration, publish a machine-readable support envelope co
   separate population/measure/estimator/application verdicts;
 - semantic version and exact implementation revision.
 
-At application time, every candidate records whether an estimate was **not requested**, **produced**, **produced with a numerical warning**, or **abstained**. Computation is not eligibility: record the population, measure, estimator, and application verdicts separately, and permit interpretation only when all required gates pass. Report the denominator: total candidate cases/windows, requested estimates, declared-support-compatible tuples, cases reaching each diagnostic stage, successful computations, warnings, and abstentions by reason. Predictive performance among the small easiest subset is not deployment performance.
+At application time, every candidate records whether an estimate was **not requested**, **produced**, **produced with a numerical or design warning**, or **abstained**. Computation is not eligibility: record the population, measure, estimator, and application verdicts separately, and permit interpretation only when all required gates pass. Report the denominator: total candidate cases/windows, requested estimates, declared-support-compatible tuples, cases reaching each diagnostic stage, successful computations, warnings, and abstentions by reason. Predictive performance among the small easiest subset is not deployment performance.
+
+Continuous admission needs two distinct declarations. First, declare each axis population. Second,
+declare the complete source-target tuple used by that estimator call. The tuple contract asserts
+that every required marginal and joint law is regular, full-dimensional, absolutely continuous,
+and finite-information. Per-axis continuity does not imply this. A deterministic relation such as
+continuous (Y=X) has continuous marginals but a singular joint law and can have infinite MI.
+Missing or incompatible tuple contracts must abstain before constructing the upstream KSG or
+Ehrlich support assertion. A declaration is an input claim, not proof or gate passage.
 
 A support classifier trained on synthetic regimes is itself a predictive model. Validate it on held-out synthetic families and adversarial near-boundary cases; do not present geometry heuristics as ground truth. When no validated estimator covers the application regime, return no atom and continue with non-PID diagnostics.
 
@@ -1820,7 +2228,7 @@ project can mature without raising its **relationship to Prisoma**.
 
 | Repository | Audited relationship to Prisoma | Evidence level | Scientifically useful role | Boundary / required next evidence |
 |---|---|---:|---|---|
-| `pid-rs` | Direct git submodule deliberately pinned to the 0.9.0 post-tag review source at `796c11e70f009634b853dc4ada6f565563d82f51`, seven commits after the immutable `v0.9.0` review tag at `a9a275157237999c8da6ab813130d74f6113dec9`; Prisoma crates path-depend on its estimator/run-log crates. Public main was observed at `bbdfda40f0a49a2260b10eafdcb438fc61ae94e9` | E2; root and consumer conformance checks support E3 for the tested local paths | canonical estimator implementation, run-log schema, low-dimensional analytic/external fixtures, discrete references, fail-closed support contracts and reports | upstream main adds unadopted method catalogs, formal/categorical assurance work, support-change and concentration records, Lean 4.33 formal replay hardening, source-errata and evidence-boundary registries, and exact-certifier surfaces, but says Prisoma integration is not claimed. An isolated all-feature Prisoma check, test-target build, and 531-test run passed at `722d3abe`. Current head `bbdfda40` changes only upstream assurance, workflow, script, and prose surfaces relative to that tested revision. The consumed crates, Cargo files, toolchain, and `pyproject.toml` are byte-identical. Current-head CI run `31651702557` completed with all 45 jobs passing, and CodeQL run `31651702504` passed. Retain the reviewed pin until consumer-owned scientific-value and adoption checks pass. The fixtures do not establish VLA application validity [R72–R73] |
+| `pid-rs` | Direct git submodule deliberately pinned to the 0.9.0 post-tag review source at `796c11e70f009634b853dc4ada6f565563d82f51`, seven commits after the immutable `v0.9.0` review tag at `a9a275157237999c8da6ab813130d74f6113dec9`; Prisoma crates path-depend on its estimator/run-log crates. Public main was observed at `7473e62acef6077c2c1147e09d5d1297f2a2874b` | E2; root and consumer conformance checks support E3 for the tested local paths | canonical estimator implementation, run-log schema, low-dimensional analytic/external fixtures, discrete references, fail-closed support contracts and reports | upstream main adds unadopted method catalogs, formal/categorical assurance work, support-change and concentration records, Lean 4.33 formal replay hardening, source-errata and evidence-boundary registries, and exact-certifier surfaces, but says Prisoma integration is not claimed. An isolated all-feature Prisoma check, test-target build, and 531-test run passed at `722d3abe`. Head `bbdfda40` changes only upstream assurance surfaces relative to that tested revision. Estimator-code anchor `cb3f58f0` adds one bounded KSG integration commit. Prisoma inspected its three changed production Rust files and replayed four predecessor-radius fixtures plus the structured overflow fixture. Current public head `7473e62` is a custody-only direct child with no crate or Cargo-input change. Its full CI run `31724449805` failed two jobs, while its narrower `Push on main` run `31724449083` passed. Upstream still marks broader revision-4 KSG repository integration NO-GO. Retain the reviewed pin until consumer-owned scientific-value and adoption checks pass. The fixtures do not establish VLA application validity [R72–R73] |
 | `NCP` | Optional `ncp-observer`, excluded from the default workspace, pinned to immutable NCP `v0.8.0` at `2f5bd586` (wire 0.8). Verified upstream main `1a04294c90c1b50eba06ae1c6afe9c951319250d` is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0; compact proto contract hash `163acc57d8a62b66`). Full-key visible-receipt integrity and receipt-last bundles are local-only. Receipt schema 1 binds the exact legacy identity. The bounded 18-case observatory replays one complete hand-authored trace twice through the shared route/raw decoder. It separates native response from its manifest oracle. | E2 dependency edge with a reproducibility-bound local fixture execution for the exact fixture and consumer; not producer-consumer E3 | optional source of versioned observations from neural or robotic systems; deterministic decoder, join, finalization, and replay fault checks | Retain the wire-0.8 read-only pin. Do not infer wire-1.0 compatibility. NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and **NOT RUN**. B01 remains `IN_PROGRESS`; its refined low-overhead architecture and prepared-stream-monitor gap record are coordination-only and have no passing receipt. Require a separate consumer, conforming live producer, migration corpus, own-stream/timing/QoS/reconnect/authentication evidence, interventions/outcomes, and an E4 report. Whole-tick omission remains a native blind spot. No PID population support is inferred [R72, R74]. |
 | `galadriel` | Public revision `80506dd2ce52b33c3334c7d1760a8155c7631241` freezes 0.9.0 candidate inputs and adds a strict two-route consumer, lifecycle adapter, and bounded operational receiver. No direct Prisoma dependency or adapter exists | E0 between projects; E2 only to shared dependencies | external diagnostic comparator for cross-sensor consistency, NIS/CUSUM, signed correlation, and optional PID evidence | require a reciprocal pin, direct consumer-owned adapter, producer-consumer golden fixture, and receiver-verified deployment. Shared `pid-rs` results remain one correlated method family, not replication [R75–R76] |
 | `crebain` | Public revision `7f6b3bdf4d20aba1b351b3ceacb259bd123c93a6` adds a restricted read-only Engram view to the 0.9.0 research prerelease. Embedded mode disables native, external telemetry, artifact exchange, NCP, and plant paths. NCP action/control commands stay unregistered, and no direct Prisoma reference exists | E0 between Crebain and Prisoma; the read-only Engram view does not create a direct edge | candidate non-manipulation embodiment, multimodal tracking/fusion testbed, timing/fault-injection or advisory-evidence producer | host messages do not attest a process or build. A local `put` does not prove receiver receipt. No live NCP control loop or direct Prisoma adapter exists [R76] |
@@ -1834,7 +2242,7 @@ project can mature without raising its **relationship to Prisoma**.
 | `relief-atlas` | No direct adapter/reference found; large generated mesh collection with per-asset licensing caveat | E0 | optional stress-test domain for disaster-response scenes, not a primary manipulation benchmark | perform asset-level licensing, quality, collision, realism, and safety/ethics audit; avoid scope expansion [R83] |
 | `cortexel` | Public revision `d29669e6d5b1766fd96e1eacefb02b3f43c5ce61` is a 0.9.0 prerelease with deterministic accessible SVG export across 19 stable visualization families; no direct Prisoma reference or adapter exists | E0 | possible read-only renderer of scientific artifacts after a stable consumer contract exists | no published package/DOI, external oracle, real adapter, or Prisoma contract exists. Visual agreement is not analysis validation, and Cortexel does not supersede the Rerun-first decision [R84] |
 | `haldir` | Public revision `555108666cb82e8a36dcd4b08b5b30c62367a6f4` contains substantial internal P0/durability and release work, an opt-in exact NCP adapter, a narrow receiver-observed synthetic mTLS/ACL campaign, an off-by-default exact-route strict-publisher binding with a broader Called-lifecycle fault matrix, and fail-closed validation of a caller-declared live startup profile; no runnable service, direct Prisoma dependency, or application route exists | E0 between projects; Haldir’s internal tests are not Prisoma integration or security evidence | offline authority/receipt comparator for fail-closed decision semantics | the live-profile declaration is cooperative, process-local, bypassable through lower-level construction, and not durably bound; positive composition and result/fault cases use test-only seams, and no live Zenoh session executes the concrete method. Haldir originates command frames, so a direct route would conflict with the Agent Bridge-only control plane unless §16 were revised. Require credential custody, runnable service, Crebain application, immutable release, consumer-owned adapter, threat-model mapping, and E4 conformance before any security/integration claim [R86] |
-| `brojapid-activationfunctions` | No software edge to Prisoma; a released BROJA-PID analysis of activation functions linked to prior reproduction work | E0 edge; public code/release evidence | candidate discrete mechanism fixture and cross-measure sensitivity study | BROJA unique information is a different PID measure; atom names or magnitudes are not interchangeable with shared-exclusions [R97] |
+| `brojapid-activationfunctions` | No software edge to Prisoma; a released BROJA-PID analysis of activation functions linked to prior reproduction work | E0 edge; public code/release evidence | excluded historical lineage only; no active Prisoma analysis role | BROJA unique information is a different PID measure; Prisoma does not import, relabel, compare, or use its atoms for an active hypothesis [R97] |
 | `mahmoudian-2020-rescience` | No software edge to Prisoma; published ReScience C replication and archived code | E0 edge; publication/reproducibility lineage | evidence of prior reproducibility practice and a source of controlled transfer-function fixtures | does not validate `pid-rs`, continuous shared-exclusions, VLA hypotheses, or present infrastructure [R98] |
 | `nest-simulator` | Public fork advertises PID/information-theoretic work on feature branches; no direct Prisoma root reference or pinned adapter was verified | E0 | candidate neural-state producer through a future read-only NCP adapter | pin the exact branch/commit, separate fork changes from upstream NEST, publish a fixture, and pass E4 semantics/security tests [R99] |
 
@@ -1862,7 +2270,9 @@ A release candidate passes the firebreak only when:
   atoms; this dependency smoke is groundwork, not H1 response scoring or prospective H2;
 - an ordinary local-file or standard-format adapter can replace every sibling repository;
 - no private repository, unpublished model, personal token, or sibling checkout is required for the minimum viable thesis;
-- optional world-model, 3D, viewer, and asset components can fail without changing assignments, primary outcomes, or provenance of already-recorded runs;
+- an unqualified external model, 3D backend, viewer, or asset source can fail without changing
+  assignments, outcomes, or provenance of already-recorded runs; W1/W2 execution begins only after
+  one learned world-model path passes M2 and is frozen as a required study component;
 - producer repositories cannot read outcome labels, holdout membership, treatment schedules beyond their necessary command, or fitted analysis transforms;
 - all cross-repository artifacts are content-addressed and revision-pinned.
 
@@ -1904,21 +2314,23 @@ application. Mixed-dimensional continuous three-source analysis remains explorat
 eligibility is decided by Section 7, not by a passing unit test or the fact that an API returns a
 number [R73].
 
-Public main at `bbdfda40f0a49a2260b10eafdcb438fc61ae94e9` adds unadopted method catalogs,
+Public main at `7473e62acef6077c2c1147e09d5d1297f2a2874b` adds unadopted method catalogs,
 software identity, support-change and concentration records, formal/categorical assurance work,
 Lean 4.33 formal replay hardening, source-errata and evidence-boundary registries, outcome
 contracts, and exact-certifier surfaces. These additions do not open the high-dimensional or
 application gates. An isolated exact-revision all-feature Prisoma check, test-target build, and test
-run passed against `722d3abe`. Current head changes only assurance, workflow, script, and prose
-surfaces relative to that tested revision. The consumed crates, Cargo files, toolchain, and
-`pyproject.toml` are byte-identical. A later pin requires
+run passed against `722d3abe`. Head `bbdfda40` changes only assurance surfaces relative to that
+tested revision. Estimator-code anchor `cb3f58f0` adds one bounded KSG integration commit. Prisoma inspected
+its three changed production Rust files and replayed its four predecessor-radius fixtures plus the
+structured overflow fixture. Current head `7473e62` changes custody and assurance surfaces only.
+Its full CI run `31724449805` failed two jobs; its narrower push receipt passed. A later pin requires
 consumer-owned compatibility, exact-reference, and regression evidence against the frozen Prisoma
-contract. Current-head CI run `31651702557` completed with all 45 jobs passing on 13 August 2026.
-CodeQL run `31651702504` also passed. These provider results do not close the consumer review.
+contract. Upstream still marks broader revision-4 KSG repository
+integration NO-GO. These provider results do not close the consumer review.
 
 ### 8.9.7 Ecosystem opportunity without thesis capture
 
-Do not move a sibling integration onto the S0–S3 critical path. First complete one rights-approved
+Do not move a sibling integration onto the WM0–WM3 critical path. First complete one rights-approved
 raw-to-run-log capture, a structurally independent EC1 adapter, and the conventional-stack
 comparison. After those gates pass, Galadriel offers the highest-leverage diagnostic comparator.
 NCP wire-1.0 migration, Cortexel, and Melkor remain optional until a consumer-owned contract and
@@ -1937,7 +2349,13 @@ Each is optional. The scientific contribution is the ability to test such system
 
 ### 8.9.8 Scientific lineage and candidate producers are not integrations
 
-The public ecosystem also contains two information-theoretic lineage artifacts and a possible neural-simulation producer. The 2020 ReScience C repository documents a successful replication of a three-way information-theoretic transfer-function study, and `brojapid-activationfunctions` applies the BROJA unique-information measure to activation functions [R97–R98]. They are useful sources of controlled fixtures, reproducibility practices, and cross-measure disagreement tests. They do not validate shared-exclusions, `pid-rs`, the VLA estimand, or Prisoma’s software. Cross-measure comparisons must ask whether qualitative mechanism discrimination survives; they must not compare atom labels or magnitudes as though BROJA and \(I_\cap^{sx}\) were the same functional.
+The public ecosystem also contains two information-theoretic lineage artifacts and a possible
+neural-simulation producer. The 2020 ReScience C repository documents a replication of a
+three-way information-theoretic transfer-function study. `brojapid-activationfunctions` applies
+the BROJA unique-information measure to activation functions [R97–R98]. They document historical
+questions and reproducibility practice only. Prisoma does not use either artifact as an active
+estimator, comparator, fixture, or sensitivity branch. They do not validate shared exclusions,
+`pid-rs`, a Prisoma estimand, or Prisoma software.
 
 The `nest-simulator` fork is a plausible future producer of neural-state streams, especially through NCP, but repository-level mention of PID branches is E0 evidence only [R99]. Promotion requires an exact branch/commit, a delta against upstream NEST, executable model fixture, variable semantics, clock and sequence contract, read-only authority, and an E4 end-to-end report. None of these repositories belongs on the minimum thesis path.
 
@@ -2005,7 +2423,7 @@ The reviewed snapshot has meaningful estimator/run-log and adapter groundwork, b
 
 The local `pid-sim` implementation also includes two explicitly non-evidentiary protocol
 references: the deterministic synthetic H1 Protocol-A runner and the deterministic synthetic H2
-fixed-horizon/IPCW/alarm runner described in Sections 6.3–6.4. Both write canonical, replay-valid,
+fixed-horizon/IPCW/alarm runner described in Sections 6.4–6.5. Both write canonical, replay-valid,
 PID-free logs and fail closed on checked fixtures. Neither is real claim execution, external
 validation, or a substitute for M4/M5.
 
@@ -2044,6 +2462,13 @@ The system does not become safe because actions are logged. Logging enables audi
 ## 8.13 Visualization and rendering
 
 Rerun-first visualization is appropriate because it supports time-aware multimodal inspection without making a custom UI the scientific bottleneck [R45]. Tauri, SparkJS, WebGPU, Gaussian splatting, and editable scenes are optional presentation or experiment-authoring layers.
+
+The pinned Rerun 0.34.1 Rust types expose meshes, pinhole cameras, transforms, images, arrows, and
+points. Its PLY loader reduces Gaussian data to spherical points and ignores opacity. It does not
+expose the newer unstable anisotropic `GaussianSplats3D` archetype found on Rerun main. The current
+Prisoma adapter also drops `FrameObserved`, reduces flow vectors to magnitudes, and ignores
+candidate metadata. Therefore it is a derived viewer, not the W1–W3 evidence model. Upgrade or add
+a typed adapter only after a storage-compatibility and semantic review.
 
 Rules:
 
@@ -2105,7 +2530,8 @@ Classify the deployed directed graph before naming `D`:
 | C | \(q(F\mid H,L)\,\pi(A^\pi\mid H,L,F)\) | intended-future conditioning |
 | J | \(q(F,A^\pi\mid H,L)\) sampled jointly, with no exposed clamped-action query | coupled joint generation |
 | D | \(q(F\mid H,L,A^\pi)\) | action-conditioned observational prediction |
-| E | propose, predict, score, and select over at least two actions | predictive candidate planning |
+| E_pool | predict, score, and select over one precommitted pool of at least two actions | fixed-pool predictive planning |
+| E_opt | adaptively propose, predict, score, and return one final action recommendation | adaptive predictive optimization |
 
 Treat these as different operational and statistical contracts:
 
@@ -2120,14 +2546,27 @@ Class J is operational, not algebraic. The existence of a conditional factorizat
 density does not mean the deployed system accepts a clamped candidate action and returns its
 forecast.
 
-Class E requires a frozen score and a selection caused by that score. Record all proposals,
-predictions, scores, and the selected action. Require a decision-flip test with fixed proposals.
+Both class-E forms require a frozen score and a selection caused by that score. For `E_pool`,
+record the ordered pool, every forecast and score, and the selected action. Require a decision-flip
+test with the pool and randomness fixed.
+
+For `E_opt`, record the initial search distribution, seed, every proposal round, forecasts, scores,
+elite indices, distribution updates, stopping rule, and final optimizer state. CEM and Nevergrad can
+return a mean or recommendation that was never sampled. Evaluate and commit that final action as a
+new query before execution. A fixed-randomness intervention must change only the score signal and
+show whether it changes the recommendation.
+
+The graph class is not an evidence grade. Record a separate capability vector for candidate-action
+queries, adaptive proposal, scoring, selection, deployed forecast use, and physical outcome
+validation. Also record whether each fact comes from author prose, source inspection, execution
+trace, or controlled intervention.
 
 An action-conditioned predictor remains observational until its causal gate passes. Randomize
 executed actions from valid reset states. Preserve failed, reversed, no-op, and low-support
 actions. Record proposal, controller conversion, execution, holds, truncation, and overrides.
-Use proper scores and calibration on later physical outcomes. Test hidden-state aliases and
-abstain outside declared action support [R136, R138–R139].
+Use proper scores and calibration on declared later reference-state outcomes. Use physical-outcome
+language only for a separately measured physical system. Test hidden-state aliases and abstain
+outside declared action support [R136, R138–R139].
 
 For `(V,L,D,A)`, name `D` from this graph. Flex-\(\pi\)'s generated state is an
 `intended-future representation`, not action-conditioned dynamics [R128]. Training-only systems
@@ -2139,15 +2578,29 @@ Use \(A^\pi\) for the proposal target. Store controller output and \(A^{exec}\) 
 Do not treat RGB, DINO, pointmap, or other RGB-derived streams as independent modalities. A
 post-decision `D` is not an H1 pre-treatment moderator.
 
+Do not use \(q(F \mid H,L,A^\pi)\) as a source for PID with the same \(A^\pi\) target. The
+candidate action is already an input to that state. Use a later declared reference-state outcome
+to test simulator forecast value, with the candidate action also available to the matched
+baseline, or use the state inside the matched class-D/E selection study. A controller output or
+\(A^{exec}\) target can test command prediction only. It cannot establish physical forecast
+validity. That claim requires a separately measured physical outcome. Do not confuse downstream
+causal descent with source containment.
+
 ## 9.3 Target hierarchy
 
-Primary targets should progress from most identifiable to most consequential:
+Targets should progress from most identifiable to most consequential. Keep each target family
+separate:
 
 1. discrete synthetic or task variable for estimator validation;
-2. policy distribution or sampled action under controlled input;
-3. executed action after controller transformation;
-4. low-dimensional physical state change, object flow, or contact event;
-5. progress/failure outcome.
+2. declared later simulator or reference-state outcome for action-conditioned forecast tests;
+3. candidate ranking, selected action, and abstention for fork-level selector tests;
+4. policy proposal, controller output, and executed action as three distinct command objects;
+5. separately measured physical state change, object flow, or contact event;
+6. downstream progress, failure, utility, and process-level safety outcome.
+
+The simulator reference target is a benchmark label under a declared simulator. It is not a
+measured physical outcome. A selected command is not evidence of forecast fidelity. A forecast
+score is not evidence of complete-policy value. W1 and W2 test those claims separately.
 
 A low-dimensional target can improve estimation but does not solve high-dimensional source geometry. A flow target may be embodiment-portable only after coordinate frame, object correspondence, visibility, and contact semantics are standardized.
 
@@ -2162,6 +2615,12 @@ Pooling is a scientific choice. Candidate approaches include:
 - phase-aligned summaries.
 
 Do not average tokens merely because it is convenient. Report sensitivity to a small preregistered set of plausible aggregations. Token selection based on the outcome or intervention effect must occur inside nested training folds.
+
+For every row, bind the target-specific prediction landmark and the maximum timestamp of every
+tensor ancestor. Require the landmark to precede target realization or availability. Reject a
+source when any ancestor occurs after the landmark. Training-time future supervision does
+not violate this rule when the deployed inference path reads only admissible inputs. A diagnostic
+loss that rereads future frames does violate it, even when the model calls the result a prediction.
 
 For temporal aggregation:
 
@@ -2269,6 +2728,7 @@ The August review changes the prior-art boundary:
 - SLIM, LiLa-WAM, World Tokens, VLA-JEPA, Fast-WAM, and arXiv:2608.09381 JEPA-WAM use future
   prediction for training while deploying a direct policy [R129–R133, R149]. The released
   LiLa-WAM inference loop ignores its returned shared tokens and never calls its future decoder.
+  VLA-JEPA's predictor consumes learned VLM latent-action tokens, not clamped robot actions.
 - The stage-level JEPA-WAM predicts an intended next-stage latent from observed history and
   language. It conditions short-horizon video and action generation on that latent [R142].
 - ForeWAM and Rift create action-independent future-position state in one prefill and expose it to
@@ -2358,18 +2818,105 @@ actions. Require arm 6 to pass a fixed-proposal decision-flip test. This separat
 training, runtime intended-future use, coupled joint generation, action-conditioned forecast
 validity, and selection utility.
 
-The current local implementation decision is conservative. SmolVLA is the first MPS baseline
-candidate because its upstream path documents MPS. It is not locally qualified. SLIM is the first
-compact predictive-training candidate after rights, loader, parity, latency, memory, and hook
-qualification [R129, R140]. Efficient-WAM is a later class-J port candidate. Its roughly 1.98 GB
-checkpoint does not include the memory cost of UMT5-XXL and the Wan VAE. Its current attention,
-RoPE, device, and loader paths require code changes before MPS testing [R160]. LiLa-WAM is a
-separate 0.5B no-language predictive ablation. It cannot supply the `L` axis, and its released
-CUDA-oriented path is not MPS-qualified [R149]. Full video WAMs remain off the M4 critical path.
-The released JEPA-WAM model is a 5,355,388,110-byte pickle-based artifact with SHA-256
-`e63285fb347048989f14a8a24962a2b921d787f7ada0176a0eacd6b256d57d23` [R133]. It comes from a
-CUDA-tested stack. Review an MPS port only after SmolVLA and SLIM pass their gates. Use a small
-offline latent predictor before porting a multi-billion-parameter video model.
+The local path is world-model-first. `pid-world-model-reference` is the zero-model-download first
+rung. A clean Rust build can still fetch pinned Cargo dependencies.
+It learns an affine action-conditioned transition, commits a fixed pool, labels independent
+restored branches, executes only through the Agent Bridge, and verifies replay. Its training and
+reference laws are the same deterministic simulator. It proves software semantics only. It does
+not estimate W1, W2, model quality, physical truth, or planning benefit.
+
+Run-log schema 2 has no neutral inline decision record. The reference therefore carries forecast
+commitments and execution receipts in strictly named `label_observed` compatibility envelopes.
+They are not outcome labels. A future upstream schema must separate these records before the path
+becomes a general learned-model adapter.
+
+The first external M4 target is the compact LeWM PushT path [R181, R182]. Pin code to
+`Mengarr/lewm@8a2c595813d0eee85b2dbffa6f58ff0842f9e673` and bind its committed `uv.lock`
+at SHA-256 `1bf638a080ce7717ee000f5b0be9de1ca327624025ba52433c7fbcbcc90d024e`.
+That lock selects `stable-worldmodel==0.1.1` from wheel SHA-256
+`00eaabd9e046e6364b3d1db47e5b365a0f628aea3a9376d6a407f75cbbbd2ef5`. The package's
+source tag resolves to `15a5538d492ae524c64cb18cc56a2d70611e877e`. It also selects
+`stable-pretraining==0.1.7` from wheel SHA-256
+`60fc8fc3c9490e9a059aa7e038ab62cbe0505841e78c4165c18a99d8f599ec65`.
+Pin weights to `quentinll/lewm-pusht@22b330c28c27ead4bfd1888615af1340e3fe9052`. The `weights.pt` artifact is
+72,290,721 bytes with SHA-256
+`48938400ae3464c9680731287f583a9cb516f55a8ec64ea13a91be47fb15b607`. Its deployed query accepts
+current visual state plus action blocks, and its released evaluator performs CEM planning. The
+paper reports about 15 million parameters. These are source and artifact facts, not M4 performance
+or qualification claims.
+
+Do not substitute current `stable-worldmodel` main for the locked package. Main revision
+`9a66d7d020043c8efb507f45373e808714f0842d` takes a `cost` object in the planner constructor.
+LeWM's pinned evaluator passes `model`. The pair does not compose without a reviewed migration.
+Treat current main as a separate port target, not an exact reproduction dependency.
+
+LeWM is the first port because it is smaller than the reviewed JEPA-WM runtime, has MIT-licensed
+project source and model-card terms, and uses standard PyTorch attention in its core predictor.
+The exact `stable-worldmodel` package metadata also declares MIT. Its reviewed source tree lacks a
+license file, so rights review must resolve that discrepancy before adoption. Code, package,
+checkpoint, data, and paper licenses remain separate.
+
+The upstream end-to-end evaluator is not MPS-ready. It hard-codes CUDA, its documented conversion
+uses unsafe pickle-enabled loading, and the official paper result does not include an M4 run.
+Prisoma must instantiate the exact architecture, verify the digest, and load the state dictionary
+with `weights_only=True`. No released stack in the reviewed cohort has an unmodified, verified MPS
+propose–predict–score–select path. The Apple work remains a bounded compatibility port.
+
+A 2026-08-14 local synthetic probe used the exact 0.1.1 wheel and checkpoint. Direct prediction,
+latent rollout, and the published 30-by-300 CEM loop produced finite repeatable MPS outputs. The
+probe did not run official image preprocessing, PushT, or closed-loop replanning. It did not test
+CPU/MPS candidate-order parity. It therefore establishes only that these reviewed tensor paths can
+execute on this M4 Max. It does not establish MPS support, WM2, or model quality.
+
+A one-seed independent reproduction tested the smaller LeWM TwoRoom task [R182]. It did not test
+PushT, MPS, or seed variance. It found four consequential pipeline conventions outside released
+configuration files. It also found conflicting goal offsets, step budgets, and CEM iteration
+counts across released sources. On three checkpoints, one-step prediction error did not order
+long-horizon planning performance. These findings reinforce two boundaries. W1 forecast evidence
+cannot substitute for W2 closed-loop value, and a model arm is undefined until its full evaluation
+protocol is frozen.
+
+The first parity port must preserve the published PushT configuration: 30 CEM rounds, 300 samples,
+30 elites, horizon five, and action blocks of length five. Retain every proposal, forecast, score,
+elite set, mean, and variance. Separately score and commit the final recommended action before
+execution. First reconcile the paper, configuration, and executable code for preprocessing,
+action gathering, action width, missing-value handling, normalization, goal creation, episode
+selection, horizons, budgets, and replanning. Freeze every unresolved feasible reading as a
+separate arm before outcomes. Port device and random-number ownership without changing planner
+mathematics. A smaller search becomes a distinct, predeclared M4 arm only after exact reproduction.
+
+The published evaluator fits each `StandardScaler` on the evaluation dataset. Its CEM solver uses
+the action space only to obtain dimensions. It does not clamp sampled standardized actions to the
+space bounds. Prisoma must not inherit either behavior in a confirmatory study. Freeze a
+training-only scaler receipt. Inverse-transform every proposal, check raw-action support, and apply
+one predeclared reject, project, or truncated-sampling rule. Report support violations. A bounded
+or projected solver is a distinct port arm until exact-reproduction results are recorded. The
+unmodified evaluator remains a descriptive reproduction arm, not a held-out W1 or W2 analysis.
+
+The pinned JEPA-WM PushT stack remains the second planning benchmark [R173]. It uses a larger
+39.7-million-parameter runtime and a 211,639,615-byte checkpoint. Its upstream agent and planners
+hard-code CUDA, and its hub path discards a requested MPS device when CUDA is absent. Its
+CC-BY-NC-4.0 terms also make it a weaker default foundation for a reusable local pipeline.
+
+The port must make unrelated dataset imports lazy. Admission requires content hashes, zero network
+access during execution, finite CPU and MPS outputs, action sensitivity above repeat-run drift,
+CPU/MPS candidate-order parity under frozen tolerances, a reconstructable adaptive search trace,
+more than one closed-loop replan, and measured resource receipts. Benchmark the upstream CEM first.
+Only then freeze a reduced-budget CEM arm for M4 use. Never call that reduced arm an upstream
+reproduction.
+
+Measure cold start separately. For steady state, use at least 1,000 decisions or a larger
+predeclared count justified for p99 precision. Record the exact M4 model, OS, PyTorch build, device,
+power mode, thermal state, warmup, concurrency, and clock. Report empirical p50, p95, and p99 with
+uncertainty, deadline misses, peak unified memory, and fallback. Until all gates pass, call the
+stack an **MPS candidate**, not MPS support.
+
+SmolVLA remains a small direct-policy baseline because LeRobot documents an MPS path [R140].
+VLA-JEPA remains a predictive-co-training comparator. Its policy inference drops the predictor,
+and its future loss does not expose a clamped physical-action transition query [R131]. Neither is
+the primary world model. Large video WAMs and MLX rewrites remain later work. Weight conversion
+alone cannot reproduce preprocessing, masks, rotary math, integrators, normalizers, planners, or
+capture hooks.
 The complete dated review is
 [`WORLD_ACTION_MODEL_FRONTIER.md`](docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md).
 
@@ -2388,7 +2935,8 @@ placeholder. The executable Engram Neural Labs host is `sepahead/Paper2Brain`. I
 Prisoma manifest, generic live read-only adapter, and structural preview create an E2 consumer
 edge, not E3 scientific conformance. The host does not start or attest Prisoma. No NCP producer,
 bridge, wire translator, artifact-validation path, or authority path exists. WorldWarp and GauSS-MI
-remain optional specifications. The ReScience/BROJA repositories are scientific lineage. The
+remain optional specifications. The ReScience/BROJA repositories are excluded historical
+lineage. The
 NEST fork is a candidate producer, not integration or validation. Mesh and visualization
 repositories are candidate inputs or outputs.
 
@@ -2410,7 +2958,9 @@ The dated search must include at least: `partial information decomposition robot
 decomposition vision language action`, `VLA failure diagnosis`, `embodied mechanistic
 interpretability`, `causal intervention VLA`, `action grounding benchmark`, `robot policy internal
 state logging`, `world action model`, `action conditioned world model`, `future conditioned robot
-policy`, `robot world model hallucination`, and `candidate action world model planning`.
+policy`, `robot world model hallucination`, `candidate action world model planning`, `robot
+Gaussian splatting simulator`, `3DGS closed-loop policy evaluation`, `mesh Gaussian splat matched
+rendering`, `real-to-sim robot policy evaluation`, and `world model simulator fidelity`.
 
 ---
 
@@ -2418,29 +2968,47 @@ policy`, `robot world model hallucination`, and `candidate action world model pl
 
 ## 11.1 Minimum viable thesis
 
-The minimum defensible thesis does not require PID success:
+The minimum defensible thesis is world-model-first. It does not require PID success or a 3DGS
+benefit.
 
-### Paper A — experiment semantics and benchmark
+### Paper A — supported world-model decisions under a local budget
 
-**Contribution:** an open capture/intervention/replay contract plus adapters and a benchmark showing when it prevents invalid embodied-agent analyses.
+**Contribution:** a supported-action calibration and decision protocol that links proper forecast
+scores, support-shift abstention, fixed-pool or adaptive search traces, and randomized complete-policy
+value under a frozen M4 budget. Exact forks and hashes are enabling controls, not the novelty claim.
 
-**Required evidence:** external baselines, fault injection, blinded audit tasks, replay tolerance,
-registered provenance-field coverage, and at least two policy/environment adapters.
+**Required evidence:** W1 and W2 frozen separately; held-out task and dynamics families; supported
+randomized actions; direct-cost, kinematic, current-only, shuffled, no-future, and proposal-headroom
+controls; calibrated abstention; randomized complete policies; and measured latency, memory, power
+proxy, deadline, and fallback receipts. The design must state how it extends CoWAM and
+WorldSimProbe rather than relabeling their fixed-pool and simulator-fidelity controls.
 
-### Paper B — intervention-grounded diagnostics
+### Paper B — linked fidelity tomography
 
-**Contribution:** a claim-matched study of whether observational diagnostics predict paired
-frozen-snapshot policy responses or randomized closed-loop intervention effects on held-out task
-families. The two estimands and conclusions remain separate.
+**Contribution:** linked matched contrasts that localize decision error across declared reference
+dynamics, learned prediction, mesh-versus-3DGS observation substrate, frozen-policy response,
+controller conversion, and selection.
 
-**Required evidence:** strong baselines, manipulation checks, hierarchical inference, replication,
-and availability–tested-response analysis.
+**Required evidence:** identical physical trajectories and cameras across renderer treatments;
+unchanged collision geometry; identical fork/action identities across learned and reference paths;
+frozen policies; candidate-level and episode-level estimands kept separate; and replication on a
+second task or scene family.
 
-### Paper C — conditional information-decomposition study
+This is an integration protocol, not a priority claim. SplatSim, DISCOVERSE, GSWorld, Real-to-Sim
+Robot Policy Evaluation, RoboSnap, WorldSimProbe, RoboWM-Bench, CoWAM, and World Action Planner
+already occupy major parts of the broad idea [R151, R167, R174–R180]. The narrower contribution is
+cross-substrate attribution under matched state and camera identity. It links renderer and learned-
+model errors to frozen-policy response and downstream selection value.
 
-**Contribution:** either (a) validated PID adds reproducible incremental value, or (b) a rigorous map shows where PID fails or adds no value and which alternatives succeed.
+### Paper C — conditional diagnostics and shared-exclusions study
 
-**Required evidence:** measure/estimator gates, oracle matrix, negative results, and second-model/family replication.
+**Contribution:** either validated, typed shared-exclusions quantities add reproducible
+incremental diagnostic value, or a rigorous boundary shows where they abstain or lose to simpler
+signals.
+
+**Required evidence:** the scientific-object firewall; a project-owned exact categorical fixture;
+measure-specific continuous validation where attempted; all four gates; strong non-PID baselines;
+negative results; and a second model or task-family replication.
 
 If Paper C cannot support a meaningful PID estimand, replace it with a dedicated availability–
 tested-response–closed-loop-effect or estimator-abstention paper. This preserves thesis coherence
@@ -2489,23 +3057,36 @@ Release fixtures and failure cases so others can reproduce the boundary.
 
 Deliver:
 
+- W1/W2 variable dictionaries, units, supported action population, outcomes, useful margins,
+  comparator frontier, resource bounds, and separate decision rules;
+- W3 linked-panel treatment and nuisance map, with a proof that rendering cannot alter physics;
 - causal graph, variable dictionary, treatment-version ontology, and interference/reset boundary;
-- source/target tensor contracts and measurement-validation plan;
-- complete H1/H2 estimand table, target populations, and minimum useful effects;
+- world-model source, action, prediction-landmark, reference-target, scorer, selector, controller,
+  and outcome contracts;
+- complete W1/W2 estimand table, target populations, and positive useful margins;
 - pre-treatment feature whitelist and automated lineage rule;
 - baseline, intervention, outcome, competing-event, and censoring definitions;
 - transport/contamination ledger and dated literature ledger;
 - ecosystem evidence ledger, dependency firebreak, and optional-component map.
 
-**Stop:** unresolved ambiguity about treatment, target, time zero, unit, target population, causal interpretation, or whether a component is a dependency versus an optional testbed.
+**Stop:** unresolved ambiguity about treatment, target, time zero, unit, action support, target
+population, causal interpretation, renderer/physics separation, or whether a component is a
+dependency versus an optional testbed.
 
-**Current implementation boundary (reconciled 2026-08-12).** The repository ships the historical
+The current `world_model_claim_registry_v1.json` is only a fail-closed status and claim-language
+ledger. It is not a preregistration, freeze candidate, holdout receipt, or scientific result. WM0
+remains open until a reviewed world-model contract binds every item above and registers untouched
+evaluation data.
+
+**Preserved diagnostic-governance boundary (reconciled 2026-08-12).** The repository ships the historical
 `unfrozen_draft` v1 scaffold unchanged as a non-promotable intake artifact and a separately
-revised typed v2 successor draft whose freeze-bearing values are all null. The first-principles
+revised typed v3 successor draft whose freeze-bearing values are all null. The superseded v2
+bytes remain as historical process evidence. The first-principles
 H2 correction reopened its scientific and statistical review, so its current status is unreviewed.
-The v2 draft content-binds v1 and encodes the missing EC1 finite acceptance protocol. A future
-candidate populates only its selected H1 and H3/H4 contracts. Every inactive branch remains null.
-A fresh-sample H4 switch may retain the prior frozen H3 contract as history. Its H1-A
+The v3 draft content-binds v1 and encodes the missing EC1 finite acceptance protocol. A future
+candidate populates EC1, H2, one selected H1 contract, and one selected H3-or-H4 contract. Every
+inactive branch remains null. A fresh-sample H4 switch may retain the prior frozen H3 contract as
+history. Its H1-A
 contract types the response functional, proper score, matched-access comparator, positive useful
 margin, one-sided superiority rule, uncertainty, calibration acceptance and failure consequence,
 multiplicity, and finite-benchmark or replication scope. Its H1-B contract types the primary
@@ -2525,8 +3106,9 @@ a dated legacy reference inventory whose database queries, candidate universe, c
 per-candidate decisions are absent. Passing the default audits means only that this unfinished
 state is internally consistent. It does not supply a freeze receipt, prove historical or
 off-repository non-access, establish absence of contamination, or constitute a systematic review.
-The historical v1/holdout/transport/literature intake remains dated 2026-07-13. The current claim
-registry is dated 2026-08-12 and content-binds the revised, unreviewed typed successor at that date;
+The historical v1/holdout/transport/literature intake remains dated 2026-07-13. The preserved
+diagnostic claim registry is dated 2026-08-13 and content-binds the revised, unreviewed typed
+successor at that date;
 the validator permits that current registry to advance only without predating or rewriting the
 historical intake.
 The freeze-ready modes must remain failed until the domain, protocol, estimands, minimum useful
@@ -2534,10 +3116,16 @@ effects, holdout commitments, transport evidence, comparator dispositions, and f
 search are genuinely complete.
 Even then, the machine audit establishes completeness, content binding, and internal consistency;
 it cannot adjudicate the substantive adequacy of the scientific choices or independent reviews.
-The checked v1 scaffold remains intentionally non-promotable. The checked v2 successor is a draft
+The checked v1 scaffold remains intentionally non-promotable. The checked v3 successor is a draft
 contract, not a completed candidate: a real freeze requires a separately reviewed candidate that
 fills its typed obligations with content-bound receipts and passes the strict validator rather
 than editing v1 or treating the null draft as a preregistration.
+The H3 ancestry bindings currently name structural placeholders only. No project-owned ancestry
+producer, consumer validator, or per-row receipt schema exists. Therefore an H3 candidate carries
+the stable `M0_SUCCESSOR_H3_ANCESTRY_PRODUCER_CONSUMER_AND_RECEIPT_UNIMPLEMENTED` blocker, and the
+validator rejects an H3 terminal `frozen` state. A file extension, role label, distinct path, or
+matching digest cannot clear this blocker. H3 can freeze only after executable role-specific
+artifacts exist and the validator checks their semantics.
 For a terminal `frozen` state, the validator removes circularity by hashing the complete reviewed
 candidate with status normalized to `freeze_candidate_under_review` and all three terminal metadata
 fields set to null, using sorted-key compact UTF-8 JSON. The typed receipt and `freeze_revision`
@@ -2546,88 +3134,107 @@ This rejects an arbitrary receipt file, invented digest, or post-review candidat
 not a digital signature or reviewer-identity attestation, and validator passage still cannot
 establish review independence or scientific adequacy.
 
-## M1 — repair and version estimator gates
+This diagnostic bundle does not block WM1–WM6. If the D4–D6 diagnostic family is activated, freeze
+EC1, H2, the selected H1 protocol, and the selected H3-or-H4 branch before its holdout. Keep every
+inactive branch null. Passing diagnostic governance cannot substitute for WM0.
+
+## M1 — exact-fork decision contract
 
 Deliver:
 
-- separate population, measure, estimator, and application verdicts;
-- committed oracle fixtures;
-- cross-implementation tests;
-- matched-regime synthetic matrix;
-- abstention reason codes.
+- native propose–predict–score–select reference;
+- immutable fork and ordered candidate-pool hashes;
+- typestate-enforced pre-oracle publication;
+- independent restored candidate branches;
+- bridge-only selected execution;
+- decision-flip, tamper, replay, and resource-limit tests;
+- generic Rerun conversion without control authority, treated only as an optional derived view.
 
-**Stop PID path:** no regime passes at feasible sample size. Continue infrastructure and non-PID experiments.
+**Boundary:** this milestone proves software semantics only. Do not place it in W1/W2 result tables.
 
-## M2 — complete core and ecosystem conformance benchmark
-
-Deliver:
-
-- schema validators, sequence/time/frame checks, and fault injection;
-- MCAP, LeRobot/RLDS, and Rerun adapters or justified substitutes;
-- one non-sibling local/standard producer and one structurally different adapter;
-- graded replay report and external baseline comparison;
-- E0–E5 evidence ledger for every claimed repository edge;
-- NCP read-only observer report if activated, including secure/open realm choice;
-- dependency-firebreak test with NCP disabled and the static factual-outcome label-baseline smoke
-  running with PID disabled; evidentiary real Protocol A/B and prospective H2 execution belong to
-  M4/M5 (the deterministic synthetic Protocol A scoring and H2 fixed-horizon/IPCW/alarm references
-  are earlier software groundwork);
-- supply-chain manifest, exact revisions, licenses, and adapter promotion reports.
-
-**Stop infrastructure-paper claim:** no material advantage over a simpler stack, or the minimum viable experiments require unpublished/private sibling components. Continue with the simpler stack and keep Prisoma as project software.
-
-## M3 — intervention pilot
+## M2 — M4 learned-world-model qualification
 
 Deliver:
 
-- dose curves;
-- target engagement and specificity;
-- placebo/positive controls;
-- OOD and carryover diagnostics;
-- preliminary design-analysis parameters.
+- exact LeWM code, checkpoint, and dependency pins;
+- a source-concordance ledger for preprocessing, action gathering, normalization, missing-value
+  handling, goal construction, episode selection, horizons, budgets, and planner settings;
+- pre-outcome frozen arms for each unresolved feasible paper, configuration, or code reading;
+- reviewed weights-only checkpoint ingress and offline execution;
+- CPU and MPS predictor parity under frozen tolerances;
+- fixed-action sensitivity beyond repeat-run drift;
+- exact published PushT CEM reproduction before any reduced-budget arm;
+- a reconstructable adaptive-search ledger, including the separately scored final mean;
+- one multi-replan PushT episode;
+- cold-start and at least 1,000 steady-state decisions on the named M4 configuration;
+- p50/p95/p99 latency with uncertainty, peak unified memory, power proxy, deadline, and fallback receipts;
+- explicit rights receipts for LeWM, its weights, `stable-worldmodel`, and task data;
+- a second-rung JEPA-WM comparison only after its separate noncommercial-rights decision.
 
-**Stop treatment:** no nontrivial dose changes the intended mechanism without uncontrolled degradation.
+**Stop port:** hidden CPU fallback, candidate-order instability, unsupported actions, missed frozen
+resource limits, mutable network-loaded code, or no selection dependence on forecasts. Keep the
+native contract oracle and evaluate another compact released model.
 
-## M4 — locked selected H1 protocol
-
-Deliver:
-
-- preregistration and immutable split manifest;
-- completed assignment flow diagram;
-- exact H1-A or H1-B protocol label and claim boundary;
-- held-out response-prediction result for H1-A or effect-modification result for H1-B;
-- held-out protocol-specific scoring and calibration;
-- baseline comparison.
-
-**Stop H1 claim:** diagnostics miss the useful margin for the selected protocol, its validity gates
-fail, or its result does not replicate.
-
-## M5 — locked H2 experiment
+## M3 — W1 forecast pilot and secondary ranking study
 
 Deliver:
 
-- prospective features and landmark rules;
-- task-family/temporal holdout;
-- one frozen primary scoring contract, calibration/actionability gates, and secondary decision utility;
-- leakage audit;
-- error and subgroup analysis.
+- supported randomized-action capture from valid reset states;
+- held-out dynamics and task families;
+- current-only, current-plus-action cost, kinematic, no-future, action-shuffled,
+  future-shuffled, and oracle-pool controls;
+- proper-score, calibration, ranking, support-distance, and abstention diagnostics;
+- design-analysis parameters for one frozen W1 primary score.
 
-**Stop monitor claim:** no minimum useful improvement, unacceptable calibration, or failure of a
-frozen actionability or subgroup-degradation gate.
+**Stop W1:** no support region with stable prediction, no useful margin over the strongest simple
+baseline, or calibration/resource gates fail.
 
-## M6 — H3 or H4
+## M4 — W3 renderer and policy matched panels
 
-Freeze H1, H2, and exactly one of H3 or H4 before branch outcomes are opened. Activate H3 only if
-PID passed M1 and non-PID experiments established a useful problem; otherwise select H4. If H3 was
-selected and its outcomes were inspected, a subsequent H4 claim requires a fresh untouched
-confirmatory sample and prespecified sequential error control. It cannot reuse the H3 holdout or
-silently replace the failed branch inside the original family.
+Deliver:
 
-**Stop PID-central thesis:** no stable incremental PID value after replication. Publish the boundary and retain PID as a secondary result.
+- one physics trajectory and camera ledger rendered through mesh and 3DGS without changing state;
+- authoritative state plus body/link-to-representation mapping;
+- content-bound asset lineage, camera, renderer, frame, color, exposure, and timing identities;
+- explicit rigid, articulated, deformable, background, and robot rendering rules;
+- reset receipts for policy memory, KV cache, history, and randomness;
+- pixel, feature, policy-action, and closed-loop contrasts with distinct estimands;
+- learned-versus-reference forecasts on the same fork and action pool;
+- linked error localization without additive-cause language.
 
-## M7 — transport replication
+**Invalidate renderer treatment:** treatments are not state-identical, collision geometry changes,
+or representation, frame, camera, timing, or policy-reset binding fails.
 
-Use a second task family, policy, simulator, embodiment, or real-robot setting. Match the claimed population. Do not generalize beyond the variation actually replicated.
+**Valid null:** all identity gates pass but 3DGS has no useful decision effect. Report this negative
+result. Do not relabel it as an invalid treatment.
+
+## M5 — locked W1
+
+Deliver:
+
+- frozen W1 population, action support, later outcome, proper score, useful margin, baseline,
+  support/calibration/resource gates, and cluster-aware uncertainty;
+- untouched task-family holdout;
+- error, inversion, subgroup, and abstention ledgers.
+
+**Stop W1 claim:** lower confidence bound misses the useful margin or any non-rescuable gate fails.
+
+## M6 — locked W2
+
+Deliver a randomized comparison of complete policies on independent reset blocks. Freeze one
+episode-level endpoint, same-budget comparators, proposal count, controller, deadline, fallback,
+useful margin, and intention-to-treat analysis. Report fork-level selector quantities only as
+secondary diagnostics.
+
+**Stop W2 claim:** no useful complete-policy improvement, deadline/resource failure, or benefit
+exists only after excluding abstentions, fallbacks, or failed executions.
+
+## M7 — conditional diagnostic branch and transport
+
+Activate the preserved H1/H2/H3/H4 branch only after W1/W2 define a useful diagnostic problem.
+Shared-exclusions work first needs the exact categorical fixture and its applicable gates. Then use
+a second task family, policy, simulator, embodiment, or real-robot setting. Do not generalize beyond
+the variation actually replicated.
 
 ---
 
@@ -2788,7 +3395,8 @@ decision utility, and TRIPOD+AI/PROBAST+AI review [R59–R60].
 
 **Question:** What is the smallest sequence that yields a defensible paper even when optional components fail?
 
-**Failure condition:** custom rendering, simulator work, world-model training, real-time PID, and multiple robot stacks all become prerequisites.
+**Failure condition:** a custom renderer, world-model training from scratch, real-time PID, and
+multiple robot stacks all become prerequisites for the first world-model paper.
 
 **Design consequence:** Paper A/B/C structure, strict gates, optional adapters, and kill rules.
 
@@ -3076,8 +3684,13 @@ near-boundary cases before accepting the preferred explanation.
 
 | Risk | Probability | Impact | Leading indicator | Mitigation | Decision |
 |---|---:|---:|---|---|---|
-| No meaningful finite PID estimand for chosen tensors | high | high | deterministic/near-deterministic path; oracle mismatch | change target, discretize by design, or use non-PID estimand | kill H3 if unresolved |
-| Continuous estimator fails planned regime | high | high | bias/coverage/abstention failure | lower-dimensional scientifically defined variables; discrete or MI-free path | continue H1/H2/H4 |
+| Learned predictor is action-insensitive or wrong on supported consequences | high | high | forecasts do not change with action; W1 score/calibration failure | narrow support, change model/target, or stop the world-model thesis | stop W1/W2 if no qualified model remains |
+| M4 planner misses latency, memory, parity, or fallback gates | medium–high | high | CPU fallback, deadline misses, candidate-order drift, or memory pressure | reduce a prespecified search budget only after exact reproduction; change candidate | stop the port if WM2 fails |
+| Simulator reference dynamics do not transfer to physical outcomes | high | high | rank reversals or support gaps across dynamics | bound W1 to the simulator; add matched dynamics panels and later physical validation | prohibit physical-world claims |
+| Renderer substrate changes policy input rather than only measurement | medium | high | camera/state mismatch or policy response changes under nominally matched frames | content-bind state/camera trajectories; separate immediate and downstream panels | stop W3 decomposition |
+| Prior work already contains the claimed protocol contribution | medium–high | high | collision with CoWAM, WorldSimProbe, or related controls | claim only the linked cross-substrate integration and measured residual | remove priority or novelty language |
+| No meaningful finite PID estimand for chosen tensors | high | low | deterministic or near-deterministic path; oracle mismatch | use a non-PID diagnostic or stop H3 | kill H3; continue W1/W2 |
+| Continuous estimator fails planned regime | high | low | bias, coverage, or abstention failure | use a separately justified categorical object or an MI-free diagnostic | continue W1/W2 and any eligible H1/H2/H4 work |
 | Intervention is OOD or nonspecific | high | high | activation/input divergence; broad probe changes | conditional replacements, naturalistic counterfactuals, dose/sham checks | reject treatment |
 | Language source is degenerate | medium | high | low entropy/occupancy | redesign task/instruction population | V–L ineligible |
 | Too few independent task families | high | high | design analysis shows cluster-limited power | narrow population claim; collect families, not frames | do not claim transfer |
@@ -3092,14 +3705,18 @@ near-boundary cases before accepting the preferred explanation.
 | Compute/runtime prevents required resampling | medium | medium | pilot exceeds budget | approximate only after validation; cache distances; narrow grid | reduce scope |
 | Repository/spec drift | high | medium | docs disagree with tests/manifests | generated capability matrix, CI documentation checks | block release |
 | Security/privacy incident | low–medium | high | remote mutation or personal data exposure | local defaults, access control, redaction, retention | halt affected collection |
-| PhD scope expands into product building | high | high | optional UI/simulator blocks experiments | enforce milestone dependencies and paper deliverables | defer M8-style work |
+| PhD scope expands into product building | high | high | optional UI or simulator blocks experiments | enforce milestone dependencies and paper deliverables | defer optional product work |
 
 ## 14.1 Top three existential risks
 
-1. **The observational quantity does not identify a named response.** H1-A measures a bounded
-   frozen-snapshot response. H1-B and H4 use randomization for their closed-loop effect claims.
-2. **The estimator cannot recover the quantity in the application regime.** S1 abstention prevents invalid interpretation.
-3. **The project builds infrastructure without proving scientific advantage.** The external conformance benchmark makes the value claim falsifiable.
+1. **The learned model does not preserve supported action consequences.** W1 must fail when proper
+   forecast, calibration, action-sensitivity, or support gates fail. Visual plausibility cannot
+   rescue it.
+2. **Forecast gains do not improve complete closed-loop decisions under the M4 budget.** W2 must
+   randomize complete policies and retain deadlines, abstentions, fallbacks, and failed executions.
+3. **The linked protocol does not isolate a useful residual beyond prior work.** W3 must narrow to
+   matched cross-substrate localization and downstream decision effects. Infrastructure volume,
+   PID output, or a photorealistic renderer cannot create novelty.
 
 ---
 
@@ -3171,7 +3788,11 @@ CI should fail when:
 - an analysis treats repeated frames as independent randomized units;
 - a PID result is emitted after a support/eligibility gate failed or without the abstention denominator;
 - an analysis uses a nonlocked endpoint as “primary” or changes the target population silently;
-- the M0 preregistration, holdout, transport/contamination, literature, and claim registries disagree
+- the world-model claim ledger changes W1/W2/W3 roles, status, blockers, artifacts, or permitted
+  language without an exact reviewed registry update;
+- a world-model result is called confirmatory without a separate reviewed freeze contract,
+  registered holdout, and authenticated access history;
+- the preserved diagnostic-governance, holdout, transport/contamination, literature, and claim registries disagree
   about freeze or access state, fail schema/content-hash validation, or break the recorded access
   hash chain;
 - holdout exposure is recorded before a valid freeze and authorization, or an unfinished scaffold is
@@ -3195,12 +3816,13 @@ CI cannot validate scientific truth, independence, or external validity. It can 
 |---|---|---|
 | PID is conditional, not foundational | estimand, measure, estimator, and incremental value are unproven | validated regime plus replicated added value |
 | Claim-matched intervention responses ground use claims | availability does not identify response; paired software and randomized closed-loop interventions identify different targets | only if a stronger identification design is justified |
-| H1/H2 are primary | they produce useful science independent of PID | pilot shows no measurable treatment or prospective target |
-| H4 is preselected alternative/companion | current literature makes availability–tested-response gaps important | evidence shows near-universal alignment |
+| W1/W2 are the only proposed primary scientific claims | supported forecast fidelity and complete-policy value define the world-model thesis | pre-holdout amendment after M2/M3 shows no viable model, outcome, or resource regime |
+| H1/H2 are preserved secondary diagnostics | they can localize response and prospective failure after W1/W2 define a useful target | activate only under a separately frozen diagnostic study |
+| H4 is a preserved alternative/companion inside that diagnostic family | availability–tested-response gaps remain useful but do not define the primary thesis | activate only under the preserved family’s selection rule |
 | Full three-source PID is exploratory | combinatorics and foundational limitations | new measure/estimator with relevant validation |
 | No safety-certification language | diagnostics are one evidence source | formal assurance program with domain standards |
 | Rerun/standard formats first | existing tools solve viewing/storage well | benchmark demonstrates a missing capability requiring custom work |
-| Tauri/SparkJS/3DGS optional | not required for scientific claims | separate HCI/rendering research question |
+| Tauri/SparkJS remain optional; 3DGS is conditional | the custom shell is not needed; a 3DGS path is required only for W3/Paper B and never for W1/W2 | promote a renderer only after state/camera/physics identity checks pass |
 | Flow is a candidate target, not universal bridge | coordinate/contact/visibility assumptions | replicated cross-embodiment relationship |
 | Cross-model raw atom comparisons avoided | variables and estimators are not matched | validated common representation/scale |
 | Negative results are planned outcomes | prevents PID forcing and protects thesis coherence | never; only interpretation changes |
@@ -3318,7 +3940,7 @@ References are version-pinned where the revision materially affects the claim. F
 ## Repository ecosystem and causal/predictive design additions
 
 - **[R72]** Prisoma repository, snapshot `64bd881248463e7142d022bb95a5850bcf8fced2` (12 July 2026). Root workspace, `.gitmodules`, `.ncp-consumer`, README, and `crates/ncp-observer`; `pid-rs` submodule shown at `8a5a9dda601556443f956a2fba164cccc913ed2e`. https://github.com/sepahead/prisoma/tree/64bd881248463e7142d022bb95a5850bcf8fced2
-- **[R73]** `sepahead/pid-rs`. *Shared-exclusions partial information decomposition and mutual-information estimators in Rust*. Reviewed Prisoma pin `8a5a9dda601556443f956a2fba164cccc913ed2e`, contract-hardening revision `70b45f7b75fac06777ea215a73df01209490311a`, immutable `v0.9.0` review-tag commit `a9a275157237999c8da6ab813130d74f6113dec9`, current Prisoma pin `796c11e70f009634b853dc4ada6f565563d82f51`, and unadopted public main `bbdfda40f0a49a2260b10eafdcb438fc61ae94e9`, rechecked 13 August 2026. The current pin includes the public-`csxpid` fixture, agreement within `1e-12` nats after recorded conversion, fail-closed population-support contracts, default-off research features, and bounded report-first APIs. Public main adds method catalogs, software identity, outcome/run-log contracts, formal/categorical assurance work, support-change and concentration records, Lean 4.33 formal replay hardening, source-errata and evidence-boundary registries, and exact-certifier surfaces. Its ecosystem file states that Prisoma integration is not claimed. An isolated all-feature Prisoma check, test-target build, and 531-test run passed at `722d3abe`. Current head changes only assurance, workflow, script, and prose surfaces relative to that tested revision. The consumed crates, Cargo files, toolchain, and `pyproject.toml` are byte-identical. Current-head CI run `31651702557` completed with all 45 jobs passing, and CodeQL run `31651702504` passed. The 0.9 review source makes no 1.x compatibility, registry, or published-wheel promise. Neither revision establishes high-dimensional VLA application validity or independent corroboration. https://github.com/sepahead/pid-rs/tree/796c11e70f009634b853dc4ada6f565563d82f51 ; https://github.com/sepahead/pid-rs/tree/bbdfda40f0a49a2260b10eafdcb438fc61ae94e9
+- **[R73]** `sepahead/pid-rs`. *Shared-exclusions partial information decomposition and mutual-information estimators in Rust*. Reviewed Prisoma pin `8a5a9dda601556443f956a2fba164cccc913ed2e`, contract-hardening revision `70b45f7b75fac06777ea215a73df01209490311a`, immutable `v0.9.0` review-tag commit `a9a275157237999c8da6ab813130d74f6113dec9`, current Prisoma pin `796c11e70f009634b853dc4ada6f565563d82f51`, estimator-code anchor `cb3f58f0b190454cb3f1090de8798261ec78f194`, and unadopted public main `7473e62acef6077c2c1147e09d5d1297f2a2874b`, rechecked 13 August 2026. The current pin includes the public-`csxpid` fixture, agreement within `1e-12` nats after recorded conversion, fail-closed population-support contracts, default-off research features, and bounded report-first APIs. Public main adds method catalogs, software identity, outcome/run-log contracts, formal/categorical assurance work, support-change and concentration records, Lean 4.33 formal replay hardening, source-errata and evidence-boundary registries, and exact-certifier surfaces. Its ecosystem file states that Prisoma integration is not claimed. An isolated all-feature Prisoma check, test-target build, and 531-test run passed at `722d3abe`. Prisoma inspected the one-commit `bbdfda40..cb3f58f0` estimator delta and replayed four predecessor-radius fixtures plus one structured overflow fixture. Current public head `7473e62` changes custody and assurance surfaces only. Full CI run `31724449805` failed two jobs, while narrower push run `31724449083` passed. Upstream still marks broader revision-4 KSG repository integration NO-GO. The 0.9 review source makes no 1.x compatibility, registry, or published-wheel promise. Neither revision establishes high-dimensional VLA application validity or independent corroboration. https://github.com/sepahead/pid-rs/tree/796c11e70f009634b853dc4ada6f565563d82f51 ; https://github.com/sepahead/pid-rs/tree/7473e62acef6077c2c1147e09d5d1297f2a2874b
 - **[R74]** `sepahead/NCP`. *Neuro-Cybernetic Protocol*. The latest immutable release is `v0.8.0` at peeled commit `2f5bd586d4bb20c90362bb6f5698b7f64057ba4e`, wire 0.8. The provider boundary was verified through the official ref on 13 August 2026. Prisoma deliberately retains the immutable consumer pin. Verified upstream main `1a04294c90c1b50eba06ae1c6afe9c951319250d` is the unreleased, release-blocked `1.0.0-rc.1` candidate. It uses wire 1.0 and compact proto contract hash `163acc57d8a62b66`. It is incompatible with the pinned observer. NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and **NOT RUN**. B01 remains `IN_PROGRESS`; its refined low-overhead architecture and prepared-stream-monitor gap record are coordination-only and have no passing receipt. Prisoma remains a read-only observer with documented transport and security limits. https://github.com/sepahead/NCP/tree/v0.8.0 ; https://github.com/sepahead/NCP/tree/1a04294c90c1b50eba06ae1c6afe9c951319250d ; https://github.com/sepahead/NCP/blob/1a04294c90c1b50eba06ae1c6afe9c951319250d/evidence/implementation/task-ledger.v1.json
 - **[R75]** `sepahead/galadriel`. *Fail-closed cross-sensor statistical-consistency monitoring in safe Rust*, public revision `80506dd2ce52b33c3334c7d1760a8155c7631241`, inspected 24 July 2026. The tree freezes 0.9.0 candidate inputs and includes a strict two-route consumer, lifecycle adapter, and bounded operational receiver. No reciprocal Prisoma pin, direct adapter, producer-consumer golden fixture, or deployed receiver-verified Crebain qualification exists. https://github.com/sepahead/galadriel/tree/80506dd2ce52b33c3334c7d1760a8155c7631241
 - **[R76]** `sepahead/crebain`. *Multi-UAV simulation and airspace-awareness research testbed*, public revision `7f6b3bdf4d20aba1b351b3ceacb259bd123c93a6`, inspected 26 July 2026. The restricted read-only Engram view adds continued host challenges and a native-IPC accessibility probe. Embedded mode disables native, external telemetry, artifact exchange, NCP, and plant paths. The host must relock a stale frame. Host messages correlate a document but do not attest a process or build. NCP action/control commands remain unregistered. No live NCP control loop or direct Prisoma adapter exists. https://github.com/sepahead/crebain/tree/7f6b3bdf4d20aba1b351b3ceacb259bd123c93a6
@@ -3376,7 +3998,7 @@ References are version-pinned where the revision materially affects the claim. F
 - **[R128]** Yan, G.; Liu, J.; Fan, Y.; Cai, L.; Liao, M.; Zhang, J.; Fox, D. (2026). *Flex-\(\pi\): A Multi-Stream World-Action Model with Compute Flexibility*. arXiv:2608.10860v1, 11 August 2026. https://arxiv.org/abs/2608.10860 ; https://flex-pi.github.io/
 - **[R129]** Wang, J. et al. (2026). *SLIM-0.5B: Learning Action-Grounded Predictive Latents for Robot Manipulation*. arXiv:2608.09771v1, 10 August 2026. https://arxiv.org/abs/2608.09771 ; https://github.com/kzz1031/SLIM
 - **[R130]** Tang, Q.; Zhuang, B.; Yuan, B.; Yu, X.; Guo, L.; Feng, J. (2026). *World Tokens: Enhancing Embodied Policies with Training-Time World Modeling*. arXiv:2608.09730v1, 10 August 2026. https://arxiv.org/abs/2608.09730
-- **[R131]** Sun, J. et al. (2026). *VLA-JEPA: Enhancing Vision-Language-Action Model with Latent World Model*. arXiv:2602.10098v1, 10 February 2026. https://arxiv.org/abs/2602.10098
+- **[R131]** Sun, J. et al. (2026). *VLA-JEPA: Enhancing Vision-Language-Action Model with Latent World Model*. arXiv:2602.10098v2, updated 14 February 2026. Reviewed LeRobot source `huggingface/lerobot@a16f34c085c9597fcbdb9fde395a3334d78df716`; reviewed model `lerobot/VLA-JEPA-LIBERO@735d9f692981e286ade093b5046627eda876e5d0`. https://arxiv.org/abs/2602.10098 ; https://github.com/huggingface/lerobot/tree/a16f34c085c9597fcbdb9fde395a3334d78df716 ; https://huggingface.co/lerobot/VLA-JEPA-LIBERO/tree/735d9f692981e286ade093b5046627eda876e5d0
 - **[R132]** Yuan, T.; Dong, Z.; Liu, Y.; Zhao, H. (2026). *Fast-WAM: Do World Action Models Need Test-time Future Imagination?* arXiv:2603.16666v2. https://arxiv.org/abs/2603.16666
 - **[R133]** Lin, Y. et al. (2026). *JEPA-WAM: Learning Vision-Language-Action Policies with Joint-Embedding World Modeling*. arXiv:2608.09381v1, 10 August 2026. Reviewed source `SpriteWithoutIce/JEPA_WAM@537830bee0d84d10266a14cad7f038b653b717d8`; model repository `CokeAnd1ce/JEPA_WAM@ca10ccbc191d8f56b4346487913e043b2722b6d2`. The main LIBERO PyTorch file has SHA-256 `e63285fb347048989f14a8a24962a2b921d787f7ada0176a0eacd6b256d57d23`. https://arxiv.org/abs/2608.09381 ; https://github.com/SpriteWithoutIce/JEPA_WAM ; https://huggingface.co/CokeAnd1ce/JEPA_WAM/tree/ca10ccbc191d8f56b4346487913e043b2722b6d2
 - **[R134]** Pan, B.; Liu, F.; Lu, H.; Wang, J.; Shi, Y. (2026). *SelfWAM: A Self-Grounded Unified World Action Model for Fast Robot Control*. arXiv:2608.00725v1, 1 August 2026. https://arxiv.org/abs/2608.00725
@@ -3414,6 +4036,20 @@ References are version-pinned where the revision materially affects the claim. F
 - **[R166]** Zhang, C.; Tong, J.; Li, X.; Wang, Y.; Li, H. (2026). *Keep the Future, Drop the Rollout: RIFT for World Action Models*. arXiv:2608.11521v1, 12 August 2026. Rift writes an action-independent future-position K/V cache in one prefill. The paper also reports paired closed-loop cache interventions. These tests support bounded use of the tested cache path, not physical correctness or causal-transition identification. No official runnable code or checkpoint was verified at the cutoff. https://arxiv.org/abs/2608.11521
 - **[R167]** Zhang, X.; Du, Y. (2026). *World Action Planner: Generalizable Decision-Making with Action-Conditioned World Models*. arXiv:2607.27599v1, 30 July 2026. Its algorithm proposes actions, predicts a grid of candidate outcomes, ranks them, and executes the selected candidate. This satisfies the operational class-E planning definition. Its reported results are simulation evidence, and no official runnable artifact was verified in this review. https://arxiv.org/abs/2607.27599 ; https://worldactionplanner.github.io/
 - **[R168]** Liu, Y. et al. (2026). *CheckVLA: Execution-Time Verification with Action-Conditioned World Model for Long-Horizon Mobile Manipulation*. arXiv:2607.26789v1, 29 July 2026. It predicts expected execution under committed actions, compares predictions with later observations, and triggers a latency-aware suffix rewrite. Its action-shuffle and observation-only controls make it a strong monitor comparator. This does not establish causal-transition validity or external transport. https://arxiv.org/abs/2607.26789
+- **[R169]** Wibral, M.; Priesemann, V.; Kay, J. W.; Lizier, J. T.; Phillips, W. A. (2017). *Partial Information Decomposition as a Unified Approach to the Specification of Neural Goal Functions*. **Brain and Cognition** 112:25–38. The paper was first published online in 2015. It develops a generic PID coordinate language for neural goal functions. It does not define the later MGW shared-exclusions functional. https://doi.org/10.1016/j.bandc.2015.09.004
+- **[R170]** Gutknecht, A. J.; Wibral, M.; Makkeh, A. (2021). *Bits and Pieces: Understanding Information Decomposition from Part-Whole Relationships and Formal Logic*. **Proceedings of the Royal Society A** 477:20210110. https://doi.org/10.1098/rspa.2021.0110
+- **[R171]** Gutknecht, A. J.; Makkeh, A.; Wibral, M. (2025). *From Babel to Boole: The Logical Organization of Information Decompositions*. **Proceedings of the Royal Society A** 481:20240174. https://doi.org/10.1098/rspa.2024.0174
+- **[R172]** Schneider, A. C.; Neuhaus, V.; Ehrlich, D. A.; Makkeh, A.; Ecker, A. S.; Priesemann, V.; Wibral, M. (2025). *What Should a Neuron Aim For? Designing Local Objective Functions Based on Information Theory*. ICLR 2025. The work composes PID quantities into three-input local learning objectives. It is not a PID functional or finite-sample certifier. https://proceedings.iclr.cc/paper_files/paper/2025/hash/87d8ed41d250c401a68f05100e0a4ef0-Abstract-Conference.html
+- **[R173]** Terver, B.; Yang, T.-Y.; Ponce, J.; Bardes, A.; LeCun, Y. (2025/2026). *What Drives Success in Physical Planning with Joint-Embedding Predictive World Models?* arXiv:2512.24497. Reviewed code `facebookresearch/jepa-wms@13cf1d9c7e476f53c17714d2e0f1dc239a883ce0`; reviewed model revision `facebook/jepa-wms@9b9c41ef249466630dbf1a20e78391865d07b3b9`. The released evaluator performs predictive planning but is CUDA-oriented and licensed CC BY-NC 4.0. No upstream MPS end-to-end result was verified. https://arxiv.org/abs/2512.24497 ; https://github.com/facebookresearch/jepa-wms/tree/13cf1d9c7e476f53c17714d2e0f1dc239a883ce0
+- **[R174]** Co, P. et al. (2026). *WorldSimProbe: Diagnosing Simulator Faithfulness in Action-Conditioned World Models for Embodied Manipulation*. arXiv:2608.09298v1, 10 August 2026. It separates action calibration, grounding, and interaction dynamics under controlled action-conditioned tests. https://arxiv.org/abs/2608.09298
+- **[R175]** Jiang, G. et al. (2025). *GSWorld: Closed-Loop Photo-Realistic Simulation Suite for Robotic Manipulation*. arXiv:2510.20813. It combines 3D Gaussian splats, mesh/URDF assets, physics, and closed-loop policy evaluation. https://arxiv.org/abs/2510.20813
+- **[R176]** Zhang, K. et al. (2025). *Real-to-Sim Robot Policy Evaluation with Gaussian Splatting Simulation of Soft-Body Interactions*. arXiv:2511.04665. It evaluates policy behavior in Gaussian-rendered, physics-based real-to-sim environments. https://arxiv.org/abs/2511.04665
+- **[R177]** *RoboWM-Bench: A Benchmark for Evaluating World Models in Robotic Manipulation* (2026). arXiv:2604.19092. It grounds video-world-model evaluation through executable embodied outcomes and checks real-to-sim outcome consistency. https://arxiv.org/abs/2604.19092
+- **[R178]** Qureshi, M. N. et al. (2024). *SplatSim: Zero-Shot Sim2Real Transfer of RGB Manipulation Policies Using Gaussian Splatting*. arXiv:2409.10161. It combines simulator physics with Gaussian-splat appearance for RGB-policy training and sim-to-real evaluation. https://arxiv.org/abs/2409.10161 ; https://splatsim.github.io/
+- **[R179]** Jia, Y. et al. (2025). *DISCOVERSE: Efficient Robot Simulation in Complex High-Fidelity Environments*. arXiv:2507.21981. It combines MuJoCo, Gaussian-splat rendering, robot assets, sensor paths, and parallel simulation. This is direct prior art against a broad “first 3DGS robot simulator” claim. https://arxiv.org/abs/2507.21981 ; https://air-discoverse.github.io/
+- **[R180]** Zhang, S. et al. (2026). *RoboSnap: One-Shot Real-to-Sim Scene Generation for Generalizable Robot Learning and Evaluation*. arXiv:2607.06699. It separates collision-aware foreground assets from a Gaussian-splat visual layer and evaluates reusable real-to-sim scenes. https://arxiv.org/abs/2607.06699
+- **[R181]** Maes, L.; Le Lidec, Q.; Scieur, D.; LeCun, Y.; Balestriero, R. (2026). *LeWorldModel: Stable End-to-End Joint-Embedding Predictive Architecture from Pixels*. arXiv:2603.19312v3. Reviewed code `Mengarr/lewm@8a2c595813d0eee85b2dbffa6f58ff0842f9e673`; its exact lock selects `stable-worldmodel==0.1.1` (source tag `15a5538d492ae524c64cb18cc56a2d70611e877e`) and `stable-pretraining==0.1.7`; reviewed PushT model revision `quentinll/lewm-pusht@22b330c28c27ead4bfd1888615af1340e3fe9052`. The released predictor is action-conditioned and the evaluator uses CEM. Project source and model-card terms declare MIT. The `stable-worldmodel` wheel metadata declares MIT, but the wheel and reviewed source tag contain no license file. The upstream evaluator hard-codes CUDA and its documented model conversion uses pickle-enabled loading. A local synthetic tensor/CEM probe ran on MPS, but no end-to-end MPS qualification was verified. Current platform main `9a66d7d020043c8efb507f45373e808714f0842d` has an incompatible planner constructor and is a separate migration target. https://arxiv.org/abs/2603.19312 ; https://github.com/Mengarr/lewm/tree/8a2c595813d0eee85b2dbffa6f58ff0842f9e673 ; https://github.com/galilai-group/stable-worldmodel/tree/15a5538d492ae524c64cb18cc56a2d70611e877e ; https://huggingface.co/quentinll/lewm-pusht/tree/22b330c28c27ead4bfd1888615af1340e3fe9052
+- **[R182]** Singh, J. (2026). *The Evaluation Protocol Determines the Result: An Independent Reproduction of LeWorldModel on TwoRoom*. arXiv:2608.10145v1. This one-seed, TwoRoom-only study reproduces the representation probe and one published planning reading. It reports four consequential pipeline conventions absent from configuration files, conflicts between appendix and configuration evaluation settings, and strong goal-construction sensitivity on identical episodes. Across three checkpoints, one-step prediction error did not order long-horizon planning performance. It does not test PushT, MPS, other environments, or seed variance. Reviewed public reproduction source at the cutoff: `joyjeet-singh/tinylab@f2f665411d79cd626096ec8d4271b355a2c0f550`. https://arxiv.org/abs/2608.10145 ; https://github.com/joyjeet-singh/tinylab/tree/f2f665411d79cd626096ec8d4271b355a2c0f550
 ---
 
 # Appendix A. Minimal canonical event envelope
@@ -3479,8 +4115,23 @@ Required properties:
 
 # Appendix B. Analysis-freeze checklist
 
-Before opening a confirmatory holdout:
+Before opening a W1 or W2 confirmatory holdout:
 
+- [ ] W1 and W2 are registered separately with one population, unit, supported action law,
+      outcome, primary score or utility, comparator, positive useful margin, uncertainty rule,
+      and non-rescuable decision gates;
+- [ ] every W1 forecast, score, selection, and abstention commits before shared reference labels;
+- [ ] W1 uses a strictly proper score for a predictive distribution or a strictly consistent loss
+      for its named point functional;
+- [ ] W2 randomizes complete policies and freezes proposal count, action support, controller,
+      deadline, fallback, resource limits, and intention-to-treat analysis;
+- [ ] W3 remains secondary, binds identical fork/action/state/camera identities across panels, and
+      keeps immediate common-trajectory response separate from downstream randomized policy effects;
+- [ ] the world-model freeze contract is separate from the current status ledger and binds exact
+      code, weights, preprocessing, action support, prediction landmark, reference target, scorer,
+      candidate generator, search rule, selector, controller, resource limits, and fallback;
+- [ ] every candidate and adaptive-search step from one fork stays in one fold and one immutable
+      pre-oracle trace;
 - [ ] causal diagram and target level frozen;
 - [ ] unit of inference and cluster structure frozen;
 - [ ] eligibility gates passed;
@@ -3488,6 +4139,9 @@ Before opening a confirmatory holdout:
 - [ ] all preprocessing fitted on training data and hashed;
 - [ ] baselines, model capacities, and hyperparameter budgets frozen;
 - [ ] minimum useful effect and primary protocol-specific score frozen;
+
+If a preserved diagnostic study opens its own holdout, also require:
+
 - [ ] EC1 supported adapters, finite fault/valid-case universe, oracle, endpoints, per-fault–
       adapter absolute sensitivity floors and mandatory-pass rules, replay margins, false-positive
       endpoint, uncertainty, multiplicity, and decision rule frozen when EC1 is evaluated; no
@@ -3503,6 +4157,9 @@ Before opening a confirmatory holdout:
 - [ ] H3/H4 selection is frozen with no more than three scientific claims and no outcome-informed
       branch switch;
 - [ ] H3 warning codes have a frozen allowlist and exact fallback/block disposition;
+- [ ] H3 binds a target-specific prediction landmark before target realization or availability,
+      source/target ancestry, producer and consumer implementations, and fail-closed per-row
+      receipts that exclude post-landmark observations and target injection;
 - [ ] H4 primary tuple, region rule, target weights, superiority/equivalence margins, and
       simultaneous familywise procedure frozen when H4 is active;
 - [ ] H4 sample source, selection/overlap, transport assumptions, weight uncertainty, exactly one
@@ -3519,6 +4176,9 @@ Before opening a confirmatory holdout:
 
 | Observed result | Permitted conclusion | Prohibited conclusion |
 |---|---|---|
+| Learned predictor beats the matched W1 baseline under all frozen gates | supported fork-level forecast fidelity improved for the named outcome, action law, population, and resource regime | the model is a causal transition, physical truth, or a better deployed policy |
+| Randomized complete selector beats the same-budget W2 comparator | the complete deployed decision system improved the frozen episode endpoint in the tested regime | fork-local regret proves general planning value or forecast mechanism |
+| Linked W3 panels localize one error boundary | the named dynamics, renderer, frozen-policy, or selector contrast changed under its matched design | an additive causal decomposition, first-ever protocol, or real-world rendering truth |
 | Diagnostic predicts paired frozen-snapshot response | diagnostic is useful for algorithmic-sensitivity prediction under the declared clone/coupling contract | diagnostic atom is a physical mechanism or closed-loop effect moderator |
 | Diagnostic predicts randomized closed-loop effect modification under effect-specific validation | diagnostic is useful for effect moderation in the evaluated regime | diagnostic atom is the causal mechanism or an observed individual effect |
 | PID beats full baseline set and replicates | PID adds conditional empirical value under named measure/estimator | PID is universally superior or necessary |
@@ -3615,9 +4275,16 @@ These are optional experiments, ordered by scientific value rather than visual a
 4. **Asset-diversity stress test.** Use a quality-controlled, license-cleared, physically validated subset of cobot-atlas to create prespecified object-appearance and geometry shifts. Keep generated assets grouped by lineage to avoid near-duplicate leakage.
 5. **Reconstruction uncertainty as nuisance.** Use Melkor-derived reconstruction quality as a measured nuisance/effect modifier. First ask whether it predicts diagnostic failure; do not jump to unvalidated uncertainty-weighted PID.
 6. **World-model counterfactual support.** Compare generated scenes against simulator-ground-truth interventions under explicit support and realism metrics. WorldWarp/GauSS-MI remain separate exploratory work until their adapters and estimators pass E4 and Section 7 gates.
-7. **Cross-measure mechanism fixtures.** Reproduce selected activation-function systems from the ReScience/BROJA lineage and compare qualitative mechanism discrimination under BROJA, shared-exclusions, MI/CMI, and intervention ground truth. Treat measure disagreement as a result; never equate atom labels or magnitudes across functionals.
+7. **Project-owned categorical shared-exclusions case study.** Specify canonical integer count laws
+   on one fixed alphabet and MGW two-source lattice. Reuse exact source counts across conditions
+   when testing informative-component invariance. Bind the defining paper, equations, log unit,
+   source order, target, and pinned `pid-rs` backend. Require atom reconstruction, nonnegative
+   informative/misinformative components, and the exact relationship between net and component
+   contrasts. Keep this outside the world-model and `(V,L,D,A)` harnesses. It exercises one
+   functional and implementation. It does not validate continuous PID, quantized hidden states,
+   causal meaning, or the Prisoma application.
 8. **Neural-simulation producer trial.** After pinning a specific NEST-fork branch and documenting its delta from upstream, export a small neural-state fixture through a read-only NCP path. Evaluate clock/sequence semantics, provenance, replay, and noninterference before any neuroscience or embodiment claim.
 
 None of these experiments is required for a successful thesis. Their value is that the same event and estimand contract makes heterogeneous embodied-agent investigations comparable without pretending their representations, clocks, action spaces, or causal targets are identical.
 
-*End of canonical v12.5 proposal.*
+*End of canonical v13.0 proposal.*

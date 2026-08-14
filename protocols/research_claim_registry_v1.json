@@ -1,21 +1,21 @@
 {
   "schema_version": 1,
-  "as_of_date": "2026-08-12",
+  "as_of_date": "2026-08-13",
   "canonical_spec": {
     "path": "grandplan.md",
-    "version": "12.5",
-    "status": "living_post_review_reconciliation"
+    "version": "13.0",
+    "status": "living_v13_preserved_diagnostic_claim_family"
   },
   "m0_successor_binding": {
-    "path": "protocols/m0_preregistration_successor_draft_v2.json",
-    "sha256": "8f0c334004790bbc599e39cd88f16c0c81cd648a8f67a22e40dbcfe89a2ca3fb",
-    "as_of_date": "2026-08-12",
+    "path": "protocols/m0_preregistration_successor_draft_v3.json",
+    "sha256": "22783f4c05a72bb3eab43b8a41047c7031ecb963fd521115f0ae72eaac0549ef",
+    "as_of_date": "2026-08-13",
     "status": "successor_draft_revised_unreviewed"
   },
   "scope": "current execution and freeze status; not a scientific result or preregistration",
   "m0_freeze_status": {
     "overall": "not_freeze_ready",
-    "preregistration_skeleton": "implemented_unfrozen_v1_scaffold_plus_revised_unreviewed_typed_v2_successor_neither_is_a_preregistration",
+    "preregistration_skeleton": "implemented_unfrozen_v1_scaffold_plus_superseded_v2_and_revised_unreviewed_typed_v3_successor_none_is_a_preregistration",
     "causal_graph": "unfrozen_pending_policy_environment_and_intervention_selection",
     "variable_dictionary": "partial_software_contracts_only",
     "treatment_ontology": "partial_h1_common_preflight_only",
@@ -187,6 +187,7 @@
       ],
       "remaining_required_artifacts": [
         "matched_regime_support_envelope",
+        "target_specific_prediction_landmark_and_tensor_ancestry_receipt_excluding_post_landmark_observations_and_target_injection",
         "eligible_episode_local_information_feature",
         "warning_code_disposition_allowlist_with_unlisted_warning_exact_m1_fallback",
         "incremental_outer_fold_comparison_after_h1_or_h2"

@@ -11,6 +11,21 @@
 - Added a 2026-08-12 first-principles audit memo and a `pid-rs` adoption handoff. The memo keeps
   PID conditional, tightens pathway-use language to named interventions, and preserves the
   population, measure, estimator, and application gates.
+- Refreshed that handoff through `pid-rs@7473e62`. Estimator-code anchor `cb3f58f0` changes bounded
+  KSG integration evidence and classifies kd-tree span overflow as `NumericalInstability`. Four
+  predecessor-radius fixtures and one structured-overflow fixture pass locally. Current head adds
+  custody and assurance surfaces only. Full CI run `31724449805` failed two assurance jobs, while
+  narrower push run `31724449083` passed. The reviewed pin remains.
+- Added a separate `pid-rs` extension brief. It compares twelve designs across twenty scientific
+  and engineering lenses. It first repairs scientific-object identities and route edges. The
+  implementation order then starts with resource composition, row-relation receipts, nominal tail
+  types, a sparse MGW count-law API, and a fixed-source-law fixture. Later work adds distinct
+  declared-mass and rational-certificate paths, group-aware schedules, and a tuple-level Ehrlich
+  assumption contract. The brief keeps categorical MGW, Schick-Poland's
+  measure-theoretic construction, practical continuous Ehrlich shared exclusions, estimators, and
+  infomorphic objectives as non-substitutable objects. It requests no BROJA or `I_min` fallback.
+  It also requests a neutral, content-bound `pid-runlog` decision record. Schema 2 otherwise forces
+  forecast commitments and execution receipts through semantically wrong label envelopes.
 - Changed replay-summary assertions in local recipes and CI to drain stdout. This avoids an
   upstream `pid-runlog-replay` broken-pipe panic when an early-closing consumer finds a match.
   The `pid-rs` handoff records the reproduced CLI defect and the requested regression.
@@ -38,28 +53,94 @@
   nominal fallback. Both released artifacts remain unqualified for MPS and outside the critical
   path. The review also separates the three hypotheses hidden by the “VLAs are dead” slogan:
   backbone choice, predictive co-training, and deployed consequence prediction or planning.
+  The final M4 sequence is world-model-first. A native zero-model-download exact-fork reference is
+  the first rung. The compact pinned LeWorldModel PushT planner is the first external port
+  candidate because it exposes a clamped candidate-action query and CEM selection loop in a
+  smaller released stack. Its upstream evaluator hard-codes CUDA, so it remains an MPS candidate.
+  JEPA-WM is the second planning benchmark. SmolVLA is the direct-policy baseline. VLA-JEPA is a
+  predictive-training comparator whose policy inference drops the predictor. No external model is
+  locally qualified.
+- Added a primary-source and artifact review of LeWorldModel. It binds the exact code lock,
+  platform and pretraining wheels, model revision, checkpoint size, and SHA-256 values. Current
+  `stable-worldmodel` main has an incompatible planner constructor and is a separate migration
+  target. An exact-package synthetic MPS probe produced finite repeatable predictor, rollout, and
+  full-budget CEM outputs. It is not end-to-end qualification. The review also found evaluation-set
+  scaler fitting and missing raw-action support enforcement. The Prisoma arm must bind a
+  train-only scaler, check support after inverse transformation, retain every round, and score the
+  final recommendation. Project source and model-card terms declare MIT. The exact platform wheel
+  metadata declares MIT, but its wheel and source tag contain no license file.
+- Added the independent one-seed LeWorldModel TwoRoom reproduction to the evidence boundary. It
+  does not test PushT, MPS, other tasks, or seed variance. Its protocol-sensitive findings require
+  a paper/configuration/code concordance ledger and pre-outcome frozen readings for the PushT port.
+  They also reinforce that W1 one-step forecast evidence cannot substitute for W2 closed-loop value.
+- Advanced the canonical plan to docset v13.0. W1 tests supported action-conditioned forecast
+  fidelity. Same-pool ranking is secondary unless promoted before holdout access. W2 tests the
+  complete selector against randomized complete policies under one
+  measured M4 budget. W3 links reference-versus-learned dynamics, mesh-versus-3DGS observations,
+  frozen-policy response, controller conversion, and selection error. The preserved EC1/H1–H4
+  family remains unfrozen. The evidence does not support the slogan that VLAs are dead.
+- Added `pid-world-model-reference` and `just world-model-reference`. The bounded native proof
+  learns a small affine transition on deterministic simulator rows. It publishes an ordered
+  candidate pool and every forecast before selected execution. Execution rejects session drift
+  from the committed fork and uses the Agent Bridge only. A later typestate labels every candidate
+  from the saved fork on independent restored branches, then verifies decision semantics and
+  replay. Oracle evaluation is not on the decision path. The reference proves software conformance
+  only, not learned-model quality, physical truth, W1, W2, or MPS support. Until `pid-runlog` gains
+  a neutral decision event, strictly named schema-2 `label_observed` envelopes carry the forecast
+  commitment and execution receipt. They are not outcome labels.
+- Replaced the offline harness's ambiguous `discrete` and `discrete-pls` CLI names with
+  `categorical-sx` and `categorical-sx-pls`. The old names and `--discrete-bins` now fail closed.
+  `--categorical-bins` controls fitted equal-width quantization. Each result binds a per-axis
+  quantizer receipt with edge and transform hashes, occupancy, units, functional, and estimator
+  identities. Every target-supervised PLS result now carries a same-row `produced_with_warning`
+  status and an estimator-blocked gate. It is a selection-inflation diagnostic only. Report
+  contract `prisoma.offline_vlda.report/5` adds these receipts and the renamed
+  categorical saturation surface. It also retains empirical-PMF sample, occupancy, singleton,
+  low-count, minimum-count, maximum-count, coverage-indicator, and population-caveat fields.
+  These diagnostics do not prove population support. This is an intentional pre-1.0 CLI and Rust
+  report API break.
+  The route targets averaged two-source MGW shared exclusions on empirical categorical laws. It is
+  not `I_min`, BROJA, continuous Ehrlich shared exclusions, or an infomorphic objective.
+- Closed a continuous-support contract gap. Every continuous MI or PID tuple now needs a separate
+  joint-law and finite-information declaration in addition to per-axis support. Missing, mixed,
+  quantized, or singular tuple contracts abstain before the KSG/Ehrlich assertion is constructed.
+  The uncertainty sidecar advances to schema 3 and binds the tuple declaration per pair.
 - Recast EC1 and H1–H4 as unfrozen claim templates. The plan now separates H1-A from H1-B,
   scores H3 on the full target population with exact fallback, and bounds H4 to one tested
   intervention construction. H2 now freezes a scoring contract that binds the prediction object
   and distinguishes complete-data scores, censoring-adjusted horizon scores, risk estimators, and
   full-distribution likelihoods. A forecast-independent conditional IPCW Brier construction can
   target scalar horizon risk under its exact assumptions. A right-censored likelihood instead
-  requires the full event-time-and-type law. This correction reopened review of the all-null M0 v2
-  successor draft.
+  requires the full event-time-and-type law. This correction reopened review of the all-null M0
+  successor draft, which is now schema v3.
 - Closed H1-A and H1-B freeze-contract gaps. H1-A now binds one response functional, proper score,
   matched-access comparator, positive useful margin, one-sided superiority rule, uncertainty,
   calibration consequence, multiplicity procedure, and finite-benchmark or replication scope.
   H1-B now binds one positive-margin effect-specific endpoint, the complete validation stack, ITT
   and design checks, uncertainty, and directional replication. Noninferiority, equivalence,
   nonsignificance, factual-outcome fit, or a secondary endpoint cannot rescue primary failure.
-- Closed an H3 freeze-contract gap. The v2 successor now binds the exact parent endpoint, PID
+- Closed an H3 freeze-contract gap. The active v3 successor binds the exact parent endpoint, PID
   regime and local-feature construction, positive useful-value margin, full-population score
   contrast, dependence-aware uncertainty, multiplicity, support and warning acceptance, and
   replication target. H3 requires a one-sided lower confidence bound above the useful margin.
   Noninferiority, equivalence, or a nonsignificant difference cannot establish added value.
-- Clarified the substantive implementation sequence: complete accountable freeze decisions, one
-  rights-approved raw-to-run-log SAFE path, a structurally independent EC1 adapter, and the frozen
-  conventional-stack comparison before optional sibling integrations.
+- Closed an H3 source–target ancestry gap. Each target now needs a frozen prediction landmark
+  before it becomes available. Each source needs an ancestry receipt at that landmark. A
+  candidate-action-conditioned state cannot be a PID source for that exact proposal target. This
+  is target injection, and cross-fitting cannot repair it. A downstream command, later declared
+  reference-state outcome, or separately measured physical outcome remains eligible only when the
+  matched baseline receives the same proposal. Command or simulator-state prediction is not
+  physical forecast validity. This change closes the design contract only. The
+  shared artifact schema does not yet implement the receipt.
+- Promoted the active, still-unreviewed diagnostic successor draft to schema v3. The H3 ancestry contract
+  names five distinct structural role bindings. These are placeholders, not role implementations.
+  The validator blocks an H3 terminal freeze until the producer, consumer validator, and per-row
+  receipt schema exist and pass semantic checks. The prior all-null v2 bytes remain historical.
+- Clarified the substantive implementation sequence: keep W1-W3 unfrozen until accountable review,
+  preserve the native reference as contract evidence, qualify pinned LeWorldModel on CPU/MPS,
+  then run W1, W2, and linked W3. JEPA-WM remains the second planning benchmark. SAFE and a
+  structurally independent EC1 adapter remain conditional work for the preserved diagnostic
+  family.
 - Updated Rapier3D-f64 from 0.22 to 0.34 and migrated the adapter to Rapier's glam-based math API.
   Updated SHA-1, SHA-2, and ndarray. Raised the pytest floor to 9.0.3. The existing Python lock
   already contains newer pytest and Pygments releases. The digest migration keeps lowercase
@@ -106,7 +187,7 @@
 - Added typed offline VLDA resource limits for input bytes, decoded samples, scalars, metadata, and
   projected work. Existing read and run APIs now apply conservative defaults. They reject inputs
   above 64 MiB, 1,024 samples, 50,000,000 pairwise units, 100,000,000 distance-coordinate units,
-  or 100,000,000 aggregate dense-solver operations. The dense projection covers every PLS
+  100,000,000 aggregate dense-solver operations, or 500,000,000 categorical operations. The dense projection covers every PLS
   selection fold, fit, transform, shuffled control, train-only screen, and applicable logistic fit.
   It uses dimension-only checked arithmetic and allocates no analysis matrices. The CLI
   checked-adds main and optional uncertainty work against both invocation caps. Larger inputs need
@@ -131,11 +212,11 @@
   guard. One zero-copy distance scan per feature view now supplies sample, episode, and held-out
   1-NN results. Held-out metrics derive from their emitted predictions, which also removes duplicate
   centroid passes. Episode-majority work is linear. AUROC uses an exact rank scan instead of a
-  quadratic positive-by-negative loop. The discrete-PLS target-shuffle control now borrows V/L/D
+  quadratic positive-by-negative loop. The categorical-SxPID PLS target-shuffle control now borrows V/L/D
   and allocates only the shuffled A matrix. Geometry builds VL and VLDA only when needed, one at a
   time, and never materializes a VLD intermediate. The train-only PID screen borrows selected
   samples instead of cloning their labels and metadata. Each PID screen computes row diagnostics
-  once per axis and reuses their typed summaries across marginal and pair outcomes. Discrete
+  once per axis and reuses their typed summaries across marginal and pair outcomes. Categorical
   screens likewise fit and quantize each axis once, then reuse the same codes for every estimate.
   Marginal MI records reuse the exact values already computed inside produced PID2 estimates.
   A standalone continuous marginal runs only when its pair estimates yielded no value. The
@@ -160,18 +241,37 @@
   `--permutation-scheme`. Bootstrap and circular-shift requests also require an explicit
   `--uncertainty-block-size`. Combined bootstrap and permutation requests now reject incompatible
   exchangeable-row and serial-dependence declarations.
-  Temporal output now withholds lag-1 when no within-series pair exists. It emits AR(1)-derived
-  sample-size and block hints only for one declared episode that spans every row and has the same
-  strict sequence-index receipt. Unlabeled row order does not establish a series. Every AR(1)
-  value is a descriptive screen, not an estimator sample size or an automatic block selector.
-  Mixed episode-id input never creates a lag pair across an unknown boundary. New summaries bind
-  `prisoma.offline_vlda.report/2` in the hashed configuration. Validation rejects an unversioned
-  or unknown summary contract instead of guessing compatibility from its JSON shape. Published
-  bootstrap atom summaries now require every requested replicate to be valid. The sidecar's
+  Temporal output now withholds lag-1 when no within-series pair exists. Report schema 4 retains
+  schema 3's removal of the earlier AR(1)-derived sample-size and block hints. Those hints were not valid denominators or
+  selectors for the nonlinear estimators. The screen now computes Pearson lag-1 correlation by
+  centering each contiguous unit-step run's lagged vectors before pooling residual products. This
+  avoids treating between-episode level differences as temporal dependence. Axis summaries average
+  only columns with defined correlation. Undefined columns, including constant columns, no longer
+  dilute a defined correlation. An all-undefined axis emits no lag-1 value. The report separates admitted unit-step
+  pairs from pairs in runs with at least three lag pairs. Two pairs force Pearson correlation to
+  positive or negative one and are excluded. Each axis records the defined and total
+  dimension counts. Publication validates their internal consistency with the report dimensions
+  and the other temporal fields. Rows without episode identities emit no lag statistic. Each
+  non-singleton segment also needs a strict canonical sequence-index receipt. Only adjacent rows
+  whose index advances by one contribute, and the report counts excluded gaps. Mixed episode-id
+  input never creates a lag pair across an unknown boundary. Rust callers that construct or read
+  the public temporal report types must migrate to the schema-3 fields. New summaries bind
+  `prisoma.offline_vlda.report/5` in the hashed configuration. Validation rejects an unversioned
+  or unknown summary contract instead of guessing compatibility from its JSON shape. The hashed
+  metric-pipeline configuration binds the temporal statistic, minimum run length, receipt rules,
+  gap policy, and observed scope. Published summaries and run logs now also require the private
+  process-local seal created by the analysis
+  call. The seal covers every serialized report field and detects later in-memory changes. A
+  deserialized report is read-only evidence and cannot be republished. Report equality still
+  follows serialized evidence and does not treat the private authority token as data. Rust callers
+  that built `OfflineVldaReport` literals must rerun through the harness API. The seal is not an
+  external signature or process attestation. Published bootstrap atom summaries now require every
+  requested replicate to be valid. The sidecar's
   original-data atom value must also match the main report exactly. A partial resample set or a
   point-value mismatch rejects publication.
-- Reopened the M0 v2 successor for scientific and statistical review after the H1–H4
-  first-principles correction. A future candidate now activates EC1, H2, exactly one H1 protocol,
+- Reopened the M0 successor for scientific and statistical review after the H1–H4
+  first-principles correction. The active draft is schema v3. A future candidate activates EC1,
+  H2, exactly one H1 protocol,
   and exactly one H3/H4 branch. Every inactive protocol slot must stay null. H1-A, H1-B, H2, and
   H3 now carry typed positive-margin primary success contracts. H2 binds one prediction object,
   score, target risk, censoring construction, assumptions, identifiable region, and uncertainty

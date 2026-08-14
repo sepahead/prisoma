@@ -6,6 +6,7 @@ import copy
 import hashlib
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -26,7 +27,7 @@ GovernanceError = MODULE.GovernanceError
 audit_bundle = MODULE.audit_bundle
 
 PREREGISTRATION = Path("protocols/m0_preregistration_skeleton_v1.json")
-SUCCESSOR = Path("protocols/m0_preregistration_successor_draft_v2.json")
+SUCCESSOR = Path("protocols/m0_preregistration_successor_draft_v3.json")
 HOLDOUT_REGISTRY = Path("protocols/holdout_registry_v1.json")
 HOLDOUT_LEDGER = Path("protocols/holdout_access_ledger_v1.jsonl")
 TRANSPORT = Path("protocols/transport_contamination_ledger_v1.json")
@@ -247,6 +248,55 @@ def test_traversal_symlink_and_content_hash_drift_are_rejected(tmp_path: Path) -
         match="historical identity SHA-256 mismatch",
     ):
         audit_bundle(root)
+
+
+def test_descriptor_snapshot_is_bounded_nonblocking_and_path_stable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    oversized = tmp_path / "oversized.json"
+    oversized.write_bytes(b"123456789")
+    with pytest.raises(GovernanceError, match="8-byte limit"):
+        MODULE._read_bounded_repo_file(
+            tmp_path,
+            oversized.name,
+            max_bytes=8,
+            context="fixture.oversized",
+        )
+
+    fifo = tmp_path / "input.fifo"
+    os.mkfifo(fifo)
+    with pytest.raises(GovernanceError, match="regular non-symlink"):
+        MODULE._read_bounded_repo_file(
+            tmp_path,
+            fifo.name,
+            max_bytes=8,
+            context="fixture.fifo",
+        )
+
+    victim = tmp_path / "victim.json"
+    victim.write_bytes(b"original")
+    replacement = tmp_path / "replacement.json"
+    replacement.write_bytes(b"replaced")
+    original_read = os.read
+    replaced = False
+
+    def replace_after_read(descriptor: int, count: int) -> bytes:
+        nonlocal replaced
+        payload = original_read(descriptor, count)
+        if payload and not replaced:
+            replacement.replace(victim)
+            replaced = True
+        return payload
+
+    monkeypatch.setattr(MODULE.os, "read", replace_after_read)
+    with pytest.raises(GovernanceError, match="changed while it was read"):
+        MODULE._read_bounded_repo_file(
+            tmp_path,
+            victim.name,
+            max_bytes=64,
+            context="fixture.race",
+        )
 
 
 def test_branch_blending_false_freeze_and_missing_estimand_row_are_rejected(
@@ -522,6 +572,16 @@ def test_exact_semantic_snapshots_reject_overclaiming_prose(tmp_path: Path) -> N
     registry = _load_json(root, CLAIM_REGISTRY)
     h1 = next(claim for claim in registry["claims"] if claim["claim_id"] == "H1")
     h1["permitted_language"] = "H1 passed with a causal physical effect"
+    _write_json(root, CLAIM_REGISTRY, registry)
+    with pytest.raises(GovernanceError, match="exact reviewed semantic snapshot"):
+        audit_bundle(root)
+
+    root = _copy_bundle(tmp_path / "h3-ancestry")
+    registry = _load_json(root, CLAIM_REGISTRY)
+    h3 = next(claim for claim in registry["claims"] if claim["claim_id"] == "H3")
+    h3["remaining_required_artifacts"].remove(
+        "target_specific_prediction_landmark_and_tensor_ancestry_receipt_excluding_post_landmark_observations_and_target_injection"
+    )
     _write_json(root, CLAIM_REGISTRY, registry)
     with pytest.raises(GovernanceError, match="exact reviewed semantic snapshot"):
         audit_bundle(root)

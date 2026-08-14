@@ -17,6 +17,10 @@ flowchart TD
     H2["H2: synthetic risk-estimator reference only"]
     H3["H3 full policy: not eligible"]
     H4["H4: exploratory attribution only"]
+    W0["world-model contract: native software reference"]
+    W1["W1 forecast validity: unfrozen"]
+    W2["W2 selection utility: unfrozen"]
+    W3["W3 linked fidelity tomography: specified"]
 
     Groundwork --> EC1
     Groundwork --> H1A
@@ -24,12 +28,17 @@ flowchart TD
     Groundwork --> H2
     Groundwork --> H3
     Groundwork --> H4
+    Groundwork --> W0
+    W0 --> W1
+    W0 --> W2
+    W0 --> W3
 
     H3 --> Population["population: open and unfrozen"]
     H3 --> Measure["measure: not adjudicated"]
     H3 --> Estimator["atom estimator: blocked"]
     H3 --> Application["continuous application: blocked"]
     H3 --> HighDim["high-dimensional MI/coherence: NO-GO"]
+    H3 --> Ancestry["target-specific prediction landmark and ancestry receipt: unimplemented"]
 ```
 
 No branch in this diagram is a confirmatory result.
@@ -86,25 +95,29 @@ flowchart TD
 
     Contract --> Static["static factual-outcome baselines"]
     Contract --> Geometry["geometry diagnostics"]
+    Contract --> Temporal["descriptive within-run lag-1 diagnostic"]
     Contract --> PIDMode{"PID mode"}
 
     PIDMode -->|none| NoPid["no MI or PID requests"]
     PIDMode -->|continuous| Continuous["KSG and shared-exclusions diagnostics"]
-    PIDMode -->|discrete| Discrete["quantized I_min diagnostics"]
-    PIDMode -->|discrete-pls| Pls["train-fit PLS then quantized I_min"]
+    PIDMode -->|categorical-sx| Categorical["fitted categorical MGW SxPID"]
+    PIDMode -->|categorical-sx-pls| Pls["same-row supervised PLS diagnostic; typed warning; no held-out scoring"]
 
     Static --> Report["typed report"]
     Geometry --> Report
+    Temporal --> Report
     NoPid --> Report
     Continuous --> Report
-    Discrete --> Report
+    Categorical --> Report
     Pls --> Report
+    Report --> Seal["process-local publication seal"]
     Report --> AnalysisLog["canonical analysis run log"]
     Report --> Sidecar["optional uncertainty sidecar"]
 ```
 
-The branches identify different computation paths. They do not identify interchangeable
-estimands. A failed continuous path never falls through to discrete `I_min`.
+The branches identify different scientific objects and estimands. A failed continuous path never
+falls through to a categorical route. MGW categorical shared exclusions and continuous Ehrlich
+shared exclusions require separate gates.
 
 ## 5. Scientific interpretation gates
 
@@ -136,8 +149,9 @@ flowchart LR
     NCP -.->|workspace-excluded| Optional["NCP and Zenoh dependency graph"]
 ```
 
-The SAFE implementation is the reference adapter and the candidate critical-path real-data path.
-The NCP observer is optional and read-only. Neither current path provides real confirmatory capture.
+The SAFE implementation is the reference adapter for the preserved diagnostic program. It is not
+the primary W1/W2 model path. The NCP observer is optional and read-only. Neither current path
+provides real confirmatory capture.
 
 ## 7. H1 and H2 software references
 
@@ -169,22 +183,35 @@ flowchart LR
 
 The complete Phases 1–3 viewer is specified but not implemented. The Phase-4 shell is deferred.
 
-## 9. Optional studies
+## 9. World-model decision and fidelity roadmap
 
 ```mermaid
 flowchart TD
-    Core["Prisoma evidence spine"]
-    Gauss["optional reconstruction-quality covariate study"]
-    World["optional external world-model comparator"]
-    Render["optional rendering layer"]
+    Fork["exact restored state"] --> Search{"decision contract"}
+    Search --> Pool["E_pool: ordered pool, K >= 2"]
+    Search --> Adaptive["E_opt: recorded adaptive rounds"]
+    Pool --> Predict["action-conditioned forecasts"]
+    Adaptive --> Predict
+    Predict --> Commit["publish forecasts before labels"]
+    Commit --> Select["frozen selection rule"]
+    Select --> Bridge["execute selected action through Agent Bridge"]
+    Bridge --> Receipt["commit selected-execution receipt"]
+    Receipt --> Branches["independent branches restored from saved fork"]
+    Branches --> Labels["all candidate labels"]
+    Labels --> Verify["forecast and selection verification"]
+    Receipt --> Verify
 
-    Gauss -.-> Core
-    World -.-> Core
-    Render -.-> Core
+    Physical["authoritative state + camera ledger"] --> Mesh["pure mesh render"]
+    Physical --> GS["pure 3DGS render"]
+    Mesh --> FrozenPolicy["same frozen policy"]
+    GS --> FrozenPolicy
+    FrozenPolicy --> Panels["linked response and selection-error panels"]
 ```
 
-These proposals must consume canonical evidence and preserve the control invariant. They are not
-runtime dependencies and are not on the thesis critical path.
+The exact-fork reference implements only `E_pool`. The learned M4 target uses adaptive CEM and
+needs a distinct round-by-round ledger. The learned study and mesh-versus-3DGS panels are not
+implemented. Renderer treatment must never alter physics. A failed identity check invalidates the
+treatment. A valid null decision effect remains a negative result.
 
 World-model labels do not determine the deployed graph:
 
@@ -224,7 +251,7 @@ flowchart LR
     Sim -.->|rerun-export feature| Rerun
     Sim -.->|analysis feature| Harness["offline harness and static baselines"]
 
-    Harness -->|requests only in PID modes| PID["pid-rs experimental estimators"]
+    Harness -->|requests only in PID modes| PID["named pid-rs estimator paths"]
     NCP["NCP and Zenoh"] -.->|separate manifest| Observer["ncp-observer"]
 ```
 

@@ -37,23 +37,93 @@ The 2026 frontier is a convergence around six distinct deployed designs:
 5. action-conditioned observational predictors; and
 6. planners that compare candidate actions through predicted consequences.
 
+The sixth design has two contracts. A fixed-pool planner scores one precommitted ordered pool. An
+adaptive optimizer, such as CEM or Nevergrad, changes later proposals from earlier scores. The
+adaptive contract must retain every round and separately score its final recommendation.
+
 Prisoma must classify the directed graph and deployed algorithm. It must not classify a system
 from its paper title, marketing label, or generated video.
 
 For one M4 Max, the immediate path is:
 
-1. qualify SmolVLA first as the upstream-documented MPS baseline candidate;
-2. qualify SLIM as the first compact predictive-training candidate for the full VLDA contract;
-3. consider Efficient-WAM only as a later class-J Metal port after its concrete blockers close;
-4. port JEPA-WAM only if its released CUDA stack passes a bounded dependency and loader review;
-5. test LiLa-WAM as a separate no-language, low-overhead predictive ablation;
-6. evaluate the larger released VLA-JEPA only after a bounded MPS smoke test;
-7. keep full video WAMs off the critical path; and
-8. use a small offline latent predictor when Prisoma needs predictive-state research.
+1. run Prisoma's native zero-model-download exact-fork reference;
+2. port LeWorldModel PushT as the first external world-model candidate;
+3. retain JEPA-WM PushT as the second planning benchmark;
+4. qualify SmolVLA as the direct-policy MPS baseline;
+5. retain VLA-JEPA as a predictive-training comparator, not a stock `D` producer;
+6. qualify SLIM as a smaller predictive-training alternative after its rights and loader gates;
+7. consider Efficient-WAM only as a later class-J Metal port after its concrete blockers close;
+8. test LiLa-WAM as a separate no-language predictive ablation; and
+9. keep full video WAMs off the critical path.
 
-SLIM remains the best candidate for the next full-VLDA experiment. LiLa-WAM is a strong compact
-architecture check, but it replaces language with a per-task Visual Transition Token. Neither is
-a qualified MPS dependency. Both need rights, loader, numerical-parity, and hook review.
+LeWorldModel (LeWM) is the first external target because it combines an action-conditioned latent
+predictor with CEM planning in a much smaller released stack. The exact reviewed source is
+`Mengarr/lewm@8a2c595813d0eee85b2dbffa6f58ff0842f9e673`. Its committed lock selects
+`stable-worldmodel==0.1.1`, wheel SHA-256
+`00eaabd9e046e6364b3d1db47e5b365a0f628aea3a9376d6a407f75cbbbd2ef5`, from source tag
+`15a5538d492ae524c64cb18cc56a2d70611e877e`. It also selects
+`stable-pretraining==0.1.7`, wheel SHA-256
+`60fc8fc3c9490e9a059aa7e038ab62cbe0505841e78c4165c18a99d8f599ec65`. The PushT model is
+`quentinll/lewm-pusht@22b330c28c27ead4bfd1888615af1340e3fe9052`. Its 72,290,721-byte
+`weights.pt` has SHA-256
+`48938400ae3464c9680731287f583a9cb516f55a8ec64ea13a91be47fb15b607`. The paper reports about
+15 million parameters. Project source and the model card declare MIT. The exact
+`stable-worldmodel` package metadata declares MIT, but its wheel and source tag have no license
+file. The `stable-pretraining` wheel includes an MIT license file.
+
+Current `stable-worldmodel` main at `9a66d7d020043c8efb507f45373e808714f0842d` is not the exact
+LeWM dependency. Main now constructs CEM with a `cost` object. LeWM's pinned evaluator passes a
+`model`. Using current main therefore needs a reviewed migration and creates a distinct port arm.
+
+The upstream LeWM evaluator still hard-codes CUDA. Its documented conversion uses
+`torch.load(..., weights_only=False)` and serializes a Python object. A Prisoma port must instead
+instantiate the pinned architecture and load only the digest-bound state dictionary with
+`weights_only=True`. These facts make LeWM a promising low-overhead port, not MPS support or model
+qualification.
+
+An independent one-seed reproduction covers LeWM TwoRoom, not PushT or M4. It reports four
+consequential pipeline conventions outside released configuration files. It also reports conflicts
+between appendix and configuration evaluation settings. On the same episodes and checkpoint,
+protocol-sensitive success moved from 84% to 8% through goal construction alone. Across three checkpoints, one-step error did
+not order long-horizon planning. This evidence does not reject the port. It requires a
+source-concordance ledger and pre-outcome frozen protocol arms before any LeWM result is compared.
+
+On 2026-08-14, an exact-package synthetic probe loaded the checkpoint with `weights_only=True` and
+strict state-dictionary matching. Direct prediction, latent rollout, and the published 30-round,
+300-sample CEM loop produced finite repeatable MPS outputs. CPU/MPS direct-prediction maximum
+absolute difference was \(3.28 \times 10^{-6}\) on the tested tensor. This was one compatibility
+observation, not a tolerance or performance benchmark. It omitted official preprocessing, PushT,
+closed-loop replanning, and CPU/MPS candidate-order comparison. It does not establish MPS support
+or WM2. See [`LEWM_M4_COMPATIBILITY_PROBE.md`](LEWM_M4_COMPATIBILITY_PROBE.md) for the exact
+artifact identities, observations, and remaining gates. The probe code and synthetic input are
+not committed, so the observations are not a repository-reproducible receipt.
+
+The published evaluator fits `StandardScaler` instances on the evaluation dataset. The locked CEM
+uses `Box` only to obtain action dimensions and does not enforce its bounds. A Prisoma study must
+bind a train-only scaler, inverse-transform proposals, and check raw-action support. It must freeze
+one reject, project, or truncated-sampling rule before outcomes. The unmodified route is therefore
+a descriptive reproduction arm. A support-bounded solver is a distinct port arm.
+
+JEPA-WM remains a second planning benchmark because its evaluator also performs
+candidate-action-conditioned latent rollout. Its exact reviewed source is
+`facebookresearch/jepa-wms@13cf1d9c7e476f53c17714d2e0f1dc239a883ce0`, and its PushT checkpoint is
+`facebook/jepa-wms@9b9c41ef249466630dbf1a20e78391865d07b3b9`. Its 211,639,615-byte checkpoint
+and code use CC-BY-NC-4.0. The upstream agent and planners hard-code CUDA. The hub loader also
+changes a requested MPS device to CPU. These constraints make it a weaker first foundation.
+
+VLA-JEPA remains a bounded MPS engineering comparator. Its official LeRobot implementation
+does not call the training-only predictor during policy inference. It disables AMP on MPS. The
+reviewed checkpoint uses safetensors, and its model card declares Apache-2.0. These facts lower
+loader and device risk. They do not make the stock path an admissible Prisoma `D` source. Its
+world-loss path requests observations at offsets 0 through 7. After tubelet encoding, the predictor
+output mixes temporal positions with different tubelet ancestry. Later positions include post-
+decision frame context. The method returns only a scalar loss. Its conditioning inputs are learned
+Qwen latent-action tokens, not clamped robot actions. The pinned encoder uses two-frame tubelets,
+so even the earliest context position reads frames `t` and `t+1`. No stock prediction position is
+a row-`t` pre-action state. An inference-visible Qwen state is a
+predictive-trained current-context candidate, not a predicted future. SLIM is smaller and remains
+a useful predictive-training alternative. Its reviewed loader enables pickle and its rights are
+nonstandard. LiLa-WAM is a compact no-language check, not a full-VLDA candidate.
 
 ## 1. First-principles taxonomy
 
@@ -64,7 +134,8 @@ Let:
 - \(F\) be a generated or predicted future;
 - \(A^\pi\) be the policy proposal;
 - \(A^{exec}\) be the command after controller conversion; and
-- \(Y\) be a later physical outcome.
+- \(Y^{ref}\) be a later outcome from one declared simulator or reference system; and
+- \(Y^{phys}\) be a separately measured physical-system outcome, when available.
 
 These are different operational and statistical contracts:
 
@@ -109,7 +180,7 @@ author results unless this repository reproduces them.
 | System | Deployed graph | Class | Evidence decision |
 |---|---|---:|---|
 | SmolVLA | compact direct VLA | A | MPS baseline candidate; no world-state claim |
-| VLA-JEPA | future representation is a training target; predictor is absent from policy inference | B | strong `D` training target; deployed state needs an exact hook |
+| VLA-JEPA | learned latent-action tokens condition a training-only future objective; policy inference does not invoke the predictor | B | predictive-training evidence, not a clamped physical-action query; the two-frame tubelet context makes no stock prediction position a row-aligned pre-action `D` |
 | LDA-1B policy mode | future DINO prediction is a co-training task; policy mode uses a visual register rather than a generated future | B | 1B dynamics backbone plus Qwen3-VL-4B and DINOv3; not a low-overhead M4 route |
 | LDA-1B forward mode | action and current state can be supplied to a separate future-latent task | D | useful observational query; not an identified transition law or deployed planner |
 | Dyna-2 scaling policy | video and action use separate marginal velocity fields; action does not consume predicted video | B | evidence for predictive co-training, not online imagination |
@@ -211,7 +282,7 @@ factorized prose does not override executable information flow.
 
 ## 3. Flex-\(\pi\): exact correction
 
-The [Flex-\(\pi\) paper](https://arxiv.org/html/2608.10860v1) states that no future visual token
+The [Flex-\(\pi\) paper](https://arxiv.org/html/2608.10860) states that no future visual token
 attends the action stream. Action tokens can attend the generated future.
 
 Its deployed full-mode graph is therefore:
@@ -238,8 +309,10 @@ real-robot actions per chunk at 30 Hz. This is about 1.07 seconds of open-loop e
 replanning. One-call latency is therefore not feedback rate.
 
 The paper reports about 60 ms for action-only inference and 193 ms for full generation on an RTX
-5090-class system. Its paper-reported peak memory is about 15.8 GB for eager or compiled execution
-and 26.4 GB for TensorRT. These are not MPS results.
+5090-class system. Paper-reported peak memory is about 15.8 GB for eager or compiled execution.
+Paper-reported TensorRT peak memory is about 26.4 GB. The latency protocol uses three warmups and 20 synchronized
+timed calls per configuration, then reports the mean. It does not report tail latency. These are
+not MPS results.
 
 The paper reports that full joint generation improves its selected real-robot task-completion
 result over action-only inference. It uses several summary conventions across the main text and
@@ -309,7 +382,7 @@ The strongest defensible conclusion is:
 The broader field also contradicts a replacement story:
 
 - JEPA-WAM adds predictive learning to an existing VLA path;
-- VLA-JEPA removes the predictor at inference;
+- VLA-JEPA does not invoke its predictor during policy inference;
 - EgoWAM uses a training-time world objective;
 - World Tokens removes its video denoiser at deployment;
 - RoboTTT extends a VLA with test-time learning;
@@ -375,7 +448,8 @@ prefix-conditioned model as a separate intervention or model revision.
 
 ## 6. Consequences for Prisoma `(V,L,D,A)`
 
-`D` must follow the computation graph. A paper's model name cannot define it.
+`D` must follow the computation graph. A paper's model name cannot define it. A learned token named
+"action" is not a clamped robot action unless its value comes from the physical action interface.
 
 | Architecture | Permitted `D` label | Prohibited label without more evidence |
 |---|---|---|
@@ -388,6 +462,14 @@ prefix-conditioned model as a separate intervention or model revision.
 
 Use \(A^\pi\) as the action target for the policy proposal. Preserve controller output and
 \(A^{exec}\) as separate targets.
+
+Do not use a state computed from \(A^\pi\) as a PID source whose target is that exact
+\(A^\pi\). This construction injects the target into the source. Cross-fitting does not repair
+it. A controller command, executed action, later declared reference-state outcome, or separately
+measured physical outcome remains eligible only when the matched baseline receives the same
+proposal. Command and simulator-state prediction do not establish physical forecast validity. Use
+a separately measured physical outcome for that claim, or keep the state inside the class-D/E
+comparison.
 
 Do not treat shared RGB-derived streams as independent conceptual modalities. Do not include a
 task-constant language axis in a language-information claim. Do not use a post-decision `D` as an
@@ -404,6 +486,10 @@ Every adapter for this family must record:
 - chunk start, hold, truncation, and replan times;
 - checkpoint, encoder, preprocessor, and normalizer hashes; and
 - whether the future branch exists at deployment.
+
+It must also bind one target-specific prediction landmark before target availability. Bind the
+maximum observation time in each tensor's ancestry. Reject any row whose source reads beyond that
+landmark.
 
 EC1 can prove capture and replay of these records. It cannot prove forecast validity, causality,
 natural use, or planning.
@@ -443,15 +529,56 @@ The target is low overhead. It is not a claim that a large model is “lean.”
 
 | Candidate | Exact reviewed artifact | Local decision |
 |---|---|---|
+| Native reference | current Prisoma source; `just world-model-reference` | zero-model-download decision-contract proof; Cargo dependencies still apply; not learned-model evidence |
+| LeWM PushT | `Mengarr/lewm@8a2c595813d0eee85b2dbffa6f58ff0842f9e673`; locked `stable-worldmodel==0.1.1` wheel `00eaabd9…`, source tag `15a5538d…`; `quentinll/lewm-pusht@22b330c28c27ead4bfd1888615af1340e3fe9052` | first external world-model port; exact tensor and CEM paths ran in one synthetic MPS probe; upstream evaluator remains CUDA-hard-coded and end-to-end MPS is unqualified |
+| JEPA-WM PushT | `facebookresearch/jepa-wms@13cf1d9c7e476f53c17714d2e0f1dc239a883ce0`; `facebook/jepa-wms@9b9c41ef249466630dbf1a20e78391865d07b3b9` | second planning benchmark; genuine planning interface, CC-BY-NC, CUDA-hard-coded upstream |
 | SmolVLA | `huggingface/lerobot@a16f34c085c9597fcbdb9fde395a3334d78df716`; `lerobot/smolvla_base@c83c3163b8ca9b7e67c509fffd9121e66cb96205` | baseline candidate; upstream shows an MPS example |
-| SLIM | `kzz1031/SLIM@f3a544700c537e4bd720e8d0aa0d82599ec79e6b`; `kzzwang/SLIM-LIBERO@921b05ee80fb38fb5df84df4ff2db68aead8d15e` | first predictive candidate after qualification |
+| VLA-JEPA | `huggingface/lerobot@a16f34c085c9597fcbdb9fde395a3334d78df716`; `lerobot/VLA-JEPA-LIBERO@735d9f692981e286ade093b5046627eda876e5d0` | bounded MPS engineering smoke test; stock predictor is not a clamped robot-action query or a row-aligned `D` producer |
+| SLIM | `kzz1031/SLIM@f3a544700c537e4bd720e8d0aa0d82599ec79e6b`; `kzzwang/SLIM-LIBERO@921b05ee80fb38fb5df84df4ff2db68aead8d15e` | smaller predictive-training alternative after loader and rights qualification |
 | Efficient-WAM | `jiajun613/Efficient-WAM@2bd75a8c56acfcd5754b98c7ed313176911ccae0`; `jiajun0613/Efficient-WAM_RoboTwin@81280a79e8ac69dd6ffb9ce8698e00d122ec07fd` | released 1B class-J port candidate; behind SLIM because current MPS blockers are concrete |
 | JEPA-WAM | `SpriteWithoutIce/JEPA_WAM@537830bee0d84d10266a14cad7f038b653b717d8`; `CokeAnd1ce/JEPA_WAM@ca10ccbc191d8f56b4346487913e043b2722b6d2` | released compact predictive candidate; CUDA stack and unsafe checkpoint format need port review |
 | LiLa-WAM | `teee000/LiLa-WAM@b6a2095d76927119bcfc0d2ca04eb5cea98d10d8`; ModelScope `yangfan97/LiLa-WAM_RoboTwin2_0@93ab191b2500aa37322244c4ae0e84eed1e848ee` | no-language predictive ablation; port and rights review required |
-| VLA-JEPA | LeRobot pin above; `lerobot/VLA-JEPA-LIBERO@735d9f692981e286ade093b5046627eda876e5d0` | research candidate; larger memory cost |
 | Light-WAM | `L1ziang/Light-WAM@b2785f66e13fd9987e94ae1ecc1c441d5059c9ae`; `l1ziang/lightwam-checkpoints@7cc8593fb95423a9cfbb93f82c95c2fa7d5357bd` | later port; current RoPE and device logic need work |
 | Fast-WAM | code `45d8e1458921d83f8ad6cf9ce993d371208dabd0` | reject for the local critical path |
 | Flex-\(\pi\) | code placeholder `9f07a4c6ffecb5ae058879566cc0bb2fe9121703` | not runnable at cutoff |
+
+LeWM PushT uses a tiny Vision Transformer encoder and an action-conditioned autoregressive latent
+predictor. The official model configuration uses five two-dimensional actions per block. The
+published evaluation config uses 30 CEM rounds, 300 samples, 30 elites, horizon five, and action
+blocks of length five. A faithful adapter must retain each adaptive round and separately score its
+final recommendation before execution.
+
+The independent reproduction studied the 18.03-million-parameter TwoRoom configuration, not this
+PushT checkpoint. Its boundary still matters. It found dense frameskip action gathering,
+programmatic action-encoder width, ImageNet pixel normalization, and action z-scoring with NaN
+removal outside released configuration files. It also found configuration-versus-appendix
+conflicts for goal offset, step budget, and CEM iterations. Prisoma must audit the analogous PushT
+pipeline fields from paper, configuration, and executable code. Each unresolved feasible reading
+becomes a separate frozen arm. An observed outcome cannot choose the arm.
+
+The reviewed core model and platform planner accept an explicit device. The official evaluator
+still sends the model to CUDA. Core portability therefore does not prove an end-to-end MPS path.
+The port must verify CPU and MPS outputs, action sensitivity, candidate order, random-number
+ownership, deadlines, and unified-memory use. It must not hide CPU fallback. The full PushT data
+download and paper benchmark are not required for a bounded engineering smoke test, but such a
+smoke test is not a paper reproduction.
+
+JEPA-WM PushT uses a DINOv2 ViT-S/14 encoder and an action-conditioned latent predictor. The
+optional decoder is not needed for planning. The exact checkpoint is 211,639,615 bytes. The
+official repository and model card declare CC-BY-NC-4.0. Its checkpoint is a PyTorch archive, so
+the port must verify the digest and extract weights through a reviewed loader before use.
+
+The stock evaluator is not MPS-ready. `GC_Agent` creates `cuda:0` devices and generators. CEM,
+MPPI, and gradient planners create CUDA devices. The hub loader sends every non-CUDA host to CPU,
+even when the caller requested MPS. A narrow port can make device ownership follow the model,
+keep the decoder absent, and use a device-following planner. This must be demonstrated, not
+assumed.
+
+The reviewed PushT configuration uses CEM, not Nevergrad, as its primary planner. It runs 30
+rounds with 300 trajectories per round, 10 elites, and horizon six. CEM returns the final elite
+mean. That mean need not be one sampled trajectory. A faithful port must retain every proposal and
+score, then evaluate and commit the final mean before execution. Keep Nevergrad as a distinct
+optimizer ablation.
 
 JEPA-WAM at arXiv:2608.09381 now has source and weights, but it remains unqualified locally.
 The stage-level JEPA-WAM at arXiv:2608.10780 is paper-only at this cutoff. No official runnable
@@ -469,6 +596,19 @@ SDPA-based MPS path before the first local run.
 SmolVLA has about 450 million parameters and a 906,712,520-byte weight file. Its Hugging Face
 card does not declare a weight license. The Apache-2.0 LeRobot code license does not automatically
 license the weights.
+
+VLA-JEPA's reviewed checkpoint contains about 3.08 billion BF16 parameters in a
+6,163,212,550-byte safetensors file. Its model card declares Apache-2.0. Its LeRobot inference path
+does not call the training-only world predictor. The shared device utility disables AMP on MPS,
+and the reviewed inference method contains no CUDA literal. These facts lower loader and device
+risk for an engineering smoke test on this 128 GiB host. They do not establish that every
+dependency runs on MPS or that the model meets latency, parity, memory, or hook gates. The stock
+world-loss path loads offsets 0 through 7. It mixes prediction positions with different tubelet
+ancestry. It
+conditions on learned Qwen latent-action tokens, not clamped robot actions, and returns only a
+scalar loss. The pinned two-frame tubelet encoder makes even the earliest context depend on `t+1`.
+No stock prediction position is admissible as row `t`. A new adapter must use only inputs available
+by a target-specific prediction landmark that precedes target availability.
 
 SLIM reports about 472 million trainable parameters. Its checkpoint file is about 945 MB. Its
 paper-reported mean inference is about 60.6 ms, with 4.26 GiB incremental memory on an H100. These
@@ -523,19 +663,22 @@ Review the pickle-based checkpoint path and artifact rights before loading or re
 
 ### 8.2 Qualification sequence
 
-1. Pin code, weights, encoders, tokenizer, and normalizer.
+1. Pin code, weights, encoders, tokenizer, normalizer, environment, and planner.
 2. Record the license for each artifact separately.
 3. Install inference dependencies without CUDA or DeepSpeed.
-4. Verify checkpoint hashes before deserialization.
+4. Verify checkpoint hashes before reviewed weights-only deserialization.
 5. Run one CPU batch with synthetic finite inputs.
 6. Run the same batch on MPS.
-7. Compare shapes and deterministic outputs within a declared tolerance.
-8. Verify each Prisoma hook's count, order, shape, and dtype.
-9. Measure warm p50 and p95 over 100 calls.
-10. Measure capture-to-command delay and its tail, not inference time alone.
-11. Record peak unified memory and allocator state.
-12. Run simulator rollouts with controller, chunk-index, and timing logs.
-13. Fail closed when MPS falls back to CPU unexpectedly.
+7. Compare shapes, forecast losses, and candidate ordering within frozen tolerances.
+8. Show action sensitivity above repeated-query drift on supported actions.
+9. Verify each Prisoma hook's count, order, shape, dtype, and ancestry.
+10. Run with network access disabled after artifact staging.
+11. Measure cold start separately.
+12. Measure at least 1,000 warm decisions, or justify a larger count for p99 precision.
+13. Report p50, p95, and p99 with uncertainty and the complete capture-to-command tail.
+14. Record peak unified memory, allocator state, thermal state, and a declared power proxy.
+15. Reconstruct every CEM round, its final scored mean, and more than one closed-loop replan.
+16. Fail closed on deadline miss or unexpected MPS-to-CPU fallback.
 
 Until this sequence passes, use “MPS candidate.” Do not use “MPS supported.”
 
@@ -545,9 +688,20 @@ Local hardware inspection measured 128 GiB of unified memory on a `Mac16,5` Appl
 runs macOS 26.5.1.
 The repository virtual environment uses arm64 Python 3.11.15. The host Python is arm64 3.14.6.
 
-Neither environment had PyTorch installed at the 2026-08-13 check. No model weights were
-downloaded. Therefore, this review produced no local CPU-to-MPS parity, latency, memory, or hook
-result. This is an explicit environment limitation, not an MPS failure and not model qualification.
+Neither original environment had PyTorch installed at the 2026-08-13 check. No model weights were
+downloaded during that dated frontier scan.
+
+A separate arm64 Python 3.11.13 environment was created on 2026-08-14. It used PyTorch 2.12.1,
+the exact checkpoint, the pinned LeWM classes, and the locked 0.1.1 CEM solver. Synthetic CPU and
+MPS prediction, rollout, and full-budget MPS CEM checks passed their narrow finite and repeatability
+checks. This follow-up is not a paper reproduction, timing benchmark, end-to-end PushT run, hook
+result, or model qualification. The companion compatibility report records its exact boundary.
+
+The 2026-08-10 independent preprint is a stronger warning about evaluation identity than about
+model quality. It uses one seed and only TwoRoom. Its reported 84%-to-8% matched change comes from
+goal construction on the same 50 episodes and released checkpoint. Its three-checkpoint comparison
+also separates one-step prediction quality from long-horizon control. Prisoma therefore keeps W1
+forecast fidelity and W2 complete-policy value as separate primary claims.
 
 ### 8.4 Prisoma overhead budget
 
@@ -562,9 +716,11 @@ Keep production capture optional and bounded:
 - record capture time and bytes per sample; and
 - require no measurable action change in the paired noninterference preflight.
 
-For predictive research on one M4, first train a small latent transition probe over frozen
-features. Compare it with action-only and simple kinematic baselines. Do not begin by porting a
-5B video generator.
+For predictive research on one M4, run the native exact-fork reference first. Then port the compact
+LeWM PushT planner with its exact published CEM configuration. Benchmark it before freezing any
+reduced-budget arm. Retain JEPA-WM as the second planning benchmark. Compare each model with
+current-only, action-only cost, kinematic, repeated-query, shuffled-action, and proposal-headroom
+controls. Do not begin with a 5B video generator.
 
 MLX is a later optimization. No reviewed candidate has an official MLX implementation. Weight
 conversion alone does not preserve masks, flow integration, normalizers, hooks, or numerical
@@ -608,7 +764,7 @@ current implementation order. It does not mean the work lacks scientific value.
 | [2608.10780](https://arxiv.org/abs/2608.10780) | stage-level JEPA-WAM intended-stage guidance | class C; paper-only architecture evidence |
 | [2608.10232](https://arxiv.org/abs/2608.10232) | FACT action-conditioned prediction and optional selection | class D/E; failure data and selector design evidence |
 | [2608.10107](https://arxiv.org/abs/2608.10107) | 4D-consistent driving WAM | driving task mismatch; screen only |
-| [2608.09771](https://arxiv.org/abs/2608.09771) | SLIM 0.5B predictive latent policy | first full-VLDA M4 candidate after qualification |
+| [2608.09771](https://arxiv.org/abs/2608.09771) | SLIM 0.5B predictive latent policy | smaller full-VLDA alternative after qualification |
 | [2608.09730](https://arxiv.org/abs/2608.09730) | World Tokens training-time world adapter | class B; 2B policy plus about 0.5B adapter; no local artifact review |
 | [2608.09516](https://arxiv.org/abs/2608.09516) | HarnessWAM task-manager wrapper | systems evidence for memory, verification, and recovery |
 | [2608.09492](https://arxiv.org/abs/2608.09492) | TempoWAM progress-based execution wrapper | systems evidence for adaptive replanning |
@@ -645,6 +801,11 @@ conditioning, joint generation, verification, and selection. It is not moving fr
 ## 11. Primary sources
 
 - Flex-\(\pi\): https://arxiv.org/abs/2608.10860 and https://flex-pi.github.io/
+- LeWorldModel: https://arxiv.org/abs/2603.19312 and https://github.com/Mengarr/lewm
+- Independent LeWorldModel TwoRoom reproduction: https://arxiv.org/abs/2608.10145 and
+  https://github.com/joyjeet-singh/tinylab
+- stable-worldmodel platform: https://github.com/galilai-group/stable-worldmodel
+- JEPA-WM physical planning: https://arxiv.org/abs/2512.24497 and https://github.com/facebookresearch/jepa-wms
 - ForeWAM: https://arxiv.org/abs/2608.11605
 - Rift: https://arxiv.org/abs/2608.11521
 - SLIM: https://arxiv.org/abs/2608.09771 and https://github.com/kzz1031/SLIM

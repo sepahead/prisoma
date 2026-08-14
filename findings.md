@@ -9,7 +9,7 @@
 > - `pidsplatspecs.md` — Stable runtime and adapter contract
 
 **Docset alignment:** this evidence record uses the 2026-07-12 scientific cut and the
-first-principles reconciliation through 2026-08-13 in `grandplan.md` docset v12.5.
+first-principles reconciliation through 2026-08-13 in `grandplan.md` docset v13.0.
 
 ## Contents
 
@@ -56,12 +56,13 @@ gates in `grandplan.md` §7.1 — population, measure, estimator, and **applicat
 The operational conclusion is unchanged and stronger: do not interpret continuous atoms on
 real embeddings, but state the reason precisely.
 
-**Docset-wide final solution:** `grandplan.md` §16 is the decision record and §5.1 is the S0–S7
-gate sequence. These findings justify a fail-closed Experiment 0 estimator gate (S1). Geometry
+**Docset-wide final solution:** `grandplan.md` §16 is the decision record. Section 5.1 separates
+the primary WM0–WM6 world-model ladder from the optional D0–D7 diagnostic ladder. These findings
+justify a fail-closed Experiment 0 estimator gate (D1). Geometry
 statistics remain descriptive warnings unless a versioned support envelope has calibrated them
-against held-out recovery; they are not independent proof of validity or failure. Build the EC1
-run-log/replay/Rerun substrate and test its registered provenance fields before any Tauri/SparkJS
-product shell or high-dimensional VLA atom claim.
+against held-out recovery. They are not independent proof of validity or failure. The W1-W3
+program uses the same run-log, bridge, replay, and Rerun substrate. Test that substrate before any
+Tauri/SparkJS shell or high-dimensional embedding-atom claim.
 
 ---
 
@@ -343,7 +344,7 @@ Based on Exp0 findings (negative vulnerability observed in `redundant_copy` at `
 | :--- | :--- | :--- | :--- | :--- |
 | **V, L, D** (Raw) | architecture-dependent ambient width; effective dimension unmeasured | unknown until profiled | **High risk** (current synthetic nuisance controls show concentration/coherence failures; real-representation frequency is unassessed) | **Do not interpret atoms**; profile first, then define and validate any reduced/quantized or MI-only regime separately |
 | **V, L, D** (Reduced) | measured, not assumed | candidate Euclidean chart | Bias risk | MI/Shannon invariants only if every constituent MI passes `MI_GATE` |
-| **A, Flow summaries, Proprio** | often single-digit to low-tens | validate | Lower, not zero, risk | Atomic PID only after both `MI_GATE` and `ISX_GATE` pass on the exact pipeline |
+| **A, Flow summaries, Proprio** | often single-digit to low-tens | validate | Lower, not zero, risk | One named MGW categorical or Ehrlich continuous functional only after its exact gates pass |
 | **Possible manifolds** | measured | unknown until calibrated | Geometry/model risk | No default; compare separately validated MI pipelines, and make no atom claim without a measure-specific derivation/oracle |
 
 ### 2. Applied V-L-A-D Scenarios
@@ -361,8 +362,9 @@ Based on Exp0 findings (negative vulnerability observed in `redundant_copy` at `
 
 *   **Scenario C: "Flow-as-Bridge" (target-side reduction candidate)**
     *   **Sources:** **Flow summaries** (e.g., object centroid trajectories or principal flow statistics; low‑d by construction), **Proprio** (~7D).
-    *   **Method candidate:** Full atomic PID ($I^{sx}_{\cap}$), only if the exact population,
-        measure, estimator, and application gates pass.
+    *   **Method candidate:** one explicitly named shared-exclusions functional. Use MGW on a
+        declared categorical law or Ehrlich on its declared continuous domain. Do not conflate the
+        two. Require the exact population, measure, estimator, and application gates.
     *   **Why:** Lower effective source and target dimensions can make kNN estimation more
         plausible. A low-dimensional target alone is insufficient when another source or the
         product space remains high-dimensional.
@@ -413,7 +415,7 @@ warnings; only held-out recovery controls establish whether an estimator regime 
 
 ### From grandplan.md (Project Strategy)
 
-The plan anticipated this (v12.5 §7.9, "Geometry diagnostics are diagnostics, not proofs"):
+The plan preserves this rule (v13.0 §7.9, "Geometry diagnostics are diagnostics, not proofs"):
 geometry metrics may flag risk but do not prove estimator validity, and may enter a hard gate
 only after they predict oracle-defined estimator validity on held-out synthetic families.
 
@@ -421,7 +423,7 @@ ID, concentration, ties, and dependence help explain risk; sampled-mean `d_rel` 
 descriptive. None detects failure by itself. The observed high-d MI/coherence violations are
 the direct NO-GO evidence; the continuous application gate remains blocked as explained above.
 
-**Flow-as-a-bridge is a target-side candidate** (v12.5 §9.6, an exploratory
+**Flow-as-a-bridge is a target-side candidate** (v13.0 §9.6, an exploratory
 low-dimensional, potentially embodiment-portable target — object/contact flow):
 
 Using low-dimensional **flow summaries** (and other low-dimensional physical targets) can reduce
@@ -486,9 +488,9 @@ transform, test on held-out data, and include shuffled-target selection controls
    exploratory, `grandplan.md` §9.6) as target-side burden reduction, while still validating
    high-dimensional source and product-space geometry.
 3. **CONSIDER** supervised projection if high-d sources are required, as a new frozen and
-   leakage-controlled regime. Discrete `I_min` modes are also wired, but the emitted
-   saturation warning is currently advisory rather than a strict fail-closed gate, so they
-   cannot be the active scientific regime until that gap is closed.
+   leakage-controlled regime. The fitted categorical modes target MGW shared exclusions on new
+   empirical categorical laws. They are not `I_min` or a fallback for continuous failure. Their
+   fitted-transform receipts improve identity, but their scientific gates remain blocked.
 4. **DO** treat direct recovery or information-coherence failures as stop signals for the exact
    estimator tuple. Treat geometry diagnostics as warnings/descriptive evidence unless a validated
    support envelope has calibrated an abstention rule; the application gate remains blocked either
@@ -532,12 +534,12 @@ unconditional theorem of failure for every distribution or nearest-neighbor esti
 
 ---
 
-*Last updated: 2026-08-13 (docset v12.5 — first-principles claim boundaries reconciled;
+*Last updated: 2026-08-13 (docset v13.0 — world-model-first and first-principles claim boundaries reconciled;
 gate verdicts mapped onto the four PID gates
 of `grandplan.md` §7.1; MI/coherence estimator gate NO-GO separated from the continuous
 `I^sx_∩` application gate BLOCKED / NOT APPLICATION-VALIDATED; nuisance-dimension atom
 invariance and δ validity-gate claims withdrawn; current results attributed to the exact 0.9.0
 post-tag review-source pin and
 historical 0.3/0.4 behavior labeled explicitly)*
-*Based on analysis of the current `exp0.rs`, experimental output, and implementation of PLS +
-discrete PID (now wired into the offline harness with saturation diagnostics)*
+*Based on analysis of the current `exp0.rs`, experimental output, and implementation of PLS plus
+fitted categorical MGW SxPID (wired into the offline harness with transform receipts)*

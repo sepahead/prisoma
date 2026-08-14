@@ -2,21 +2,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" role="img"
      font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" aria-labelledby="smTitle smDesc">
   <title id="smTitle">Prisoma status map — engineering state, not a research result</title>
-  <desc id="smDesc">Three horizontal bands. Band 1 (amber): the open S1 estimator/measure gate with the
-continuous I^sx_∩ estimator box (high-d MI/coherence NO-GO; application gate BLOCKED).
-Band 2 (green): runnable software plumbing today — offline (V,L,D,A) harness with non-PID
-baselines, safe_adapter reference producer, attribution reference probe plus Rerun adapter,
-ncp-observer, and the H1 Protocol A / H2 fixed-horizon synthetic software references.
-Band 3 (red, dashed): items blocked on real capture and an intervention pilot — real VLA
-capture, EC1 finite acceptance, and H1–H4 confirmatory claims. Dashed amber arrows labeled
-"blocks" run from Band 1 to each Band 3 item. Runnable plumbing is not a scientific pass.</desc>
-
-  <defs>
-    <marker id="arrowAmber" viewBox="0 0 10 10" refX="9" refY="5"
-            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fbbf24"/>
-    </marker>
-  </defs>
+  <desc id="smDesc">Three horizontal bands. Band 1 is the unfrozen W1 and W2 primary-claim gate plus the preserved measure-specific H3 gates. Band 2 shows runnable software plumbing, including the native exact-fork world-model reference, Agent Bridge, Rapier, run logs, Rerun conversion, the offline analysis harness, SAFE and attribution references, and H1/H2 references. Band 3 shows unimplemented learned-model qualification, W1-W3 empirical studies, and real-capture diagnostic claims. Runnable plumbing is not a scientific pass.</desc>
 
   <!-- Opaque background -->
   <rect x="8" y="8" width="1264" height="784" rx="16"
@@ -26,94 +12,83 @@ capture, EC1 finite acceptance, and H1–H4 confirmatory claims. Dashed amber ar
   <text x="640" y="50" text-anchor="middle" font-size="24" font-weight="bold"
         fill="#e5e7eb">Prisoma status map — engineering state, not a research result</text>
 
-  <!-- ======================= Band 1: estimator / measure gate ======================= -->
+  <!-- ======================= Band 1: scientific gates ======================= -->
   <g>
-    <title>Band 1 — S1 estimator / measure gate — open</title>
+    <title>Band 1 — primary scientific gates — unfrozen</title>
     <rect x="150" y="80" width="1090" height="130" rx="12"
           fill="#131e35" stroke="#fbbf24" stroke-width="2"/>
-    <text x="170" y="106" font-size="17" font-weight="bold" fill="#fbbf24">S1 estimator / measure gate — open</text>
+    <text x="170" y="106" font-size="17" font-weight="bold" fill="#fbbf24">Primary scientific gates — unfrozen</text>
     <rect x="190" y="118" width="1010" height="74" rx="10"
           fill="#1e293b" stroke="#fbbf24" stroke-width="2" stroke-dasharray="7 5"/>
-    <text x="695" y="161" text-anchor="middle" font-size="17" fill="#e5e7eb">Continuous I^sx_∩ estimator gate: high-d MI/coherence NO-GO; application gate BLOCKED</text>
+    <text x="695" y="151" text-anchor="middle" font-size="16" fill="#e5e7eb">W1/W2: no freeze, learned model, pilot, or result</text>
+    <text x="695" y="175" text-anchor="middle" font-size="15" fill="#e5e7eb">Preserved H3: population open; measure not adjudicated; estimator/application blocked</text>
   </g>
 
   <!-- ======================= Band 2: runnable today ======================= -->
   <g>
-    <title>Band 2 — Runnable today: software plumbing, not application-validated VLA evidence</title>
+    <title>Band 2 — Runnable today: software references, not learned-model evidence</title>
     <rect x="150" y="230" width="1090" height="290" rx="12"
           fill="#131e35" stroke="#34d399" stroke-width="2"/>
-    <text x="170" y="256" font-size="17" font-weight="bold" fill="#34d399">Runnable today — software plumbing, not application-validated VLA evidence</text>
+    <text x="170" y="256" font-size="17" font-weight="bold" fill="#34d399">Runnable today — software references, not learned-model evidence</text>
 
     <!-- Row 1 -->
     <rect x="170" y="272" width="340" height="104" rx="10"
           fill="#1e293b" stroke="#34d399" stroke-width="1.5"/>
     <text x="340" y="315" text-anchor="middle" font-size="16" fill="#e5e7eb">
-      <tspan x="340" dy="0">Offline (V,L,D,A) harness</tspan>
-      <tspan x="340" dy="22">+ non-PID baselines</tspan>
+      <tspan x="340" dy="0">Native exact-fork world-model</tspan>
+      <tspan x="340" dy="22">decision-contract reference</tspan>
     </text>
 
     <rect x="525" y="272" width="340" height="104" rx="10"
           fill="#1e293b" stroke="#34d399" stroke-width="1.5"/>
     <text x="695" y="304" text-anchor="middle" font-size="16" fill="#e5e7eb">
-      <tspan x="695" dy="0">safe_adapter — reference</tspan>
-      <tspan x="695" dy="22">(V,L,D,A) producer</tspan>
-      <tspan x="695" dy="22">(S2/EC1 contract)</tspan>
+      <tspan x="695" dy="0">Agent Bridge + Rapier</tspan>
+      <tspan x="695" dy="22">run log + replay + Rerun view</tspan>
     </text>
 
     <rect x="880" y="272" width="340" height="104" rx="10"
           fill="#1e293b" stroke="#34d399" stroke-width="1.5"/>
     <text x="1050" y="304" text-anchor="middle" font-size="16" fill="#e5e7eb">
-      <tspan x="1050" dy="0">Attribution reference probe</tspan>
-      <tspan x="1050" dy="22">+ Rerun adapter</tspan>
-      <tspan x="1050" dy="22">(H4 / exploratory)</tspan>
+      <tspan x="1050" dy="0">Offline (V,L,D,A) harness</tspan>
+      <tspan x="1050" dy="22">+ SAFE reference producer</tspan>
     </text>
 
     <!-- Row 2 -->
     <rect x="170" y="392" width="517" height="104" rx="10"
           fill="#1e293b" stroke="#34d399" stroke-width="1.5"/>
     <text x="428" y="435" text-anchor="middle" font-size="16" fill="#e5e7eb">
-      <tspan x="428" dy="0">ncp-observer</tspan>
-      <tspan x="428" dy="22">(optional, read-only, off critical path)</tspan>
+      <tspan x="428" dy="0">Attribution reference + NCP observer</tspan>
+      <tspan x="428" dy="22">optional diagnostics; off critical path</tspan>
     </text>
 
     <rect x="703" y="392" width="517" height="104" rx="10"
           fill="#1e293b" stroke="#34d399" stroke-width="1.5"/>
     <text x="961" y="435" text-anchor="middle" font-size="16" fill="#e5e7eb">
       <tspan x="961" dy="0">H1 Protocol A + H2 fixed-horizon</tspan>
-      <tspan x="961" dy="22">synthetic software references</tspan>
+      <tspan x="961" dy="22">synthetic arithmetic references</tspan>
     </text>
-  </g>
-
-  <!-- ======================= Blocking arrows (Band 1 → Band 3) ======================= -->
-  <g stroke="#fbbf24" stroke-width="2" stroke-dasharray="6 5" fill="none">
-    <path d="M 190 170 L 80 170 L 80 575 L 340 575 L 340 626" marker-end="url(#arrowAmber)"/>
-    <path d="M 190 155 L 100 155 L 100 560 L 695 560 L 695 626" marker-end="url(#arrowAmber)"/>
-    <path d="M 190 140 L 120 140 L 120 545 L 1050 545 L 1050 626" marker-end="url(#arrowAmber)"/>
-  </g>
-  <g font-size="14" fill="#fbbf24">
-    <text x="200" y="569">blocks</text>
-    <text x="420" y="554">blocks</text>
-    <text x="760" y="539">blocks</text>
   </g>
 
   <!-- ======================= Band 3: blocked ======================= -->
   <g>
-    <title>Band 3 — Blocked on real capture + intervention pilot</title>
+    <title>Band 3 — Unimplemented or blocked scientific work</title>
     <rect x="150" y="590" width="1090" height="140" rx="12"
           fill="#131e35" stroke="#f87171" stroke-width="2" stroke-dasharray="8 6"/>
-    <text x="170" y="616" font-size="17" font-weight="bold" fill="#f87171">Blocked on real capture + intervention pilot</text>
+    <text x="170" y="616" font-size="17" font-weight="bold" fill="#f87171">Unimplemented or blocked scientific work</text>
 
     <rect x="170" y="632" width="340" height="80" rx="10"
           fill="#1e293b" stroke="#f87171" stroke-width="2" stroke-dasharray="7 5"/>
-    <text x="340" y="678" text-anchor="middle" font-size="16" fill="#e5e7eb">Real VLA capture</text>
+    <text x="340" y="668" text-anchor="middle" font-size="16" fill="#e5e7eb">M4 learned-model qualification</text>
+    <text x="340" y="690" text-anchor="middle" font-size="14" fill="#e5e7eb">MPS + exact CEM</text>
 
     <rect x="525" y="632" width="340" height="80" rx="10"
           fill="#1e293b" stroke="#f87171" stroke-width="2" stroke-dasharray="7 5"/>
-    <text x="695" y="678" text-anchor="middle" font-size="16" fill="#e5e7eb">EC1 finite acceptance</text>
+    <text x="695" y="678" text-anchor="middle" font-size="16" fill="#e5e7eb">W1 / W2 / W3 empirical studies</text>
 
     <rect x="880" y="632" width="340" height="80" rx="10"
           fill="#1e293b" stroke="#f87171" stroke-width="2" stroke-dasharray="7 5"/>
-    <text x="1050" y="678" text-anchor="middle" font-size="16" fill="#e5e7eb">H1–H4 confirmatory claims</text>
+    <text x="1050" y="668" text-anchor="middle" font-size="16" fill="#e5e7eb">Real capture + EC1 / H1–H4</text>
+    <text x="1050" y="690" text-anchor="middle" font-size="14" fill="#e5e7eb">preserved diagnostic family</text>
   </g>
 
   <!-- Footer caption -->

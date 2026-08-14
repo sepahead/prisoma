@@ -1,6 +1,6 @@
 # Attribution deletion ranking-sensitivity diagnostic (exploratory)
 
-> Attribution is not a confirmatory claim in the v12.5 registry. This package is an
+> Attribution is not a confirmatory claim in the v13.0 registry. This package is an
 > exploratory diagnostic and never substitutes for the population, measure,
 > estimator, or application gates on PID.
 

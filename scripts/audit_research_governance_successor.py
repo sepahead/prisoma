@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate the typed, still-unfrozen M0 successor governance draft.
 
-The checked-in v2 artifact is a revised, unreviewed future-freeze contract. It is not a
+The checked-in v3 artifact is a revised, unreviewed future-freeze contract. It is not a
 preregistration or scientific result. It binds the structure that a future freeze
 candidate must provide while leaving every scientific value null. The validator also
 supports an explicitly materialized ``freeze_candidate_under_review`` or ``frozen``
@@ -25,7 +25,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SUCCESSOR_PATH = Path("protocols/m0_preregistration_successor_draft_v2.json")
+SUCCESSOR_PATH = Path("protocols/m0_preregistration_successor_draft_v3.json")
 FREEZE_BLOCKED_EXIT = 3
 
 MAX_SUCCESSOR_DOCUMENT_BYTES = 2 * 1024 * 1024
@@ -68,8 +68,11 @@ EXPECTED_FREEZE_REQUIREMENTS = [
     "H3 primary scoring must retain the complete inherited target ledger with exact "
     "same-fold M1 fallback for every abstention; bind one positive minimum useful "
     "incremental-value margin, one-sided superiority decision, PID regime and feature "
-    "construction, dependence-aware uncertainty, multiplicity, support and warning "
-    "acceptance, and replication target; every warning must follow the frozen disposition "
+    "construction, and a source-target ancestry receipt whose target-specific prediction "
+    "landmark precedes target realization or availability and excludes post-landmark "
+    "observations and target injection; bind dependence-aware uncertainty, multiplicity, "
+    "support and warning acceptance, and a replication target; every warning must follow "
+    "the frozen disposition "
     "map and every unlisted warning must abstain with exact M1 fallback",
     "H4 must bind the target and sampling design, transport assumptions when needed, "
     "one outcome and primary tuple, simultaneous strong error control, target-weight "
@@ -96,6 +99,10 @@ FREEZE_BLOCKERS = [
     "M0_SUCCESSOR_CONTENT_BOUND_FREEZE_RECEIPTS_MISSING",
 ]
 
+H3_ANCESTRY_IMPLEMENTATION_BLOCKER = (
+    "M0_SUCCESSOR_H3_ANCESTRY_PRODUCER_CONSUMER_AND_RECEIPT_UNIMPLEMENTED"
+)
+
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 PLACEHOLDER_RE = re.compile(
     r"(?:\b(?:tbd|todo|tk|changeme|placeholder|fixme)\b|<[^>]+>|\?\?\?)",
@@ -120,6 +127,7 @@ TOP_LEVEL_KEYS = {
 }
 CANONICAL_SPEC_KEYS = {"path", "version"}
 CONTENT_BINDING_KEYS = {"path", "sha256"}
+ROLE_CONTENT_BINDING_KEYS = {"artifact_role", "path", "sha256"}
 SLOT_KEYS = {"value_type", "required_for_freeze", "value"}
 ENUM_SLOT_KEYS = SLOT_KEYS | {"allowed_values"}
 FREEZE_RECEIPT_KEYS = {
@@ -287,6 +295,10 @@ EXPECTED_PROTOCOL_SLOTS = {
         "active_parent_claim": ("enum", ("H1", "H2")),
         "primary_incremental_value_contract": (
             "h3_incremental_value_contract",
+            None,
+        ),
+        "source_target_ancestry_binding": (
+            "h3_source_target_ancestry_contract",
             None,
         ),
     },
@@ -546,6 +558,75 @@ H3_INCREMENTAL_VALUE_KEYS = {
     "independent_replication_required",
 }
 
+H3_SOURCE_TARGET_ANCESTRY_KEYS = {
+    "contract_version",
+    "target_specific_prediction_landmark_definition_binding",
+    "source_target_inventory_binding",
+    "producer_implementation_binding",
+    "consumer_validation_implementation_binding",
+    "per_row_receipt_schema_binding",
+    "source_availability_rule",
+    "landmark_target_order_rule",
+    "target_exclusion_rule",
+    "future_supervision_rule",
+    "candidate_action_rule",
+    "candidate_action_comparator_rule",
+    "downstream_action_interpretation_rule",
+    "fail_closed_on_missing_unknown_or_mismatch",
+}
+
+H3_SOURCE_TARGET_ANCESTRY_BINDING_ROLES = {
+    "target_specific_prediction_landmark_definition_binding": (
+        "target_specific_prediction_landmark_definition"
+    ),
+    "source_target_inventory_binding": "source_target_inventory",
+    "producer_implementation_binding": "producer_implementation",
+    "consumer_validation_implementation_binding": (
+        "consumer_validation_implementation"
+    ),
+    "per_row_receipt_schema_binding": "per_row_receipt_schema",
+}
+
+H3_SOURCE_TARGET_ANCESTRY_ROLE_SUFFIXES = {
+    "target_specific_prediction_landmark_definition": {".json", ".md"},
+    "source_target_inventory": {".json", ".md"},
+    "producer_implementation": {".py", ".rs"},
+    "consumer_validation_implementation": {".py", ".rs"},
+    "per_row_receipt_schema": {".json"},
+}
+
+EXPECTED_H3_SOURCE_TARGET_ANCESTRY_RULES = {
+    "source_availability_rule": (
+        "every_source_ancestor_must_be_observed_no_later_than_the_frozen_target_"
+        "specific_prediction_landmark"
+    ),
+    "landmark_target_order_rule": (
+        "the_frozen_target_specific_prediction_landmark_must_precede_target_"
+        "realization_or_availability"
+    ),
+    "target_exclusion_rule": (
+        "no_source_computation_graph_may_contain_the_pid_target_or_any_descendant_"
+        "of_that_target"
+    ),
+    "future_supervision_rule": (
+        "training_only_future_supervision_is_allowed_only_when_the_deployed_capture_"
+        "path_reads_no_post_landmark_observation"
+    ),
+    "candidate_action_rule": (
+        "a_candidate_action_conditioned_state_is_forbidden_as_a_source_when_the_pid_"
+        "target_is_that_exact_candidate_action"
+    ),
+    "candidate_action_comparator_rule": (
+        "when_a_source_is_conditioned_on_a_candidate_action_and_the_pid_target_is_any_"
+        "downstream_command_or_later_outcome_the_matched_baseline_must_receive_that_"
+        "exact_candidate_action"
+    ),
+    "downstream_action_interpretation_rule": (
+        "incremental_value_for_a_controller_or_executed_action_target_cannot_establish_"
+        "physical_forecast_validity"
+    ),
+}
+
 
 class SuccessorGovernanceError(ValueError):
     """The successor draft or candidate is malformed or scientifically unsafe."""
@@ -759,6 +840,10 @@ def _timestamp(value: Any, *, context: str) -> datetime:
 
 def _validated_relative_parts(relative: Any, *, context: str) -> tuple[str, ...]:
     raw = _string(relative, context=context)
+    if any(ord(character) < 32 or ord(character) == 127 for character in raw):
+        raise SuccessorGovernanceError(
+            f"{context} contains a forbidden ASCII control character"
+        )
     if len(raw.encode("utf-8")) > MAX_REPOSITORY_PATH_BYTES:
         raise SuccessorGovernanceError(
             f"{context} exceeds the {MAX_REPOSITORY_PATH_BYTES}-byte path limit"
@@ -805,19 +890,19 @@ def _read_bounded_repo_file(
 
     if max_bytes < 0:
         raise SuccessorGovernanceError(f"{context} has an invalid negative byte limit")
+    required_flags = ("O_NOFOLLOW", "O_NONBLOCK", "O_DIRECTORY")
+    missing_flags = [name for name in required_flags if not hasattr(os, name)]
+    if missing_flags:
+        raise SuccessorGovernanceError(
+            f"{context} requires unavailable descriptor flags: {missing_flags}"
+        )
     parts = _validated_relative_parts(relative, context=context)
     root = root.resolve(strict=True)
     directory_flags = (
-        os.O_RDONLY
-        | getattr(os, "O_CLOEXEC", 0)
-        | getattr(os, "O_DIRECTORY", 0)
-        | getattr(os, "O_NOFOLLOW", 0)
+        os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | os.O_DIRECTORY | os.O_NOFOLLOW
     )
     file_flags = (
-        os.O_RDONLY
-        | getattr(os, "O_CLOEXEC", 0)
-        | getattr(os, "O_NOFOLLOW", 0)
-        | getattr(os, "O_NONBLOCK", 0)
+        os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | os.O_NOFOLLOW | os.O_NONBLOCK
     )
     descriptors: list[int] = []
     directory_identities: list[tuple[int, int, int]] = []
@@ -984,11 +1069,46 @@ def _content_binding(
     return {"path": binding["path"], "sha256": digest}
 
 
+def _role_content_binding(
+    value: Any,
+    *,
+    expected_role: str,
+    reader: _ContentSnapshotReader,
+    context: str,
+) -> dict[str, str]:
+    """Validate one content binding whose structural role is explicit.
+
+    This check binds a distinct artifact identity and a coarse file kind. It does
+    not establish that the bound artifact is scientifically adequate for its role.
+    """
+
+    binding = _exact_keys(value, ROLE_CONTENT_BINDING_KEYS, context=context)
+    role = _string(binding["artifact_role"], context=f"{context}.artifact_role")
+    if role != expected_role:
+        raise SuccessorGovernanceError(
+            f"{context}.artifact_role must equal {expected_role!r}"
+        )
+    validated = _content_binding(
+        {"path": binding["path"], "sha256": binding["sha256"]},
+        reader=reader,
+        context=context,
+    )
+    suffix = PurePosixPath(validated["path"]).suffix
+    if suffix not in H3_SOURCE_TARGET_ANCESTRY_ROLE_SUFFIXES[expected_role]:
+        allowed = ", ".join(
+            sorted(H3_SOURCE_TARGET_ANCESTRY_ROLE_SUFFIXES[expected_role])
+        )
+        raise SuccessorGovernanceError(
+            f"{context}.path must use one of the role-appropriate suffixes: {allowed}"
+        )
+    return {"artifact_role": role, **validated}
+
+
 def _canonical_freeze_candidate_bytes(document: dict[str, Any]) -> bytes:
     """Serialize the non-circular candidate payload reviewed before freeze.
 
     The receipt and terminal metadata cannot be included in their own digest. The
-    canonical payload is therefore the complete schema-v2 document with status set
+    canonical payload is therefore the complete schema-v3 document with status set
     to ``freeze_candidate_under_review`` and ``freeze_receipt``,
     ``freeze_revision``, and ``frozen_at`` set to null. Keys are sorted, JSON uses
     compact separators and UTF-8 without ASCII escaping, and no trailing newline is
@@ -1760,6 +1880,51 @@ def _validate_h3_incremental_value_contract(
     return contract
 
 
+def _validate_h3_source_target_ancestry_contract(
+    value: Any,
+    *,
+    reader: _ContentSnapshotReader,
+    context: str,
+) -> dict[str, Any]:
+    contract = _exact_keys(value, H3_SOURCE_TARGET_ANCESTRY_KEYS, context=context)
+    if (
+        _integer(
+            contract["contract_version"],
+            context=f"{context}.contract_version",
+        )
+        != 1
+    ):
+        raise SuccessorGovernanceError(f"{context}.contract_version must equal 1")
+    bound_paths: list[str] = []
+    for field, expected_role in H3_SOURCE_TARGET_ANCESTRY_BINDING_ROLES.items():
+        binding = _role_content_binding(
+            contract[field],
+            expected_role=expected_role,
+            reader=reader,
+            context=f"{context}.{field}",
+        )
+        bound_paths.append(binding["path"])
+    if len(set(bound_paths)) != len(bound_paths):
+        raise SuccessorGovernanceError(
+            f"{context} must bind five distinct artifact paths; one artifact cannot "
+            "stand in for multiple ancestry roles"
+        )
+    for field, expected in EXPECTED_H3_SOURCE_TARGET_ANCESTRY_RULES.items():
+        actual = _string(contract[field], context=f"{context}.{field}")
+        if actual != expected:
+            raise SuccessorGovernanceError(
+                f"{context}.{field} must equal the fail-closed ancestry rule"
+            )
+    if not _boolean(
+        contract["fail_closed_on_missing_unknown_or_mismatch"],
+        context=f"{context}.fail_closed_on_missing_unknown_or_mismatch",
+    ):
+        raise SuccessorGovernanceError(
+            f"{context}.fail_closed_on_missing_unknown_or_mismatch must be true"
+        )
+    return contract
+
+
 def _validate_h2_primary_scoring_contract(
     value: Any,
     *,
@@ -2263,6 +2428,12 @@ def _validate_slot_value(
             reader=reader,
             context=context,
         )
+    if value_type == "h3_source_target_ancestry_contract":
+        return _validate_h3_source_target_ancestry_contract(
+            value,
+            reader=reader,
+            context=context,
+        )
     if value_type == "h2_primary_scoring_contract":
         return _validate_h2_primary_scoring_contract(
             value,
@@ -2734,7 +2905,7 @@ def validate_successor_document(
     *,
     root: Path = ROOT,
 ) -> list[str]:
-    """Validate one v2 draft/candidate/frozen document and return readiness blockers."""
+    """Validate one v3 draft/candidate/frozen document and return readiness blockers."""
 
     root = root.resolve(strict=True)
     reader = _ContentSnapshotReader(root)
@@ -2744,10 +2915,10 @@ def validate_successor_document(
             artifact["schema_version"],
             context=f"{SUCCESSOR_PATH}.schema_version",
         )
-        != 2
+        != 3
     ):
-        raise SuccessorGovernanceError("successor schema_version must equal 2")
-    if artifact["artifact_id"] != "prisoma_m0_preregistration_successor_draft_v2":
+        raise SuccessorGovernanceError("successor schema_version must equal 3")
+    if artifact["artifact_id"] != "prisoma_m0_preregistration_successor_draft_v3":
         raise SuccessorGovernanceError("successor artifact_id drifted")
     as_of_date = _date(artifact["as_of_date"], context=f"{SUCCESSOR_PATH}.as_of_date")
 
@@ -2756,9 +2927,9 @@ def validate_successor_document(
         CANONICAL_SPEC_KEYS,
         context=f"{SUCCESSOR_PATH}.canonical_spec",
     )
-    if canonical != {"path": "grandplan.md", "version": "12.5"}:
+    if canonical != {"path": "grandplan.md", "version": "13.0"}:
         raise SuccessorGovernanceError(
-            "successor canonical_spec must identify grandplan.md v12.5"
+            "successor canonical_spec must identify grandplan.md v13.0"
         )
     reader.read(canonical["path"], context="canonical_spec.path")
     base_binding = _content_binding(
@@ -2983,6 +3154,8 @@ def validate_successor_document(
             )
     _validate_candidate_semantics(artifact, reader=reader)
 
+    h3_is_active = "h3" in active_protocols
+
     if status == "freeze_candidate_under_review":
         if any(
             artifact[field] is not None
@@ -2991,7 +3164,17 @@ def validate_successor_document(
             raise SuccessorGovernanceError(
                 "a freeze candidate under review cannot claim completed freeze metadata"
             )
-        return ["M0_SUCCESSOR_FREEZE_CANDIDATE_REVIEW_PENDING"]
+        blockers = ["M0_SUCCESSOR_FREEZE_CANDIDATE_REVIEW_PENDING"]
+        if h3_is_active:
+            blockers.insert(0, H3_ANCESTRY_IMPLEMENTATION_BLOCKER)
+        return blockers
+
+    if h3_is_active:
+        raise SuccessorGovernanceError(
+            "an active H3 contract cannot become frozen until project-owned source-target "
+            "ancestry producer, consumer validator, and per-row receipt-schema artifacts "
+            "exist and this validator checks their role-specific semantics"
+        )
 
     revision = _string(
         artifact["freeze_revision"],

@@ -3,12 +3,15 @@
 **Release scope:** Prisoma 0.9.0 public GitHub source prerelease and research-software preview
 
 **Author:** Sepehr Mahmoudian
-**Canonical research specification:** [`grandplan.md`](grandplan.md), docset v12.5
+**Canonical research specification:** [`grandplan.md`](grandplan.md), docset v13.0
 
 This index answers one question: **what can each artifact in Prisoma 0.9 actually support?** It
-does not upgrade implementation or fixture tests into thesis evidence. The authoritative current
-status is [`protocols/research_claim_registry_v1.json`](protocols/research_claim_registry_v1.json),
-and the generated per-feature inventory is
+does not upgrade implementation or fixture tests into thesis evidence. The authoritative W1-W3
+status is
+[`protocols/world_model_claim_registry_v1.json`](protocols/world_model_claim_registry_v1.json).
+The preserved EC1/H1-H4 status is
+[`protocols/research_claim_registry_v1.json`](protocols/research_claim_registry_v1.json).
+The generated per-feature inventory is
 [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md). The latter currently contains no
 `validated` rows.
 
@@ -34,13 +37,15 @@ later language.
 ## Source-of-truth order
 
 1. [`grandplan.md`](grandplan.md) defines claims, estimands, gates, and stop rules.
-2. [`protocols/research_claim_registry_v1.json`](protocols/research_claim_registry_v1.json)
-   records current execution/freeze status and permitted/prohibited language.
-3. [`protocols/capability_catalog_v1.json`](protocols/capability_catalog_v1.json) generates the
+2. [`protocols/world_model_claim_registry_v1.json`](protocols/world_model_claim_registry_v1.json)
+   records W1-W3 execution and freeze status with permitted and prohibited language.
+3. [`protocols/research_claim_registry_v1.json`](protocols/research_claim_registry_v1.json)
+   records the same boundaries for the preserved EC1/H1-H4 family.
+4. [`protocols/capability_catalog_v1.json`](protocols/capability_catalog_v1.json) generates the
    machine and human capability matrices.
-4. [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) indexes exact software paths,
+5. [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) indexes exact software paths,
    revisions, proof commands, limitations, and E0–E5 evidence bases.
-5. Run logs, summaries, fixtures, manifests, and command output prove only the bounded behavior
+6. Run logs, summaries, fixtures, manifests, and command output prove only the bounded behavior
    their contracts name.
 
 `just docs-audit`, `just research-governance`, and `just capability-matrix-check` test consistency
@@ -50,15 +55,31 @@ among these sources. They do not perform scientific or independent human review.
 
 | Item | Evidence present in 0.9 | Status for thesis use |
 |---|---|---|
-| M0 scientific freeze | Machine-checkable `unfrozen_draft` scaffolds and honest-unfinished-state validation. The typed v2 successor is revised and awaiting new review. | **Not freeze-ready; not a preregistration.** |
+| M0 scientific freeze | Machine-checkable `unfrozen_draft` scaffolds and honest-unfinished-state validation. The active typed v3 successor is revised and awaiting new review. | **Not freeze-ready; not a preregistration.** |
 | Confirmatory holdout | Registry says none is registered; access chain contains only a genesis event. | **Unavailable.** No independence or historical non-access proof. |
+| W1 | Native exact-fork world-model decision-contract reference. | **Software fixture only.** No learned-model forecast or ranking evidence. |
+| W2 | Native fixed-pool, multi-replan selection contract and verifier. | **Software fixture only.** No randomized complete-policy or M4 result. |
+| W3 | Linked dynamics, renderer, policy-response, controller, and selection protocol. | **Specified only.** No matched mesh/3DGS experiment. |
 | EC1 | Local E0/E2/E3 software and fixture evidence across run-log, replay, Rerun, bridge, SAFE ingress, simulator, and NCP components. | **Not established.** External benchmark, second adapter, and independent reproduction are absent. |
 | H1-A | Synthetic common preflight and deterministic finite Protocol-A scoring primitive. | **Software fixture only; no H1-A evidence and no H1-B path.** |
 | H1-B | Canonical randomized closed-loop design. | **Blocked and unimplemented.** |
 | H2 | Synthetic fixed-horizon/IPCW/alarm arithmetic reference. | **Software fixture only; no H2 evidence.** |
-| H3 | Report-first estimator eligibility/abstention behavior and negative gate records. | **Not eligible.** Population is open/unfrozen. Measure is not adjudicated. The current atom-estimator and continuous-application gates are blocked. High-dimensional MI/coherence is NO-GO. |
+| H3 | Report-first estimator eligibility/abstention behavior and negative gate records. | **Not eligible.** Population is open/unfrozen. Measure is not adjudicated. The atom-estimator and continuous-application gates are blocked. High-dimensional MI/coherence is NO-GO. Source-target ancestry producer, consumer, and per-row receipt artifacts are unimplemented, so H3 cannot freeze. |
 | H4 | Reference-model attribution logging and deletion-ranking-sensitivity control. | **Exploratory software groundwork only; no causal or mechanistic faithfulness result.** |
 | NCP | Read-only wire-0.8 observer and deterministic local fault observatory. | **Experimental optional component; not live integration or scientific evidence.** |
+
+## W1–W3 — supported decisions and linked fidelity
+
+`just world-model-reference` proves one bounded software contract. It learns a small affine
+transition from the deterministic fixture. It publishes a fixed candidate pool and all forecasts
+before reference labels. It labels independent restored branches, executes through the Agent
+Bridge, and verifies replay.
+
+The learner and labels use the same deterministic law. This proves neither forecast quality nor
+planning value. W1 still needs held-out supported-action forecast and ranking evidence. W2 needs a
+randomized complete-policy comparison under a frozen M4 budget. W3 needs linked matched panels for
+reference-versus-learned dynamics, mesh-versus-3DGS observations, frozen-policy response,
+controller conversion, and selection error.
 
 ## EC1 — registered capture–replay fidelity and fault detection
 
@@ -94,7 +115,7 @@ validated, independently reproduced, portable, or deployment-ready.
 pre-treatment diagnostics under a frozen clone/restoration contract. This is not a physical
 individual treatment effect. See
 [`grandplan.md` §4 H1](grandplan.md#h1-family--pre-treatment-diagnostics-predict-a-named-intervention-response)
-and [`§6.3`](grandplan.md#63-h1-analysis-paired-algorithmic-and-randomized-closed-loop-response).
+and [`§6.4`](grandplan.md#64-h1-analysis-paired-algorithmic-and-randomized-closed-loop-response).
 
 **Current artifacts and local proofs**
 
@@ -135,7 +156,7 @@ causal effect under prospective randomized assignment. Protocol B is not interch
 Protocol A.
 
 The design is specified in [`grandplan.md` §4](grandplan.md#h1-family--pre-treatment-diagnostics-predict-a-named-intervention-response)
-and [`§6.3`](grandplan.md#63-h1-analysis-paired-algorithmic-and-randomized-closed-loop-response),
+and [`§6.4`](grandplan.md#64-h1-analysis-paired-algorithmic-and-randomized-closed-loop-response),
 but 0.9 has no real assignment generator, concealment/receipt execution, randomized episode
 capture, compliance/crossover/rescue record, effect learner, pilot, or held-out result. There is
 no Protocol-B proof command because the protocol is unimplemented.
@@ -153,7 +174,7 @@ pass. Factual-outcome fit or a secondary endpoint cannot rescue primary failure.
 **Thesis role.** Test whether diagnostics improve prospective failure prediction beyond a
 matched-access comparator frontier at a frozen landmark and horizon. See
 [`grandplan.md` §4 H2](grandplan.md#h2--diagnostics-improve-prospective-censoring-aware-failure-prediction)
-and [`§6.4`](grandplan.md#64-h2-analysis-prospective-failure-with-time-and-censoring).
+and [`§6.5`](grandplan.md#65-h2-analysis-prospective-failure-with-time-and-censoring).
 
 **Current artifacts and local proofs**
 
@@ -211,9 +232,10 @@ and [`§7.1`](grandplan.md#71-separate-four-questions).
 H3 is not eligible. The population gate is open and unfrozen. The measure gate is not adjudicated.
 The current atom-estimator and continuous-application gates are blocked, and high-dimensional
 MI/coherence is NO-GO. The `pid-rs` submodule is the canonical implementation dependency, not an
-independent implementation.
-Quantized discrete `I_min` is a different estimand from continuous shared-exclusions and cannot be
-used as an automatic fallback or pooled comparison.
+independent implementation. Prisoma's fitted categorical route targets averaged two-source MGW
+shared exclusions on new empirical categorical laws. It is not `I_min`, BROJA, the continuous
+Ehrlich functional, or an infomorphic objective. None can become an automatic fallback or pooled
+comparison.
 
 **Missing scientific evidence**
 
@@ -221,6 +243,8 @@ used as an automatic fallback or pooled comparison.
   estimator configuration, dimensions, sample region, preprocessing, ties/refusal, dependence,
   coverage, and abstention;
 - an eligible train-fitted episode-local information feature;
+- a target-specific prediction landmark before target availability, plus a tensor-ancestry receipt
+  that excludes post-landmark observations and target injection;
 - an already useful non-PID H1 or H2 problem and a complete strong M1 baseline frontier;
 - one frozen warning-code registry, exact fallback receipt, and complete target-ID ledger;
 - one frozen PID-regime and local-feature construction, dependence-aware uncertainty procedure,
@@ -272,11 +296,16 @@ predictive co-training, intended-future conditioning, coupled joint generation,
 action-conditioned prediction, and candidate planning. A joint density does not expose an
 operational action-conditioned query by factorization alone.
 
-This review changes variable selection and comparator design. It creates no EC1 or H1–H4 result.
-It does not qualify Flex-\(\pi\), SLIM, Efficient-WAM, JEPA-WAM, LiLa-WAM, SmolVLA, or another
-model for Prisoma or MPS. The released Efficient-WAM implementation is class J because its video
-and action streams use bidirectional joint attention. Its paper label does not make it a callable
-transition query.
+This review changes variable selection and comparator design. It creates no W1–W3 or EC1/H1–H4
+result. The evidence does not show that VLAs are dead. A VLA often names the action interface,
+while a WAM can name training, conditioning, prediction, or planning.
+It does not qualify Flex-\(\pi\), VLA-JEPA, SLIM, Efficient-WAM, JEPA-WAM, LiLa-WAM, SmolVLA, or
+another model for Prisoma or MPS. VLA-JEPA's stock world-loss path reads future frames and cannot
+supply one row-aligned pre-action `D`. Its predictor conditions on learned latent-action tokens,
+not clamped robot actions. Its pinned two-frame tubelet context includes `t+1` even at the earliest
+position. The released Efficient-WAM implementation is class J because
+its video and action streams use bidirectional joint attention. Its paper label does not make it a
+callable transition query.
 
 The 13 August refresh adds two low-rollout class-C designs and two distinct control patterns.
 ForeWAM and Rift create action-independent future-position state in one prefill. World Action
@@ -286,8 +315,9 @@ tested latent path. None of these facts establishes an interventional transition
 
 Before any action-consequence claim, require randomized executed actions, support checks,
 proposal-to-execution receipts, proper scores, calibration, failure cases, and transport testing.
-Before a planning claim, require proposal, prediction, scoring, selection, and a decision-flip
-test.
+Before a planning claim, distinguish a fixed pool from adaptive optimization. For adaptive CEM or
+Nevergrad, retain every round and separately score any unsampled final recommendation. Require a
+fixed-randomness score intervention and reconstruct selection.
 
 Treat asynchronous chunk execution as a separate controller contract. Bind observation time,
 measured end-to-end delay, chunk indices, dispatch, and execution acknowledgement. A faster model
@@ -297,6 +327,12 @@ See the
 [`WORLD_ACTION_MODEL_FRONTIER.md`](docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md)
 review and [`grandplan.md` §9.2](grandplan.md#92-recommended-source-families).
 
+The native exact-fork reference is local software groundwork. The compact pinned LeWorldModel
+PushT CEM planner is the first external M4 port candidate. Its upstream evaluator hard-codes
+CUDA. JEPA-WM is the second planning benchmark. No MPS, latency, memory, power, or closed-loop
+qualification result exists. A one-seed independent reproduction covers only LeWM TwoRoom. It
+requires protocol-source concordance but supplies no PushT, M4, W1, or W2 evidence.
+
 ## M0 and human-governance evidence still absent
 
 The following artifacts require real external state or human judgment and therefore cannot be
@@ -304,7 +340,7 @@ generated or inferred by repository automation:
 
 | Required evidence | Required independent role or review | Current 0.9 state |
 |---|---|---|
-| New review of the revised successor M0 schema and a fully specified freeze candidate | Candidate, designated academic reviewer, causal/statistical reviewer, and H3 estimator reviewer if H3 is eligible | Absent; v1 is intentionally non-promotable. The revised v2 draft is unreviewed and unfrozen. |
+| New review of the revised successor M0 schema and a fully specified freeze candidate | Candidate, designated academic reviewer, causal/statistical reviewer, and H3 estimator reviewer if H3 is eligible | Absent; v1 is intentionally non-promotable. The active v3 draft is unreviewed and unfrozen. |
 | Freeze signatures and amendment policy | Candidate, designated reviewer, independent reviewer | Absent; no approval is implied. |
 | Holdout generation, commitment, custody, and access/reveal receipts | Independent holdout custodian | No confirmatory holdout is registered. |
 | Real data/model rights, privacy, ethics, retention, and incident decisions | Data steward/controller and institutional review where applicable | Unresolved for real capture. Synthetic fixtures only. |
@@ -336,8 +372,8 @@ Haldir, Crebain, and other ecosystem projects are optional to the minimum path.
 
 | Thesis unit in [`grandplan.md` §11.1](grandplan.md#111-minimum-viable-thesis) | 0.9 contribution | Evidence still required |
 |---|---|---|
-| Paper A: experiment semantics and benchmark | Run-log/replay/bridge/Rerun/adapters and fault-test groundwork. | External conventional-stack baseline, blinded audit tasks, complete fault/replay grading, second adapter, portability measurement, and independent reproduction. |
-| Paper B: intervention-grounded diagnostics | H1-A structural/scoring fixture and H2 arithmetic fixture; H4 attribution logging groundwork. | A real claim-matched paired H1-A study or randomized H1-B study, frozen matched baselines, manipulation checks, valid inference, availability–tested-response analysis, held-out families, and replication. |
+| Paper A: supported world-model decisions on one local budget | Native exact-fork decision contract plus run-log, bridge, and replay groundwork. | Qualified learned M4 adapter, supported held-out actions, proper forecast score, fixed-pool or adaptive-search trace, calibrated abstention, randomized complete policies, resource receipts, and replication. |
+| Paper B: linked fidelity tomography | Renderer/dynamics/policy/controller/selection protocol specification. | Authoritative state and camera identity, matched mesh/3DGS observations, learned/reference dynamics, reset frozen-policy response, downstream selection error, second scene family, and valid uncertainty. |
 | Paper C: conditional information decomposition or rigorous negative boundary | Pinned report-first estimator interface, abstention behavior, and recorded NO-GO/blocked status. | Matched-regime gates, oracle evidence, eligible local features, M2-over-M1 holdout comparison, negative-result boundary, and second-model/family replication. |
 
 None of these paper units is complete in 0.9. The software preview makes their current executable
@@ -347,6 +383,8 @@ groundwork and missing evidence auditable; it is not itself paper-level novelty 
 
 | Claim | Permitted statement | Prohibited statement |
 |---|---|---|
+| W1/W2 | The native exact-fork fixture proves the checked decision-contract semantics only. | Learned-model quality, physical truth, forecast validity, planning benefit, or M4 support. |
+| W3 | Linked matched fidelity panels are specified. | A matched mesh/3DGS result or global novelty claim. |
 | EC1 | The canonical run-log, local replay/conversion, and bounded content-addressed SAFE synthetic-ingress paths are implemented for tested fixtures. | EC1 is complete or provenance-complete beyond its registered universe, externally validated, independently reproduced, or deployment-ready. |
 | H1-A | The common preflight and deterministic finite-benchmark Protocol-A reference are fixture-runnable scoring primitives and establish no H1-A evidence. They cannot establish H1-B. | Unqualified “H1 passed,” a physical individual effect was observed, or the fixture demonstrates real intervention sensitivity. |
 | H1-B | The randomized closed-loop protocol is specified and blocked. | Protocol B exists as an executed study, or Protocol A establishes closed-loop effect modification. |

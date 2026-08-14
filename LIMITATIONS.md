@@ -3,7 +3,7 @@
 **Release scope:** Prisoma 0.9.0 public GitHub source prerelease and research-software preview
 
 **Author:** Sepehr Mahmoudian
-**Canonical research specification:** [`grandplan.md`](grandplan.md), docset v12.5
+**Canonical research specification:** [`grandplan.md`](grandplan.md), docset v13.0
 
 The Prisoma 0.9.0 source prerelease contains tested software groundwork and explicit research
 protocols. Its internal candidate decision record remains NO-GO and `published:false`; that field
@@ -13,7 +13,9 @@ production-deployment qualification. Passing a command in this repository establ
 behavior named by that command on its checked inputs. It does not establish causal identification,
 statistical validity, transportability, estimator application validity, or a thesis hypothesis.
 
-The machine-readable current state is
+The machine-readable W1-W3 state is
+[`protocols/world_model_claim_registry_v1.json`](protocols/world_model_claim_registry_v1.json).
+The preserved EC1/H1-H4 state is
 [`protocols/research_claim_registry_v1.json`](protocols/research_claim_registry_v1.json). The
 generated [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) is the software/evidence
 inventory. It currently has no `validated` rows. If this summary and the canonical specification
@@ -23,8 +25,11 @@ ever differ, the more restrictive statement governs until the discrepancy is rev
 
 | Area | Current status | What 0.9 does not establish |
 |---|---|---|
-| M0 governance | **Not freeze-ready.** Historical v1 remains non-promotable. The revised v2 successor is an all-null, unreviewed typed draft contract. | A preregistration, completed freeze candidate, substantive scientific review, or permission to begin confirmatory capture. |
+| Preserved diagnostic governance | **Not freeze-ready.** Historical v1 remains non-promotable. The active v3 successor is an all-null, unreviewed typed draft contract. Superseded v2 bytes remain historical. | WM0, a diagnostic preregistration, a completed freeze candidate, substantive scientific review, or permission to begin confirmatory capture. |
 | Confirmatory holdout | **None registered.** The access ledger contains a genesis record only. | Historical or off-repository non-access, independent custody, blinding, or a first-attempt result. |
+| W1 | A native exact-fork decision-contract reference is runnable. | Learned-model forecast validity, calibrated ranking, held-out support, or a useful-margin result. |
+| W2 | The native reference reconstructs fixed-pool selection and several closed-loop replans. | A randomized complete-policy comparison, planning benefit, or an M4 resource result. |
+| W3 | Linked dynamics, mesh/3DGS, policy-response, controller, and selection panels are specified. | An implemented renderer treatment, matched fidelity result, or new component-level priority claim. |
 | EC1 | Partial run-log, replay, bridge, Rerun-conversion, and synthetic SAFE-ingress groundwork. | Registered capture–replay fidelity and fault detection as an externally benchmarked claim, or completeness beyond the frozen universe. |
 | H1-A | A deterministic finite synthetic Protocol-A scoring reference and common preflight are runnable. | Real paired intervention-response evidence, a physical individual effect, or generalization beyond the fixture contract. |
 | H1-B | The randomized closed-loop protocol is specified but unimplemented. | Randomized assignment, intention-to-treat or effect-modification evidence, or closed-loop robustness. |
@@ -44,6 +49,9 @@ The following language is deliberately narrower than the project objectives.
 
 | Claim | Permitted for 0.9 | Prohibited for 0.9 |
 |---|---|---|
+| W1 | The native affine reference verifies one deterministic exact-fork forecast-commit, branch-label, selection, bridge-execution, and replay contract. | “W1 passed,” learned-model quality, physical forecast validity, causal transition validity, supported ranking benefit, or M4 model qualification. |
+| W2 | The native reference reconstructs one bounded multi-replan score-based selection fixture. | “W2 passed,” randomized complete-policy benefit, deployed-policy regret, deployment readiness, or an M4 resource result. |
+| W3 | The linked matched-panel protocol is specified. | Implementation, validation, a complete factorial or additive causal decomposition, global priority, or physical truth from a mesh or Gaussian splat. |
 | EC1 | Canonical run-log, local replay/conversion, and bounded content-addressed SAFE synthetic-ingress paths are implemented for the tested fixtures. | “EC1 is complete,” “provenance-complete beyond the registered universe,” “externally validated,” or “deployment ready.” |
 | H1-A | The schema-v2 preflight input contract, schema-v3 result artifact, and deterministic finite-benchmark Protocol-A software reference are fixture-runnable scoring primitives. They establish no H1-A evidence and cannot establish H1-B. | Unqualified “H1 passed,” “a physical individual effect was observed,” or “closed-loop robustness was established.” |
 | H1-B | A randomized closed-loop design is specified in the canonical plan; execution remains blocked. | Any statement that Protocol B was implemented, randomized, analyzed, or validated. Protocol A may not be substituted for Protocol B. |
@@ -72,6 +80,7 @@ just h1-preflight
 just h1-protocol-a
 just firebreak
 just h2-reference
+just world-model-reference
 just estimate-report-contract
 just exp0-bin
 just attribution-probe
@@ -89,7 +98,7 @@ it is not a success criterion that must be forced to GO.
 ## M0, holdout, and external-evidence limitations
 
 The real study cannot be frozen by filling null fields in the historical v1 scaffold. The checked
-v2 successor draft now types and content-binds the missing contract surface, including EC1 finite
+v3 successor draft now types and content-binds the missing contract surface, including EC1 finite
 acceptance with complete detection/replay/false-positive coverage and a mandatory, separately
 estimated absolute sensitivity floor for every registered fault–adapter pair—never an aggregate
 substitute—H1-A's typed response, comparator, positive-margin one-sided success, calibration,
@@ -98,16 +107,23 @@ positive-margin success, mandatory design checks, and directional replication; H
 prediction-object/target/censoring/one-primary-scoring-contract/non-rescuable-success contract,
 H3's full-population fallback policy, positive incremental-value margin, one-sided superiority
 decision, dependence-aware uncertainty, replication target, and warning dispositions, plus H3/H4
-selection and H4 target sampling, transport, one tuple/outcome, simultaneous inference,
+selection and a target-specific source-ancestry contract that excludes post-landmark observations
+and target injection. It also types H4 target sampling, transport, one tuple/outcome, simultaneous inference,
 uncertainty when target weights are estimated, exact fixed weights for an enumerated finite target,
-and joint power. A future candidate populates only its selected H1 and H3/H4 contracts. Inactive
-protocol slots stay null. The 2026-08-12 scoring correction reopened review of v2.
-Every freeze-bearing v2 value remains null. A real freeze still requires a new review and a
+and joint power. A future candidate populates EC1, H2, one selected H1 contract, and one selected
+H3-or-H4 contract. Inactive protocol slots stay null. The 2026-08-12 scoring correction reopened
+review. The ancestry-contract change moved the active draft from v2 to v3.
+Every freeze-bearing v3 value remains null. A real freeze still requires a new review and a
 separate completed candidate binding the target population, policy, embodiment,
 environment, intervention, outcomes, time origin, units, estimands, minimum useful effects,
 splits, multiplicity, power/precision design, missingness, rights, and analysis environment, plus
 the required review decisions and immutable receipts. No such signatures or decisions are
 represented in 0.9.
+
+The H3 ancestry role bindings are structural placeholders, not implemented roles. Prisoma has no
+ancestry producer, consumer validator, or per-row receipt schema. An H3 candidate therefore keeps
+the stable implementation blocker, and the validator rejects an H3 `frozen` state. This prevents
+ordinary prose or unrelated code from satisfying the ancestry contract by path and hash alone.
 
 Before confirmatory analysis, an independent custodian must register and control a real holdout,
 publish its commitment, and preserve the first frozen-candidate result including failures and
@@ -128,15 +144,23 @@ high-dimensional MI/coherence route is NO-GO, and continuous shared-exclusions P
 embeddings is not application-validated. An output may be computed only when declared support
 permits it; an abstention has no numeric placeholder and must not be interpreted as zero.
 
-Public `pid-rs` main was observed at `bbdfda40` on 2026-08-13. Its newer method catalogs,
+Public `pid-rs` main was observed at `7473e62` on 2026-08-13. Its estimator-code parent is
+`cb3f58f0`; the child changes custody and assurance surfaces only. Newer method catalogs,
 formal/categorical assurance work, source-errata records, and exact-certifier surfaces remain
-unadopted. Provenance improvements do not establish application validity.
+unadopted. Full exact-head CI is red in two jobs, while a narrower push receipt passed. Provenance
+improvements do not establish application validity.
 
 Population, measure, estimator, and application verdicts are separate. Geometry diagnostics and
-sampled-mean delta are descriptive and cannot clear those gates. Continuous shared-exclusions
-atoms and quantized discrete Williams–Beer `I_min` atoms are different estimands and must never be
-pooled or silently substituted. Quantization, PLS, scaling, and other fitted transformations must
-be fitted inside training folds for any future held-out comparison. H3 requires an eligible
+sampled-mean delta are descriptive and cannot clear those gates. The fitted categorical route
+constructs empirical categorical laws and targets the averaged two-source MGW shared-exclusions
+functional. Continuous Ehrlich shared exclusions, MGW categorical shared exclusions,
+Williams–Beer `I_min`, BROJA, finite-sample estimators, and infomorphic objectives are related but
+non-interchangeable objects. Prisoma does not use `I_min` or BROJA for an active hypothesis.
+Categorical reports retain empirical occupancy and a coverage warning indicator. Neither observed
+coverage nor a low singleton fraction proves coverage of the population law or removes plug-in
+bias.
+Quantization, PLS, scaling, and other fitted transformations must be fitted inside training folds
+for any future held-out comparison. H3 requires an eligible
 episode-local feature and a task-family-blocked M2-over-M1 comparison after the non-PID H1 or H2
 problem is established. Its primary comparison must retain the complete frozen target ledger and
 use the exact same-fold M1 output for each abstention. Neither path exists in 0.9.
@@ -152,6 +176,16 @@ Action-conditioned prediction is not an interventional transition by architectur
 randomized executed actions, support checks, execution receipts, proper scores, and calibration.
 Generated-video quality and task success cannot replace these tests.
 
+An action-conditioned state also cannot be a PID source for that exact proposal target. That design
+injects the target into the source. Cross-fitting does not remove the defect. A downstream command,
+later declared reference-state outcome, or separately measured physical outcome remains eligible
+only when the matched baseline gets the same proposal. Command or simulator-state prediction is
+not physical forecast validity. Each target needs a frozen prediction
+landmark before that target becomes available. Each source needs an ancestry receipt that proves
+availability by that landmark.
+The current shared artifact schema and offline harness do not validate that receipt. H3 remains
+blocked until a typed producer record and consumer check exist.
+
 Forward prediction and global latent non-collapse do not prove physical-state identity,
 action-sensitivity, or embodiment transfer. A finite-horizon world branch also does not supply
 task memory, failure recovery, or a correct replan schedule.
@@ -161,10 +195,33 @@ can execute stale or misindexed actions. Prisoma has no qualified asynchronous W
 Any future claim must bind observation, inference, dispatch, and execution times and test delay
 tails rather than report model latency alone.
 
-No reviewed WAM has a qualified Prisoma adapter. No predictive candidate has passed the local
-MPS, parity, latency, memory, rights, checkpoint-loader, and hook gates. Flex-\(\pi\) had no
-runnable code or checkpoint at the review cutoff. JEPA-WAM has released source and weights, but
-its reviewed stack is CUDA-only and its checkpoint uses pickle-based PyTorch serialization.
+The native affine world-model reference proves only exact-fork decision-contract semantics. Its
+learner and reference branches use the same deterministic law. It is not a qualified learned
+world model and cannot establish W1 or W2.
+
+Run-log schema 2 has no neutral inline decision-record event. The reference therefore stores its
+forecast commitment and execution receipt in strictly named `label_observed` compatibility
+envelopes. They are not outcome labels. Its verifier enforces their exact shapes and order. A
+future `pid-runlog` schema should add a content-bound decision record before this path becomes a
+general learned-model adapter.
+
+No reviewed external WAM has a qualified Prisoma adapter. No predictive candidate has passed the
+local MPS, parity, latency, memory, rights, checkpoint-loader, and hook gates. Flex-\(\pi\) had no
+runnable code or checkpoint at the review cutoff. VLA-JEPA's LeRobot code contains MPS-specific
+handling and safetensors branches, but that is not an end-to-end support claim. It has not passed the local
+qualification gates. Its policy path does not call
+the predictor. Its stock world-loss path also uses a future video window and learned Qwen latent-
+action tokens rather than clamped robot actions. Its pinned two-frame tubelet encoder makes even
+the earliest context depend on `t+1`. No stock prediction position is admissible as a row-aligned
+pre-action `D`. The compact LeWorldModel PushT planner is the first external port candidate because
+it exposes a candidate-action-conditioned latent query and CEM selection loop in a smaller stack.
+Its reviewed evaluator hard-codes CUDA. The documented conversion uses pickle-enabled loading, so
+Prisoma must instantiate the architecture and load a digest-bound state dictionary with
+`weights_only=True`. A one-seed independent reproduction covers only TwoRoom. It reports
+outcome-relevant conventions outside configuration files and conflicts among released evaluation
+settings. It does not test PushT, M4, other tasks, or seed variance. This requires a frozen
+paper/configuration/code concordance ledger. It is not evidence for or against W1 or W2. JEPA-WM
+remains a larger, noncommercial second planning benchmark.
 LiLa-WAM has no language input, no source-code license, and no MPS qualification. Its released
 inference loop does not call its future decoder. Efficient-WAM has released source and weights,
 but its reviewed joint sampler asserts CUDA before its nominal attention fallback and uses

@@ -10,8 +10,11 @@ scientific result, or a systematic review.
 - Starting state: clean `main`, equal to `origin/main`.
 - Starting `pid-rs` pin: `796c11e70f009634b853dc4ada6f565563d82f51`.
 - Current public `pid-rs` main observed during review:
-  `bbdfda40f0a49a2260b10eafdcb438fc61ae94e9`.
+  `7473e62acef6077c2c1147e09d5d1297f2a2874b`.
 - Canonical document on entry: `grandplan.md`, docset v12.5.
+- Canonical document after reconciliation: `grandplan.md`, docset v13.0.
+- Primary new family: W1 supported forecast fidelity with secondary ranking, W2 complete-policy selection, and W3 linked
+  fidelity tomography. All remain unfrozen and have no empirical result.
 - Review window: 2026-08-12 through 2026-08-13.
 - Holdout and real-study access: not authorized and not performed.
 - Submodule update: not performed.
@@ -41,9 +44,12 @@ have different edit rules.
 The audit uses 500 distinct claim-question-assurance views. This is a structured matrix, not a
 claim that 500 independent reviewers examined the project.
 
-The five claim families are EC1, H1, H2, H3, and H4. H1 must answer every relevant view separately
+The entry audit crossed five preserved claim families: EC1, H1, H2, H3, and H4. H1 must answer every relevant view separately
 for H1-A and H1-B. Each family is crossed with ten inference-chain questions and ten assurance
 lenses. Thus, `5 × 10 × 10 = 500` views.
+
+The v13.0 reconciliation applies the same questions and lenses to W1, W2, and W3. It does not
+relabel the original 500-view matrix or claim extra reviewers.
 
 `grandplan.md` §13 separately defines 50 concrete adversarial design lenses. Those lenses
 operationalize this audit's ten assurance categories. They do not inflate the 500-view count or
@@ -97,6 +103,14 @@ claim family. They need separate dispositions because they have different estima
 The assurance conclusions repeat across many cells. The audit stores them once rather than
 inflating repeated text into 500 rows.
 
+The additional v13 review records the primary family separately:
+
+| Claim | Question | Current software | Scientific status |
+|---|---|---|---|
+| W1 | Supported reference-state forecast; same-pool ranking is secondary | Native same-law contract fixture | Open and unfrozen; no learned-model evidence |
+| W2 | Complete-policy selection value under one M4 budget | Native multi-replan contract fixture | Open and unfrozen; no randomized policy result |
+| W3 | Linked dynamics, renderer, policy, controller, and selector fidelity | Protocol specification | Open and unfrozen; no matched mesh/3DGS panel |
+
 | Assurance lens | Cross-claim disposition |
 |---|---|
 | Construct | Each claim now names its construct. Real populations, margins, and claim selections remain unfrozen. |
@@ -104,22 +118,25 @@ inflating repeated text into 500 rows.
 | Statistical | Score, hierarchy, multiplicity, and uncertainty rules exist. Power inputs and final decisions remain open. |
 | Measurement | Event and label contracts are typed. Rights-approved real capture and complete outcome ontology remain open. |
 | Estimation | Synthetic and low-dimensional software checks exist. High-dimensional MI is NO-GO and continuous PID application use is BLOCKED. |
-| Time and transport | Leakage and split rules are explicit. No external or later-time replication exists. |
+| Time and transport | Leakage, source–target ancestry, and split rules are explicit. Each target needs a pre-availability landmark. A source conditioned on a proposal cannot target that proposal. Downstream targets require matched proposal access. Command prediction is not physical forecast validity. No external or later-time replication exists. |
 | Systems | Inputs and work are bounded. A run log cannot prove an upstream event that capture did not observe. |
 | Provenance | Content binding and replay exist for named artifacts. They are not process, identity, build, or remote attestation. |
 | Deployment | Costs and fallbacks are part of H3. No WAM or MPS candidate is locally qualified. |
-| Governance | The v2 draft exposes missing choices. It remains unreviewed, unfrozen, and non-promotable. |
+| Governance | The active v3 draft exposes missing choices and blocks H3 freeze on unimplemented ancestry roles. It remains unreviewed, unfrozen, and non-promotable. The superseded v2 bytes remain historical. |
 
 ## Claim decisions
 
 | Family | Final audit status | Governing correction |
 |---|---|---|
+| W1 | Same-law software reference only | Qualify a learned action-conditioned model, supported actions, proper forecast score, and same-pool ranking contract. |
+| W2 | Software decision contract only | Compare complete randomized policies under one frozen M4 resource budget. |
+| W3 | Specified only | Use linked matched panels. Do not claim a full factorial or global priority. |
 | EC1 | Software groundwork only | Define a finite registered acceptance universe. Do not claim universal provenance completeness. |
 | H1-A | Synthetic scoring reference only | Freeze one positive-margin, one-sided primary response-prediction contract. This is not a physical effect claim. |
 | H1-B | Unimplemented | Freeze one positive-margin, one-sided effect-specific endpoint plus every mandatory design check. Randomization does not establish unrestricted natural pathway use. |
 | H2 | Synthetic arithmetic reference only | Freeze one prediction object, score, risk, censoring law, assumptions, and uncertainty contract. |
 | H3 | Not eligible | Evaluate the full deployed eligibility-warning-abstention-fallback policy, not only cases where PID returns a number. |
-| H4 | Unimplemented | Preselect the alternative and companion branch. Do not switch to it after inspecting H3 on the same holdout. |
+| H4 | Exploratory reference only | Preselect the alternative and companion branch. Do not switch to it after inspecting H3 on the same holdout. |
 
 No scientific PID gate opened during this audit.
 
@@ -165,6 +182,20 @@ H3 now targets the full frozen population value of one deployed policy. The poli
 
 Eligible-only performance is descriptive. It cannot establish the confirmatory H3 claim.
 
+### PID scientific-object firewall
+
+Do not emit a `wibral_lineage` result identity. Use a provenance and estimand graph. Each artifact
+must declare its object kind, domain, defining reference, functional, evaluation kind, input-law
+kind, implementation, preprocessing, units, aggregation scope, and composition.
+
+MGW categorical shared exclusions is a functional on categorical probability laws. Ehrlich
+continuous shared exclusions is a distinct formulation with different support, gauge, and
+estimator assumptions. A finite-sample plug-in or kNN algorithm is an estimator, not the
+functional. Direct evaluation of a specified law is not a sample estimator. An infomorphic goal is
+a weighted composition of named atoms and other terms, not a new PID measure. Williams-Beer
+`I_min` and BROJA are separate measures and have no active Prisoma hypothesis. No result transfers
+across these objects without an explicit mapping theorem.
+
 ### NCP observer semantics
 
 The NCP review found three mapping assumptions that were unsafe to leave implicit:
@@ -181,19 +212,30 @@ These are software-contract fixes, not H1-A, H1-B, or H2 evidence.
 
 ### Low overhead
 
-“Lean” now means low overhead. The preferred architecture uses small typed contracts, bounded
-readers, exact ledgers, explicit abstention, and existing generators. It does not add a service,
-database, control plane, or viewer when a file or local process suffices.
+"Lean" now means low runtime and operator overhead. The preferred architecture uses small typed
+contracts, bounded readers, exact ledgers, explicit abstention, and existing generators. It does
+not add a service, database, control plane, or viewer when a file or local process suffices. Model
+qualification also measures end-to-end capture-to-command latency and tails, peak unified memory,
+model calls, artifact staging, fallback cost, and controller timing. Parameter count alone is not
+an overhead metric.
 
 ### Temporal and uncertainty assumptions
 
 The line-level implementation pass found two inferential ambiguities that broader gate runs had
 not exposed.
 
-- Missing `episode_id` values do not identify one time series. The harness may report descriptive
-  row-order lag pairs, but it now withholds AR(1)-derived sample-size and block-length heuristics
-  unless every row declares one complete episode with a strictly increasing canonical decimal
-  `metadata.sequence_index`. An episode id alone does not prove order.
+- Missing `episode_id` values do not identify one time series. The harness reports only descriptive
+  within-segment lag pairs. Rows without episode identities now produce none. The report emits no
+  derived sample-size or block-length heuristic. Each non-singleton segment also needs a strict
+  canonical sequence-index receipt. Only unit index advances contribute. The report counts gaps.
+- The lag statistic is a within-unit-step-run Pearson correlation. Axis summaries exclude columns
+  that are undefined after centering. Each axis records defined and total column counts. An
+  all-undefined axis emits no lag-1 value. Each run needs at least three lag pairs because two
+  pairs force Pearson correlation to positive or negative one.
+- The current report schema 5 retains a private process-local mutation seal over every serialized
+  field.
+  Publication verifies the seal. A deserialized report is read-only evidence, and the seal is not
+  a signature or process attestation.
 - One uncertainty request cannot assert incompatible row laws. A unit-block bootstrap may pair
   with full shuffle. A multi-row block bootstrap may pair with a dependence-preserving circular
   surrogate only with the same sequence-index receipt. A block-shuffle request must use the same
@@ -248,15 +290,24 @@ in one prefill and are class C. Rift also tests future-cache use through paired 
 interventions. World Action Planner is an explicit class-E planner. CheckVLA is a class-D
 execution verifier with a repair loop. None establishes an interventional transition law.
 
-The local decision keeps full video WAMs off the M4 critical path. SmolVLA is the first baseline
-candidate to qualify. SLIM is the first compact full-VLDA predictive candidate after rights,
-safe-loading, numerical, memory, latency, and hook gates pass. LiLa-WAM is a separate 0.5B
-no-language predictive ablation. Its released inference loop ignores returned shared tokens and
-does not call the future decoder.
+The local decision keeps full video WAMs off the M4 critical path. Prisoma runs its native contract
+first. The pinned LeWorldModel PushT planner is the first external world-model port because it
+exposes a candidate-action query and CEM selection loop in a smaller stack. Its upstream evaluator
+hard-codes CUDA, so MPS remains unqualified. A one-seed independent LeWM reproduction covers only
+TwoRoom. It adds a protocol-concordance obligation and no PushT, M4, W1, or W2 evidence. JEPA-WM
+is the second planning benchmark. SmolVLA is the matched direct-policy MPS baseline. VLA-JEPA is a bounded
+predictive-training comparator because its official LeRobot path has MPS-specific handling and uses
+safetensors. It is not a stock offline `D` producer. Policy inference does not call the predictor.
+The world-loss path mixes positions with different video-tubelet ancestry and conditions on learned
+latent-action tokens, not robot actions. Its full predicted tensor cannot enter a row-aligned
+pre-action `D`. The pinned two-frame tubelet encoder makes even the earliest context depend on
+`t+1`. SLIM is a smaller alternative after rights and safe-loading gates pass. LiLa-WAM is a
+separate 0.5B no-language predictive ablation. Its released inference loop ignores returned shared
+tokens and does not call the future decoder.
 
 The released JEPA-WAM source and model revisions are now bound. Its main checkpoint is a
 5,355,388,110-byte pickle-based artifact from a CUDA-tested stack. It is an MPS port candidate,
-not an MPS-qualified model. SmolVLA and SLIM remain ahead of it in the local sequence.
+not an MPS-qualified model. SmolVLA, VLA-JEPA, and SLIM remain ahead of it in the local sequence.
 
 Efficient-WAM's reviewed source and model revisions are also bound. The source is Apache-2.0, but
 the model repository has no card or declared weight license. Its roughly 1.98 GB checkpoint omits
@@ -306,20 +357,21 @@ cargo +1.93.0 test --locked --workspace --all-features --no-run
 cargo +1.93.0 test --locked --workspace --all-features
 ```
 
-Current public main `bbdfda40f0a49a2260b10eafdcb438fc61ae94e9` is 95 commits beyond the pin.
-Since the earlier `00fce70d` check, executable verifier scripts, schemas, assurance artifacts,
-prose, and tests changed. Three `pid-core` Rust source files changed only in documentation or
-comments. No Cargo manifest, public Rust signature, or executable Rust statement changed in that
-later interval. The consumer run covers the compiled and tested Prisoma Rust surface at
-`722d3abe`. Current head changes only assurance, workflow, script, and prose surfaces relative to
-that tested revision. The consumed crates, Cargo files, toolchain, and `pyproject.toml` are
-byte-identical.
+Current public main `7473e62acef6077c2c1147e09d5d1297f2a2874b` is 97 commits beyond the pin.
+The consumer run covers the compiled and tested Prisoma Rust surface at `722d3abe`. Head
+`bbdfda40` changes only assurance, workflow, script, and prose surfaces relative
+to that tested revision. Estimator-code anchor `cb3f58f0` adds one bounded KSG integration commit. Prisoma
+inspected its three changed production Rust files and replayed four predecessor-radius fixtures
+plus the structured overflow fixture.
+Current head `7473e62` changes custody and assurance files only. Its full CI run `31724449805`
+failed two jobs. The narrower `Push on main` run `31724449083` passed.
 
 This result establishes compatibility for the compiled and tested Rust consumer surface. It does
 not establish behavioral compatibility, schema migration, fixture equivalence, or scientific
-value. Current-head run `31651702557` completed with all 45 jobs passing on 2026-08-13.
-Current-head CodeQL run `31651702504` also passed. This closes the provider-CI check only.
-Consumer compatibility, schema, package, and scientific-value review remain adoption blockers.
+value. Exact-head CI run `31686107959` is red on a stale certified-SxPID2 workflow digest.
+Exact-head CodeQL run `31686106737` passed. Upstream still marks broader revision-4 KSG repository
+integration NO-GO. Consumer compatibility, schema, package, and scientific-value review remain
+adoption blockers.
 
 ## External integration refresh
 
@@ -340,7 +392,9 @@ and record a prepared-stream-monitor gap. They do not change the release decisio
 
 - Current Markdown was reconciled against the final claim boundaries.
 - `AGENTS.md` and `CLAUDE.md` now carry the same scientific stop rules.
-- The M0 v2 successor draft remains revised, unreviewed, and non-promotable.
+- The superseded M0 v2 draft remains historical. The active v3 successor remains all-null,
+  unreviewed, and non-promotable. H3 freeze is blocked on real ancestry producer, consumer, and
+  per-row receipt artifacts.
 - The v1 historical scaffold remains historical.
 - Capability views are regenerated from the catalog at source freeze. Any later bound-source edit
   requires another regeneration and check.
@@ -348,7 +402,12 @@ and record a prepared-stream-monitor gap. They do not change the release decisio
 - Immutable release review and requirements inputs remain unchanged.
 - `pid-rs/` remains clean at the pinned commit.
 
-## Verification ledger
+## Historical verification record
+
+The checklist below records the completed source-audit cycle already present in repository
+history. It is not a claim that a later working-tree refresh is complete. The cycle began at
+`6d6f895d57ec38feb417a6027cab8dcdf525ce2a` and ended at
+`58e8156f19df87ed79965fddbf8f1e869ea0583b`.
 
 - [x] Inventory and starting-state capture.
 - [x] Personal line-by-line read of `grandplan.md`.
@@ -363,8 +422,9 @@ and record a prepared-stream-monitor gap. They do not change the release decisio
 - [x] pid-rs-facing handoff draft.
 - [x] Deployed-graph WAM taxonomy and primary-source artifact review.
 - [x] Fifty-lens adversarial design framework in the canonical plan.
-- [x] Local MPS environment record: Apple M4 Max with 128 GiB; neither checked arm64 Python
-  environment contains PyTorch, so no model or MPS qualification was claimed.
+- [x] Local MPS environment record: Apple M4 Max with 128 GiB. The 2026-08-13 environments lacked
+  PyTorch. A separate 2026-08-14 exact-artifact probe produced finite repeatable synthetic LeWM
+  tensor and full-budget CEM outputs on MPS. It did not run PushT or establish qualification.
 - [x] Regenerated capability views and checked the research-governance bindings. The final
   capability regeneration followed the last bound-source edit.
 - [x] Full source Rust, Python, docs, governance, release-intake, and adversarial gates. Before
@@ -374,12 +434,16 @@ and record a prepared-stream-monitor gap. They do not change the release decisio
   source-tree review.
 - [x] Core source-audit commit `03b46396dc8908b35381d2779cc6e903f2e03652` pushed to
   `origin/main` and fetched back at the same revision.
-- [ ] Candidate regeneration, audit, commit, and push.
-- [ ] Final branch, worktree, submodule, and remote-state cleanup.
+- [x] Candidate artifacts rebound to the audited source in
+  `df9e67ec1c7979529fbb8191801e9d30cfe90ff3`.
+- [x] Candidate artifacts rebound after the governance CI repair in
+  `58e8156f19df87ed79965fddbf8f1e869ea0583b`.
+- [x] The next review opened with one `main` worktree, no stale local branch, a clean submodule,
+  and local `main` equal to `origin/main` at `58e8156f19df87ed79965fddbf8f1e869ea0583b`.
 
-The last two operations happen after this source-bound ledger freezes. Do not edit the source
-again only to mark its own later publication. Use the candidate artifacts, final Git history,
-fetched remote revision, and worktree inventory as the authoritative completion evidence.
+Do not edit a source-bound audit record only to predict its own later publication. For later
+refreshes, use candidate artifacts, Git history, the fetched remote revision, and the worktree
+inventory as the authoritative completion evidence.
 
 ## Promotion rule
 

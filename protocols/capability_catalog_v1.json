@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "as_of_date": "2026-08-13",
+  "as_of_date": "2026-08-14",
   "canonical_spec": {
     "path": "grandplan.md",
-    "version": "12.5",
+    "version": "13.0",
     "sections": [
       "§4 confirmatory claim-template registry",
       "§7 estimator gates",
@@ -69,6 +69,8 @@
       "evidence_scope": "local unit-tested single-request dispatch, bind/default/wire caps, enumerated WebSocket checks, and non-adversarial canonical/no-replace file behavior; not remote-security, forwarding/proxy, adversarial-filesystem, crash-durability, or scientific validation",
       "thesis_dependency": "required",
       "claim_ids": [
+        "W1",
+        "W2",
         "EC1"
       ]
     },
@@ -114,11 +116,11 @@
         "crates/pid-sim/fixtures/offline_vlda_fixture.json",
         "EXPERIMENTS.md"
       ],
-      "known_limitations": "Checked inputs are synthetic fixtures; emitted geometry and PID diagnostics do not establish population, measure, estimator, or application validity for real embeddings.",
+      "known_limitations": "Checked inputs are synthetic fixtures. The categorical-sx route estimates averaged two-source MGW shared exclusions on empirical laws after fitted equal-width quantization. It is not Williams-Beer I_min, Ehrlich continuous shared exclusions, an infomorphic objective, or a mapping among those objects. Emitted geometry, temporal, and PID diagnostics do not establish population, measure, estimator, or application validity for real embeddings. The process-local report seal detects mutation after analysis but is not a signature, process attestation, or authority to republish deserialized evidence.",
       "evidence_level": "E0",
       "evidence_basis": "intention_or_local_only",
-      "evidence_scope": "deterministic local fixture, strict split/provenance, and replay paths",
-      "thesis_dependency": "required",
+      "evidence_scope": "deterministic local fixture, report-schema-5 publication binding, fitted-quantizer and MGW-component receipts, within-unit-step temporal semantics, strict split/provenance, and replay paths",
+      "thesis_dependency": "conditional",
       "claim_ids": [
         "EC1",
         "H3"
@@ -147,7 +149,7 @@
       "evidence_level": "E1",
       "evidence_basis": "interface_specification",
       "evidence_scope": "content-addressed synthetic ingress and strict local conversion fixture",
-      "thesis_dependency": "required",
+      "thesis_dependency": "conditional",
       "claim_ids": [
         "EC1",
         "H1",
@@ -176,6 +178,9 @@
       "evidence_scope": "offline schema, path-safety, semantic-level, and generated-drift checks",
       "thesis_dependency": "required",
       "claim_ids": [
+        "W1",
+        "W2",
+        "W3",
         "EC1",
         "H1",
         "H2",
@@ -193,7 +198,7 @@
         "scripts/audit_repo_truth.py"
       ],
       "external_revision": null,
-      "test_command": "python scripts/audit_repo_truth.py",
+      "test_command": "just repo-truth-audit",
       "evidence_artifacts": [
         "protocols/ecosystem_evidence_current_v1.json",
         "docs/reviews/2026-07-12-grandplan-v12.5/prisoma_ecosystem_evidence_2026-07-12.csv"
@@ -380,6 +385,63 @@
       ]
     },
     {
+      "feature_id": "experiment.linked_fidelity_tomography",
+      "feature": "Linked mesh/3DGS, learned/reference dynamics, policy-response, and selection tomography",
+      "status": "specified",
+      "revision_inputs": [
+        "grandplan.md",
+        "ARCHITECTURE.md",
+        "DIAGRAMS.md",
+        "EXPERIMENTS.md",
+        "protocols/world_model_claim_registry_v1.json"
+      ],
+      "external_revision": null,
+      "test_command": null,
+      "evidence_artifacts": [
+        "grandplan.md",
+        "ARCHITECTURE.md",
+        "protocols/world_model_claim_registry_v1.json"
+      ],
+      "known_limitations": "No matched panel is implemented or executed. WorldSimProbe, Real-to-Sim Robot Policy Evaluation, and CoWAM cover important neighboring pieces. Prisoma therefore claims a proposed linked integration protocol, not priority, a complete factorial, an additive causal decomposition, or proof that either renderer is physical truth.",
+      "evidence_level": "E1",
+      "evidence_basis": "interface_specification",
+      "evidence_scope": "unfrozen W3 matched-identity and estimator-separation protocol only",
+      "thesis_dependency": "conditional",
+      "claim_ids": [
+        "W3"
+      ]
+    },
+    {
+      "feature_id": "experiment.world_model_reference",
+      "feature": "Native exact-fork world-model decision-contract reference",
+      "status": "tested",
+      "revision_inputs": [
+        "crates/pid-sim/src/world_model.rs",
+        "crates/pid-sim/src/bin/world_model_reference.rs",
+        "crates/pid-sim/src/lib.rs",
+        "crates/pid-sim/Cargo.toml",
+        "Cargo.toml",
+        "Cargo.lock",
+        "justfile"
+      ],
+      "external_revision": null,
+      "test_command": "just world-model-reference",
+      "evidence_artifacts": [
+        "crates/pid-sim/src/world_model.rs",
+        "crates/pid-sim/src/bin/world_model_reference.rs",
+        "protocols/world_model_claim_registry_v1.json"
+      ],
+      "known_limitations": "The bounded affine predictor is a software semantics fixture. It does not qualify a learned world model, estimate physical truth, establish an interventional transition, validate forecast or ranking quality, prove planning value, or show M4 support for an external model.",
+      "evidence_level": "E0",
+      "evidence_basis": "intention_or_local_only",
+      "evidence_scope": "deterministic exact-fork, fixed-pool, predict-score-select, pre-label commitment, bridge execution, and replay contract only",
+      "thesis_dependency": "required",
+      "claim_ids": [
+        "W1",
+        "W2"
+      ]
+    },
+    {
       "feature_id": "governance.m0_research_ledgers",
       "feature": "Machine-checkable M0 research-governance honesty scaffolds",
       "status": "tested",
@@ -387,6 +449,7 @@
         "grandplan.md",
         "protocols/m0_preregistration_skeleton_v1.json",
         "protocols/m0_preregistration_successor_draft_v2.json",
+        "protocols/m0_preregistration_successor_draft_v3.json",
         "protocols/holdout_registry_v1.json",
         "protocols/holdout_access_ledger_v1.jsonl",
         "protocols/transport_contamination_ledger_v1.json",
@@ -402,6 +465,7 @@
       "evidence_artifacts": [
         "protocols/m0_preregistration_skeleton_v1.json",
         "protocols/m0_preregistration_successor_draft_v2.json",
+        "protocols/m0_preregistration_successor_draft_v3.json",
         "protocols/holdout_registry_v1.json",
         "protocols/holdout_access_ledger_v1.jsonl",
         "protocols/transport_contamination_ledger_v1.json",
@@ -411,16 +475,44 @@
         "tests/python/test_research_governance.py",
         "tests/python/test_research_governance_successor.py"
       ],
-      "known_limitations": "Structural integrity validation only: the study is not frozen; no confirmatory holdout is registered; the local unsigned access chain cannot prove historical or off-repository non-access; transport, contamination, and rights assessments are incomplete; the legacy citation inventory is not a systematic review; and no scientific claim evidence follows. The v1 scaffold is intentionally non-promotable. The all-null v2 successor has typed content-bound obligations and its own validator, but the 2026-08-12 H2 correction reopened review, so it is not a freeze candidate.",
+      "known_limitations": "Structural integrity validation only: the study is not frozen; no confirmatory holdout is registered; the local unsigned access chain cannot prove historical or off-repository non-access; transport, contamination, and rights assessments are incomplete; the legacy citation inventory is not a systematic review; and no scientific claim evidence follows. The v1 scaffold is intentionally non-promotable. Superseded v2 bytes remain historical. The all-null v3 successor has typed content-bound obligations and its own validator, but the H2 and ancestry corrections require new review. The H3 ancestry producer, consumer validator, and per-row receipt schema are unimplemented, so H3 cannot freeze.",
       "evidence_level": "E0",
       "evidence_basis": "intention_or_local_only",
-      "evidence_scope": "offline v1/v2 schema, binding, hash-chain, typed-obligation, and honest-unfinished-state checks only",
+      "evidence_scope": "offline v1/v2/v3 schema, binding, hash-chain, typed-obligation, and honest-unfinished-state checks only",
       "thesis_dependency": "required",
       "claim_ids": [
         "H1",
         "H2",
         "H3",
         "H4"
+      ]
+    },
+    {
+      "feature_id": "governance.world_model_claim_ledger",
+      "feature": "Machine-checkable W1-W3 claim-boundary ledger",
+      "status": "tested",
+      "revision_inputs": [
+        "grandplan.md",
+        "protocols/world_model_claim_registry_v1.json",
+        "scripts/audit_repo_truth.py",
+        "tests/python/test_repo_truth_hardening.py"
+      ],
+      "external_revision": null,
+      "test_command": "just repo-truth-audit",
+      "evidence_artifacts": [
+        "protocols/world_model_claim_registry_v1.json",
+        "scripts/audit_repo_truth.py",
+        "tests/python/test_repo_truth_hardening.py"
+      ],
+      "known_limitations": "The audit checks local schema, artifact, command, and language boundaries. It is not a preregistration, authenticated holdout ledger, freeze approval, learned-model qualification, executed study, or scientific review.",
+      "evidence_level": "E0",
+      "evidence_basis": "intention_or_local_only",
+      "evidence_scope": "offline W1-W3 boundary and honest-unfinished-state checks only",
+      "thesis_dependency": "required",
+      "claim_ids": [
+        "W1",
+        "W2",
+        "W3"
       ]
     },
     {
@@ -502,7 +594,7 @@
         "pid-rs"
       ],
       "external_revision": "NCP@v0.8.0#2f5bd586d4bb20c90362bb6f5698b7f64057ba4e",
-      "test_command": "cargo test --locked --manifest-path crates/ncp-observer/Cargo.toml",
+      "test_command": "just ncp-observer-test",
       "evidence_artifacts": [
         "crates/ncp-observer/Cargo.lock",
         "crates/ncp-observer/pin_guard.rs",
@@ -603,32 +695,32 @@
     },
     {
       "feature_id": "proposal.m4_predictive_policy_qualification",
-      "feature": "M4 Max predictive-policy and world-action-model qualification",
+      "feature": "M4 Max action-conditioned world-model qualification",
       "status": "specified",
       "revision_inputs": [
         "docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md",
         "grandplan.md",
         "RESEARCH_VLA_D_NCP.md",
         "ARCHITECTURE.md",
-        "experiments/safe_adapter/README.md"
+        "EXPERIMENTS.md",
+        "protocols/world_model_claim_registry_v1.json"
       ],
       "external_revision": null,
       "test_command": null,
       "evidence_artifacts": [
         "docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md",
         "grandplan.md",
-        "RESEARCH_VLA_D_NCP.md"
+        "RESEARCH_VLA_D_NCP.md",
+        "protocols/world_model_claim_registry_v1.json"
       ],
-      "known_limitations": "No candidate is an integrated Prisoma dependency. No checkpoint has passed the required rights, safe-loader, CPU/MPS parity, finite-output, hook, latency, or unified-memory gates on this M4 Max. Published code and weight licenses remain separate. Literature and artifact review do not establish scientific validity.",
+      "known_limitations": "No learned candidate is integrated or qualified. The first external target is pinned LeWorldModel PushT. Its published planner uses adaptive CEM with 30 rounds, 300 samples per round, 30 elites, horizon five, and action blocks of length five. The upstream evaluator hard-codes CUDA, and no end-to-end MPS execution is verified. Its documented conversion uses pickle-enabled loading. A one-seed independent reproduction covers only TwoRoom and reports protocol-identity hazards; it is not PushT or M4 evidence. The reviewed stable-worldmodel package metadata declares MIT, but its source tree has no license file. JEPA-WM is the larger noncommercial second planning benchmark. No checkpoint has passed protocol-source concordance, rights, weights-only loading, CPU/MPS parity, finite-output, action-contract, adaptive-search reconstruction, latency, unified-memory, power-proxy, deadline, or simulator gates on this M4 Max. Flex-pi is intended-future conditioning rather than action-conditioned transition prediction and had no released runnable implementation at review time. VLA-JEPA is a predictive-training comparator, not the primary planner. A candidate-action-conditioned state cannot be a PID source for that same proposal target. A frozen prediction landmark and tensor-ancestry receipt remain mandatory. Literature review is not model qualification or scientific evidence.",
       "evidence_level": "E1",
       "evidence_basis": "interface_specification",
-      "evidence_scope": "prospective low-overhead M4 qualification contract and deployed-graph taxonomy only",
-      "thesis_dependency": "optional",
+      "evidence_scope": "prospective pinned LeWorldModel PushT CEM low-overhead M4 qualification contract with pre-outcome protocol-source concordance, second-rung JEPA-WM benchmark, and deployed-graph taxonomy only",
+      "thesis_dependency": "required",
       "claim_ids": [
-        "H1",
-        "H2",
-        "H3",
-        "H4"
+        "W1",
+        "W2"
       ]
     },
     {
@@ -678,6 +770,9 @@
       "evidence_scope": "pinned pid-runlog producer and Prisoma consumer tested together on schema-2 validation/replay fixtures",
       "thesis_dependency": "required",
       "claim_ids": [
+        "W1",
+        "W2",
+        "W3",
         "EC1"
       ]
     },
@@ -703,6 +798,9 @@
       "evidence_scope": "immutable registry dependency plus feature-gated local physics/manipulation tests; status carries the tests separately",
       "thesis_dependency": "optional",
       "claim_ids": [
+        "W1",
+        "W2",
+        "W3",
         "EC1"
       ]
     },
@@ -745,12 +843,13 @@
         "ARCHITECTURE.md",
         "pidsplatspecs.md"
       ],
-      "known_limitations": "The converter surfaces current summary/provenance/validation and attribution tracks, but the complete Phases 1-3 diagnostic blueprint and viewer are not built.",
+      "known_limitations": "The converter surfaces current summary, provenance, validation, and attribution tracks. It omits FrameObserved, reduces flow vectors to magnitudes, and ignores world-model candidate metadata. Pinned Rerun 0.34.1 has no anisotropic GaussianSplats3D archetype; its PLY path reduces splats to spherical points and ignores opacity. The complete Phases 1-3 blueprint is not built. The converter is a derived view, not W1-W3 evidence.",
       "evidence_level": "E2",
       "evidence_basis": "declared_immutable_dependency",
       "evidence_scope": "immutable narrow re_log_encoding/re_sdk/re_sdk_types registry dependencies plus local validating conversion/replay tests; status carries the tests separately",
-      "thesis_dependency": "required",
+      "thesis_dependency": "optional",
       "claim_ids": [
+        "W3",
         "EC1"
       ]
     },

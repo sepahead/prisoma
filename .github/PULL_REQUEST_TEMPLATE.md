@@ -21,4 +21,6 @@ Describe the change and its purpose in one short paragraph.
       `protocols/capability_matrix_current_v1.json`).
 - [ ] Predictive-policy claims name the deployed graph. Causal and planning terms satisfy
       `grandplan.md` section 9.2, "World-model experiments."
+- [ ] Any H3 source binds a target-specific prediction landmark before target availability and
+      proves source ancestry, target exclusion, and matched-proposal access.
 - [ ] No AI co-author trailers.

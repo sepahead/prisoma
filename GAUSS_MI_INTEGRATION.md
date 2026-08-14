@@ -7,7 +7,7 @@
 > - `EXPERIMENTS.md` — Capture protocols + quality gates
 > - `pid-rs/crates/pid-core` (submodule) — Rust implementation context (estimator changes land upstream in pid-rs, then the submodule is bumped; estimator code is never added to this repo directly)
 
-**Docset alignment:** docset v12.5 (optional E1 covariate/view-study design; the weighted-PID sketch is quarantined E0, not an estimator interface or direct ecosystem edge)
+**Docset alignment:** docset v13.0 (optional reconstruction-quality study; a W3 renderer treatment uses the separately frozen linked-fidelity protocol; the weighted-PID sketch remains quarantined E0)
 **Spec version:** 1.1
 **Originally proposed:** 2026-01-03
 **Last reconciled:** 2026-08-12

@@ -1,9 +1,9 @@
 //! # ncp-observer — prisoma's passive NCP tap
 //!
 //! A future conforming NEST/Engram publisher could become an optional `(V,L,D,A)`
-//! source. Unlike the reference `experiments/safe_adapter` implementation and its
-//! candidate critical-path real-data path, this integration remains exploratory,
-//! off-path, and PID-disabled by default.
+//! source. SAFE is the reference adapter for the preserved diagnostic family. Neither SAFE nor
+//! NCP is the W1-W3 critical path. This integration remains exploratory, off-path, and
+//! PID-disabled by default.
 //! This crate is a **read-only observer**: it subscribes to the NCP data-plane keys
 //! (`…/session/{id}/{sensor,command,observation}`) and converts each closed-loop
 //! tick into an `OfflineVldaSample`, writing both
@@ -11,8 +11,9 @@
 //! 1. an `OfflineVldaDataset` JSON artifact. The harness can run non-PID
 //!    diagnostics/baselines after verifying its publication receipt. Continuous
 //!    KSG/shared-exclusions requests abstain until a real producer supplies honest
-//!    population support; quantized discrete `I_min` remains a non-evidentiary
-//!    diagnostic with population `NotEvaluated` and application `Blocked`, and
+//!    population support; fitted categorical MGW shared exclusions remains a
+//!    non-evidentiary diagnostic with population `NotEvaluated` and application
+//!    `Blocked`, and
 //! 2. canonical run-log events (the source of truth): one `EmbeddingContract`
 //!    declaring the `(V,L,D,A)` variables, an `EmbeddingCaptured` per kept sample,
 //!    a `LabelObserved` per success label, and — at finalize — an `ArtifactLogged`
@@ -167,8 +168,8 @@ pub struct OfflineVldaDataset {
     /// NCP does not infer population support from observed samples. The offline
     /// harness therefore abstains from continuous KSG/shared-exclusions requests
     /// until a real producer supplies an independently justified declaration.
-    /// Quantized discrete `I_min` can run only as a non-evidentiary diagnostic:
-    /// population is `NotEvaluated` and application remains `Blocked`.
+    /// Fitted categorical MGW shared exclusions can run only as a non-evidentiary
+    /// diagnostic. Population is `NotEvaluated` and application remains `Blocked`.
     #[serde(default)]
     pub support: BTreeMap<String, String>,
     /// Commit receipt installed only after both the dataset and canonical run log

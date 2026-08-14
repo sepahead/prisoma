@@ -1,7 +1,7 @@
 # Prisoma Experiment Protocols
 
-This document is the executable runbook for current software proofs and the boundary for future
-scientific experiments. [`grandplan.md`](grandplan.md) is canonical when the two documents differ.
+This document is the executable runbook for the world-model-first program and the preserved
+diagnostic protocols. [`grandplan.md`](grandplan.md) is canonical when the two documents differ.
 
 The repository contains protocol groundwork. It does not contain a completed confirmatory study.
 
@@ -11,6 +11,9 @@ The repository contains protocol groundwork. It does not contain a completed con
 
 | Claim | Question | Runnable today | Current boundary |
 |---|---|---|---|
+| W1 | Does an action-conditioned model improve supported reference-state prediction? Does it also preserve action ranking under a separate secondary estimand? | Native decision-contract reference only | No learned M4 model, held-out dynamics, or frozen W1 study |
+| W2 | Does the complete selector improve episode outcomes under one M4 budget? | Native multi-replan contract reference only | No randomized complete-policy comparison or resource result |
+| W3 | Which dynamics, renderer, policy-response, or selector boundary explains failure? | Specification only | No matched mesh/3DGS and learned-model panel |
 | EC1 | Can registered accepted events be reconstructed and replayed under frozen margins? | Local schema, replay, adapter, and fault fixtures | No external finite acceptance study |
 | H1-A | Do pre-treatment diagnostics predict a paired frozen-snapshot response? | Common preflight and synthetic Protocol-A reference | Real policy, environment, dose, and estimand remain unfrozen |
 | H1-B | Do pre-treatment diagnostics predict randomized closed-loop effect modification? | Specification only | No randomized implementation or evidence |
@@ -18,7 +21,9 @@ The repository contains protocol groundwork. It does not contain a completed con
 | H3 | Does the full PID/abstention/exact-fallback policy add value on the target population? | Estimator diagnostics and bounded harness | Not eligible; high-dimensional path is NO-GO |
 | H4 | Does availability diverge from response to one tested intervention? | Exploratory attribution reference | No availability or tested-response evidence |
 
-The machine-readable source is
+The machine-readable W1-W3 source is
+[`protocols/world_model_claim_registry_v1.json`](protocols/world_model_claim_registry_v1.json).
+The preserved EC1/H1-H4 source is
 [`protocols/research_claim_registry_v1.json`](protocols/research_claim_registry_v1.json).
 
 ### 0.2 Executable runbook
@@ -29,7 +34,8 @@ Run the stages in this order:
 |---|---|---|---|
 | Repository quality | `just check` | The locked code, tests, docs, and generated notices agree | Scientific validity or release readiness |
 | Formal abstractions | `just formal` | The stated SMT abstractions and countermodels hold | The implementation refines every abstraction |
-| M0 governance | `just research-governance` | Current unfinished ledgers are structurally valid | Freeze readiness |
+| Diagnostic governance | `just research-governance` | Current unfinished EC1/H ledgers are structurally valid | WM0 or diagnostic freeze readiness |
+| World-model contract | `just world-model-reference` | Exact fork, fixed pool, pre-label publication, reference labels, bridge execution, and replay reconstruct | Learned-model quality, physical truth, W1, or W2 |
 | EC1 groundwork | `just runlog-sidecars-proof` and `just runlog-rerun-proof` | Local fixtures reconstruct and convert | External replay validation |
 | PID firebreak | `just firebreak` | Static baselines run without PID atoms or NCP | H1 or H2 evidence |
 | H1 preflight | `just h1-preflight` | The checked fixture satisfies the common contract | A physical response estimate |
@@ -45,11 +51,106 @@ genuinely complete. Do not weaken those checks to make them pass.
 ### 0.3 Data-source rule
 
 The harness is source-agnostic over one strict `(V,L,D,A)` contract. The reference adapter
-implementation is `experiments/safe_adapter`. It is the candidate critical-path real-data producer.
-Local simulator fixtures are cross-checks.
+implementation is `experiments/safe_adapter`. It is a candidate producer for the preserved
+diagnostic program, not the primary W1/W2 path. Local simulator fixtures are cross-checks.
 
-The NCP observer is optional and off the critical path. It is not a substitute for a real SAFE
-capture. `D` is a declared source axis, not an assumed depth channel.
+The NCP observer is optional and off the critical path. It is not a world-model adapter. Within
+the preserved diagnostic family, it is also not a substitute for a real SAFE capture. `D` is a
+declared source axis, not an assumed depth channel.
+
+### 0.4 World-model-first protocol
+
+#### 0.4.1 Native decision-contract reference
+
+Run:
+
+```bash
+just world-model-reference
+```
+
+The reference learns a bounded affine transition from deterministic simulator rows. At every
+decision, it:
+
+1. captures one immutable simulator fork;
+2. creates one ordered pool with at least two supported actions;
+3. predicts and scores every candidate;
+4. writes and flushes the complete commitment before oracle access;
+5. executes only the selected candidate through the Agent Bridge;
+6. commits the selected-execution receipt;
+7. labels every candidate on an independent branch restored from the saved fork;
+8. verifies the run log, bridge replay, `Flow_gt`, and decision semantics.
+
+The typestate API exposes selected execution only after forecast publication succeeds. A second
+typestate transition exposes oracle labeling only after the execution receipt exists. Execution
+rejects a live session whose simulator state differs from the committed fork. A fixed-pool test
+changes only the learned action response and requires the selected action to change. These are
+software contract checks. The learner and reference labels use the same affine deterministic simulator.
+This same-law fixture cannot provide independent model validation. It establishes no physical
+validity, held-out forecast value, or closed-loop benefit.
+
+Schema 2 has no neutral inline decision record. The reference carries forecast commitments and
+execution receipts in strictly named `label_observed` compatibility envelopes. They are not
+outcome labels. The verifier enforces their exact shape and order.
+
+#### 0.4.2 W1 forecast study and secondary ranking study
+
+Before capture, freeze:
+
+- one reset-state population, one proposal-or-executed-action randomization level, and one
+  supported design distribution;
+- one declared later reference-state outcome and horizon, or one separately measured physical outcome;
+- one proper primary score and positive useful margin;
+- current-only, current-plus-action direct cost, kinematic, no-future, action-shuffled,
+  future-shuffled, repeated-query, and proposal-headroom controls;
+- one action-support distance and abstention rule;
+- calibration, subgroup, dependence, and multiplicity rules;
+- one M4 deadline, latency tails, memory cap, power proxy, and missed-deadline rule.
+
+For the primary score, every method receives the same fork, randomized supported action assignment,
+declared action fields, history, language, controller contract, and budget. Commit each prediction
+and abstention before its shared
+label. Keep proper-score improvement primary.
+
+Ranking is secondary. Use either one precommitted ordered pool or one fully recorded adaptive
+search. For an adaptive optimizer, record every proposal round, score, elite set, distribution
+update, stopping state, and final recommendation. Separately score and commit a final CEM mean or
+Nevergrad recommendation when it was not sampled. Treat Policy Top-1, inversion rate, and action
+sensitivity as secondary unless one is promoted before holdout access.
+
+#### 0.4.3 W2 complete-policy study
+
+Randomize complete deployed policies across independent reset blocks. Include:
+
+1. one frozen nominal policy;
+2. a same-budget multiple-proposal direct policy;
+3. a direct action-value or cost predictor;
+4. simple dynamics or kinematic MPC;
+5. the learned predictor with selection disabled;
+6. the same predictor with frozen score-based selection.
+
+Match proposal count, action support, observation history, controller, and deadline. Use one
+episode-level primary endpoint and intention-to-treat analysis. Fork-local candidate-set regret is
+a secondary same-pool selector diagnostic. It is not deployed-policy regret.
+
+#### 0.4.4 W3 linked mesh/3DGS tomography
+
+Use one content-bound ledger to link four panels:
+
+- reference transition from the declared simulator;
+- the exact state trajectory and camera rendered through mesh and 3DGS;
+- the same frozen policy evaluated on those matched observations;
+- the same candidate pool passed through the learned predictor and selector.
+
+Rendering must never change collision geometry, dynamics, actions, state, timestamps, or camera.
+Without paired real observations, mesh-versus-3DGS is an observation-substrate contrast, not a
+rendering-error estimate. Report pixel/feature, immediate policy, closed-loop policy, forecast, and
+selection effects as different estimands. Do not add them into one error budget.
+
+Bind the authoritative state, every dynamic body and joint, contact state, controller state, and
+body/link-to-representation map. Bind camera intrinsics, distortion, crop, resolution, clipping,
+pose, exposure, color transform, tone mapping, shutter, motion blur, frame time, and synchronization.
+Reset policy memory, KV cache, history, and randomness for matched immediate queries. A failed
+identity check invalidates the treatment. A valid zero effect is a reportable negative result.
 
 ## 1. Evidence rules shared by every experiment
 
@@ -242,11 +343,25 @@ Available modes are:
 | Mode | Computation | Scientific identity |
 |---|---|---|
 | `none` (default) | Baselines and geometry only | No MI or PID request |
-| `continuous` | KSG MI and continuous shared exclusions | Conditional, currently application-blocked |
-| `discrete` | Equal-width quantization and Williams–Beer `I_min` | Different measure and estimand |
-| `discrete-pls` | Train-fit PLS followed by quantized `I_min` | Different measure with supervised projection |
+| `continuous` | KSG MI and Ehrlich-style continuous shared exclusions | Distinct continuous functional and estimator; application-blocked |
+| `categorical-sx` | Fitted equal-width quantization, then empirical-PMF MGW SxPID2 | New categorical variables; informative, misinformative, and net atoms |
+| `categorical-sx-pls` | Scope-fit PLS, fitted quantization, then empirical-PMF MGW SxPID2 | Supervised same-row diagnostic with a typed warning; the split screen uses train rows only and never scores held-out rows |
 
-Discrete modes never rescue a failed continuous estimate. Do not pool outputs across modes.
+The categorical modes call pinned
+`pid_core::stable::quantized::fitted_quantized_sxpid2_with_budget`. They do not call `I_min` or
+BROJA. They never rescue a failed continuous estimate. Do not pool fitted-categorical and
+continuous outputs, even though both belong to the shared-exclusions literature.
+
+Every `categorical-sx-pls` estimate is `produced_with_warning`. The PLS transform uses the same
+target rows that the categorical screen analyzes. This route measures a fitted empirical law and
+selection inflation. It is not a held-out estimate or an inferential high-dimensional escape hatch.
+
+Do not emit a `wibral_lineage` result identity. Each current result must name its full-team
+functional, estimator revision, source and target variables, transform, units, and gate verdict.
+A future direct-law or objective result must also bind evaluation kind, input-law kind,
+aggregation scope, and composition. MGW categorical shared exclusions, continuous Ehrlich shared
+exclusions, a statistic that estimates either, a direct declared-law evaluator, and an infomorphic
+training objective are related but non-substitutable. Transfer requires a mapping theorem.
 
 ### 5.3 Admission and diagnostics
 
@@ -258,16 +373,27 @@ The harness checks all work before expensive analysis. It binds:
 - Main, uncertainty, and total distance projections.
 - Distance-coordinate projections.
 - Dense-solver projections.
+- Fitted-quantization and categorical-SxPID operation projections.
 - Applied resource limits.
 
 It also records static majority, 1-NN, centroid, and held-out logistic baselines when labels and
-splits permit them. Geometry diagnostics do not replace any PID gate.
+splits permit them. Categorical results retain the estimator's occupancy, singleton, low-count,
+coverage-indicator, and unseen-state caveat fields. These do not prove population support.
+Geometry diagnostics do not replace any PID gate.
 
 ### 5.4 Activation rule
 
 H3 remains inactive unless all four gates pass inside one frozen regime. One regime is one tuple
 of measure, preprocessing, and estimator configuration. Its primary denominator is the complete
 frozen target ledger. Each abstention uses the exact same-fold M1 output.
+
+Freeze the source–target ancestry before H3 can activate. Freeze a target-specific prediction
+landmark before target realization or availability. Each source must exist at that landmark and
+must not contain its target. Reject an action-conditioned state as a source when its
+input is the exact candidate action used as the PID target. Cross-fitting does not repair this
+target injection. A downstream command, later declared reference-state outcome, or separately
+measured physical outcome is eligible only when the matched baseline receives the same proposal.
+Command or simulator-state prediction is not physical forecast validity.
 
 If H3 activates, use the frozen matched-access comparator registry and predeclared selection or
 ensemble rule. Measure incremental predictive or decision value out of fold. Report warning,
@@ -322,8 +448,10 @@ The strict held-out path expects:
 - Episode disjointness when enabled.
 - Honest per-axis provenance markers when enabled.
 
-The capture adapter must declare population support per axis. Observed cardinality, ties, or
-geometry cannot infer that declaration.
+The capture adapter must declare population support per axis. Each continuous MI/PID tuple also
+needs a separate `continuous_tuple_support` declaration. It asserts that all required marginal and
+joint laws are regular, full-dimensional, absolutely continuous, and finite-information.
+Per-axis continuity does not imply that tuple contract. Observed values cannot infer either one.
 
 ## 8. Resource configuration
 
@@ -333,11 +461,13 @@ with an explicit reviewed `--resource-limits-json` file.
 The file is strict JSON, bounded to 64 KiB, and rejects unknown or zero fields. The applied values
 and projected usage enter the report configuration hash.
 
-The same configuration binds report contract `prisoma.offline_vlda.report/2`. Publication rejects
+The same configuration binds report contract `prisoma.offline_vlda.report/5`. Publication rejects
 an unversioned or unknown report contract instead of inferring compatibility from JSON shape.
+Publication also verifies a private process-local digest over all serialized report fields. A
+deserialized summary has no such authority. Rerun the analysis before publishing from saved data.
 
 Optional uncertainty is admitted together with the main analysis. A large bootstrap or permutation
-request fails before the main analysis begins. Schema 2 records the row topology and null
+request fails before the main analysis begins. Schema 3 records tuple support, row topology, and null
 calibration. Current resamplers fail closed when mixed episode identifiers or multiple
 non-singleton episodes would force a block or shift across boundaries. Multi-row block
 subsampling and circular shifts require one episode with a strictly increasing canonical decimal
@@ -347,8 +477,15 @@ row-exchangeability assumption. The CLI requires an
 explicit block size for every bootstrap and circular-shift request. It requires an explicit scheme
 for every permutation request. A combined request cannot mix an exchangeable-row bootstrap with a
 serial surrogate, or a block bootstrap with a full shuffle. Restricted circular shifts yield
-approximate surrogate tail fractions, not p-values. The temporal AR(1) screen is descriptive. Its
-derived hints require the same sequence-index receipt and cannot select a block length by itself.
+approximate surrogate tail fractions, not p-values. The temporal screen computes
+within-unit-step-run Pearson lag-1 correlations. Its axis means exclude columns that are undefined
+after centering, including constant columns. They report their defined-dimension coverage. The report
+emits no lag value without episode identities. Every non-singleton segment also needs a strict
+canonical `sequence_index` receipt. Only adjacent rows whose index advances by one contribute. The
+report counts excluded gaps. It centers both lagged vectors inside each contiguous run before
+pooling residual products. A run needs at least three lag pairs. Two pairs force Pearson
+correlation to positive or negative one. It reports admitted and correlation-eligible pair counts.
+It derives no estimator sample size or block length. Justify either quantity independently.
 
 ## 9. Reproducibility checklist
 
@@ -370,7 +507,7 @@ Before any evidentiary run:
 For release work, require exact pushed-commit CI evidence. Local success is not a post-push
 attestation.
 
-## 10. Optional studies
+## 10. Primary world-model and optional studies
 
 ### 10.1 Reconstruction quality
 
@@ -380,12 +517,33 @@ covariate and active-view study. No implementation or validated observation law 
 Do not implement the rejected GauSS-MI-weighted KSG sketch. It lacks a population functional and
 consistency argument.
 
-### 10.2 External world-model comparator
+### 10.2 Learned world model and linked fidelity study
 
-[`WORLD_WARP_INTEGRATION.md`](WORLD_WARP_INTEGRATION.md) specifies an optional external comparator.
-It requires a pinned adapter, matched support, rights review, and content-bound outputs.
+The native exact-fork reference is implemented. W1 and W2 require a pinned learned-model adapter,
+matched action support, rights review, content-bound outputs, and measured M4 resource receipts.
+The first port target is the compact LeWorldModel PushT CEM path frozen in `grandplan.md`.
+Reproduce its 30-round, 300-sample, 30-elite, horizon-five, five-action-block search before
+freezing a reduced-budget M4 arm. Its end-to-end upstream evaluator hard-codes CUDA and has no
+verified MPS path. One exact-package synthetic probe ran direct prediction, latent rollout, and the
+full CEM loop on MPS. This does not establish preprocessing, PushT, closed-loop, or planner parity.
+The one-seed independent TwoRoom reproduction does not test PushT or M4. It found unconfigured
+pipeline conventions, conflicting evaluation settings, and a separation between one-step error
+and long-horizon planning. Audit the analogous PushT fields across paper, configuration, and code.
+Freeze each unresolved feasible reading before outcomes. Fit action scaling on training rows only. Inverse-transform every proposal and enforce the frozen
+raw-action support rule. It remains an MPS candidate until all gates pass. Use JEPA-WM as the
+second planning benchmark after a separate noncommercial-rights decision.
 
-Generated scenes are not causal ground truth. This comparator is off the critical path.
+W3 links identical authoritative state trajectories and cameras across mesh and 3DGS observations.
+It binds body/link representations, camera and photometric parameters, frame timing, asset lineage,
+and policy reset state. It links the same fork and action set across learned and reference dynamics.
+It measures immediate frozen-policy response and downstream policy effects in separate designs.
+Rendering must not change collision geometry, dynamics, reset state, or action execution.
+
+[`WORLD_WARP_INTEGRATION.md`](WORLD_WARP_INTEGRATION.md) remains an optional legacy comparator
+specification. It requires a pinned adapter, matched support, rights review, and content-bound
+outputs.
+
+Generated scenes are not causal ground truth. WorldWarp is off the critical path.
 
 Classify each candidate by its deployed graph before capture. Keep predictive co-training,
 intended-future conditioning, coupled joint generation, action-conditioned prediction, and
@@ -410,13 +568,20 @@ overlaps inference, also bind observation capture, inference start and finish, c
 indices, dispatch, and acknowledgement. Compare delay tails and alignment error before comparing
 smoothing methods.
 
+Do not screen \(D \to A^\pi\) when \(D\) was computed from that exact proposal. A controller or
+executed-command target is eligible only with the same proposal in the matched baseline and cannot
+establish physical forecast validity. Use a separately measured physical outcome for that claim
+and give the matched baseline the same proposal. Alternatively, keep the forecast inside the frozen class-D/E
+comparison. Bind each tensor's maximum ancestor time to the target-specific prediction landmark.
+
 The full protocol and M4 qualification sequence are in the
 [WAM frontier review](docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md).
 
 ### 10.3 Rendering and UI
 
-Gaussian-splat rendering and a Tauri/SparkJS shell are deferred surfaces. They may visualize
-evidence, but they cannot become control authorities or prerequisites for the core protocols.
+The matched mesh-versus-3DGS treatment is planned W3 research. A generic Gaussian-splat runtime
+and the Tauri/SparkJS shell remain deferred. Rendering and UI may consume evidence, but they cannot
+become control authorities or prerequisites for the exact-fork decision path.
 
 ## 11. Interpretation checklist
 

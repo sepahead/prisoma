@@ -72,6 +72,10 @@ capability-matrix:
 capability-matrix-check:
     uv run --no-sync python scripts/generate_capability_matrix.py --check
 
+# Exact repository-truth audit used by capability rows and docs-audit.
+repo-truth-audit:
+    uv run --no-sync python scripts/audit_repo_truth.py
+
 # Fail-closed integrity audit for the frozen 0.9 review intake. This validates the
 # tracked baseline and imported task graph; it deliberately does not claim that any
 # substantive task, file, human review, or scientific gate is complete.
@@ -120,12 +124,36 @@ firebreak:
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/firebreak_runlog.jsonl | awk '{ for (i=1; i<=NF; i++) seen[$i]=1 } END { exit !(seen["pid_metrics=0"] && seen["pid_metric_events=0"]) }'
     @echo "firebreak OK: core builds NCP-disabled; static label baselines requested no PID atoms"
 
+# Native, zero-model-download exact-fork decision-contract reference. This learns a tiny
+# action-conditioned transition from the deterministic fixture, commits predictions before
+# reference labels, selects from one ordered pool, and executes only through the Agent Bridge.
+# It proves software semantics only. It is not evidence for learned-model or physical fidelity.
+world-model-reference:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    proof_dir="$(mktemp -d "${TMPDIR:-/tmp}/prisoma-world-model.XXXXXX")"
+    trap 'rm -rf "$proof_dir"' EXIT
+    cargo run --locked -p pid-sim --bin pid-world-model-reference -- \
+      --run-log "$proof_dir/reference.jsonl" \
+      --summary "$proof_dir/reference.summary.json"
+    cargo run --locked -p pid-sim --bin pid-world-model-reference -- \
+      --verify "$proof_dir/reference.jsonl"
+    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml \
+      --bin pid-runlog-replay -- --validate "$proof_dir/reference.jsonl"
+    cargo run --locked -p pid-rerun --bin runlog-to-rerun -- \
+      "$proof_dir/reference.jsonl" --save "$proof_dir/reference.rrd"
+    test -s "$proof_dir/reference.rrd"
+
 # Deterministic, offline NCP wire-0.8 fault suite. Published artifacts must
 # reconstruct exactly; explicit retry alone may clean writer-reserved crash scratch.
 ncp-fault-observatory out="outputs/ncp_fault_observatory":
     cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-fault-observatory -- --out-dir {{ quote(out) }}
     cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-fault-observatory -- --verify {{ quote(out) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(out) }}/observatory-runlog.jsonl
+
+# Complete tests for the workspace-excluded read-only NCP observer crate.
+ncp-observer-test:
+    cargo test --locked --manifest-path crates/ncp-observer/Cargo.toml
 
 # Experiment 0 gate (Rust-side smoke subset).
 # Full Experiment 0 will later be orchestrated via python/experiments/.
@@ -299,7 +327,7 @@ notices-check:
 offline-harness input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_runlog.jsonl" summary="outputs/offline_vlda_summary.json":
     cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --pid-mode continuous
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | awk '{ for (i=1; i<=NF; i++) seen[$i]=1 } END { exit !(seen["pid_metrics=4"] && seen["pid_metric_events=4"] && seen["geometry_metrics=20"] && seen["geometry_metric_events=20"] && seen["evaluation_metrics=149"] && seen["evaluation_metric_events=238"]) }'
+    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | awk '{ for (i=1; i<=NF; i++) seen[$i]=1 } END { exit !(seen["pid_metrics=0"] && seen["pid_metric_events=0"] && seen["geometry_metrics=20"] && seen["geometry_metric_events=20"] && seen["evaluation_metrics=149"] && seen["evaluation_metric_events=238"]) }'
 
 offline-harness-require-labels input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_labeled_runlog.jsonl" summary="outputs/offline_vlda_labeled_summary.json":
     cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --require-success-labels
@@ -316,7 +344,7 @@ offline-harness-uncertainty input="crates/pid-sim/fixtures/offline_vlda_fixture.
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -F 'evaluation_metrics=149' >/dev/null
     test -s {{ quote(unc) }}
-    python -c 'import sys; sys.flags.optimize == 0 or sys.exit("recipe checks require unoptimized Python"); import json; d=json.load(open(sys.argv[1], encoding="utf-8")); assert d["schema_version"]==2; assert d["mode"]=="skipped:episode_aware_resampling_required_for_row_topology"; assert d["row_topology"]=="multiple_episodes_with_repeated_rows"; assert d["pairs"]==[]' {{ quote(unc) }}
+    python -c 'import sys; sys.flags.optimize == 0 or sys.exit("recipe checks require unoptimized Python"); import json; d=json.load(open(sys.argv[1], encoding="utf-8")); assert d["schema_version"]==3; assert d["mode"]=="skipped:episode_aware_resampling_required_for_row_topology"; assert d["row_topology"]=="multiple_episodes_with_repeated_rows"; assert d["pairs"]==[]' {{ quote(unc) }}
 
 offline-harness-require-heldout input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_heldout_runlog.jsonl" summary="outputs/offline_vlda_heldout_summary.json":
     cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --require-heldout-split
@@ -333,13 +361,15 @@ offline-harness-require-heldout-episode-disjoint input="crates/pid-sim/fixtures/
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -F 'errors=0' >/dev/null
 
+# Resource and non-PID stress only. This fixture deliberately omits the complete-tuple declarations
+# required by continuous estimators.
 offline-harness-highdim input="crates/pid-sim/fixtures/offline_vlda_highdim_fixture.json" runlog="outputs/offline_vlda_highdim_runlog.jsonl" summary="outputs/offline_vlda_highdim_summary.json":
     cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --resource-limits-json crates/pid-sim/fixtures/offline_vlda_highdim_limits.json --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
 
-# Positive-path continuous fixture: every axis DECLARED absolutely continuous, equal ambient source
-# dimensions (continuous shared exclusions requires them), tie-free. All 6 requested estimates are
-# produced — the counterpart to `offline-harness`, whose binary-L fixture abstains.
+# Positive-path continuous fixture: every axis and complete tuple carries the synthetic-DGP
+# declaration required by the estimators. Source dimensions are equal, and samples are tie-free.
+# All 6 requested estimates are produced. The mixed fixture omits tuple declarations and abstains.
 offline-harness-continuous input="crates/pid-sim/fixtures/offline_vlda_continuous_fixture.json" runlog="outputs/offline_vlda_continuous_runlog.jsonl" summary="outputs/offline_vlda_continuous_summary.json":
     cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --pid-mode continuous
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
@@ -347,17 +377,17 @@ offline-harness-continuous input="crates/pid-sim/fixtures/offline_vlda_continuou
 # Exercise both report outcomes. The mixed-support fixture must abstain without numeric
 # placeholders; its all-continuous counterpart must produce every requested estimate.
 estimate-report-contract: offline-harness offline-harness-continuous
-    python -c 'import sys; sys.flags.optimize == 0 or sys.exit("recipe checks require unoptimized Python"); import json; a=json.load(open("outputs/offline_vlda_summary.json", encoding="utf-8")); b=json.load(open("outputs/offline_vlda_continuous_summary.json", encoding="utf-8")); collect=lambda d: [d["metrics"]["mi_v_action"], d["metrics"]["mi_l_action"], d["metrics"]["mi_d_action"], *d["metrics"]["pid_pairs"].values()]; ao=collect(a); bo=collect(b); numeric={"value", "co_information", "mi_joint_action", "mi_source_1_action", "mi_source_2_action", "redundancy", "synergy", "unique_source_1", "unique_source_2"}; assert len(ao)==6 and sum(x["status"]=="abstained" for x in ao)==4 and sum(x["status"]=="produced" for x in ao)==2; assert all(numeric.isdisjoint(x) for x in ao if x["status"]=="abstained"); assert len(bo)==6 and all(x["status"]=="produced" for x in bo); assert a["metrics"]["estimate_denominators"]["abstained"]==4 and b["metrics"]["estimate_denominators"]["abstained"]==0'
-    python -c 'import sys; sys.flags.optimize == 0 or sys.exit("recipe checks require unoptimized Python"); import json, math; expected={"offline_vlda.pid.mi_v_action", "offline_vlda.pid.mi_d_action", "offline_vlda.pid.train_split.mi_v_action", "offline_vlda.pid.train_split.mi_d_action"}; events=[event for line in open("outputs/offline_vlda_runlog.jsonl", encoding="utf-8") if (event:=json.loads(line)).get("type")=="pid_metric"]; assert len(events)==len(expected)==4 and {event["name"] for event in events}==expected; assert all(event["metadata"].get("computation_status")=="produced" and math.isfinite(event["value"]) for event in events)'
+    python -c 'import sys; sys.flags.optimize == 0 or sys.exit("recipe checks require unoptimized Python"); import json; a=json.load(open("outputs/offline_vlda_summary.json", encoding="utf-8")); b=json.load(open("outputs/offline_vlda_continuous_summary.json", encoding="utf-8")); collect=lambda d: [d["metrics"]["mi_v_action"], d["metrics"]["mi_l_action"], d["metrics"]["mi_d_action"], *d["metrics"]["pid_pairs"].values()]; ao=collect(a); bo=collect(b); numeric={"value", "co_information", "mi_joint_action", "mi_source_1_action", "mi_source_2_action", "redundancy", "synergy", "unique_source_1", "unique_source_2"}; assert len(ao)==6 and all(x["status"]=="abstained" for x in ao); assert all(numeric.isdisjoint(x) for x in ao); assert len(bo)==6 and all(x["status"]=="produced" for x in bo); assert a["metrics"]["estimate_denominators"]["abstained"]==6 and b["metrics"]["estimate_denominators"]["abstained"]==0'
+    python -c 'import sys; sys.flags.optimize == 0 or sys.exit("recipe checks require unoptimized Python"); import json; events=[event for line in open("outputs/offline_vlda_runlog.jsonl", encoding="utf-8") if (event:=json.loads(line)).get("type")=="pid_metric"]; assert events==[]'
 
-# Discrete (quantized I_min) PID mode; results carry saturation diagnostics (grandplan §8.1.6).
-offline-harness-discrete input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_discrete_runlog.jsonl" summary="outputs/offline_vlda_discrete_summary.json":
-    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --pid-mode discrete --discrete-bins 8
+# Fitted-quantized categorical MGW shared-exclusions PID with signed components.
+offline-harness-categorical-sx input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_categorical_sx_runlog.jsonl" summary="outputs/offline_vlda_categorical_sx_summary.json":
+    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --pid-mode categorical-sx --categorical-bins 8
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
 
-# PLS-project sources toward A, then discrete PID (high-dim escape hatch).
-offline-harness-discrete-pls input="crates/pid-sim/fixtures/offline_vlda_highdim_fixture.json" runlog="outputs/offline_vlda_highdim_dpls_runlog.jsonl" summary="outputs/offline_vlda_highdim_dpls_summary.json":
-    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --resource-limits-json crates/pid-sim/fixtures/offline_vlda_highdim_limits.json --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --pid-mode discrete-pls --pls-components 2 --discrete-bins 8
+# Same-row target-supervised PLS diagnostic. Every estimate carries a typed warning.
+offline-harness-categorical-sx-pls input="crates/pid-sim/fixtures/offline_vlda_highdim_fixture.json" runlog="outputs/offline_vlda_highdim_categorical_sx_pls_runlog.jsonl" summary="outputs/offline_vlda_highdim_categorical_sx_pls_summary.json":
+    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --resource-limits-json crates/pid-sim/fixtures/offline_vlda_highdim_limits.json --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --pid-mode categorical-sx-pls --pls-components 2 --categorical-bins 8
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
 
 # M1 run-log smoke path.

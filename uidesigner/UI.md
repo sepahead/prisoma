@@ -20,10 +20,11 @@ recorded events. Every mutation goes through the Agent Bridge.
 - Show hashes, revisions, actors, and artifact identities near derived views.
 - Never imply that a missing metric equals zero.
 - Never imply that PID is always available or valid.
+- Show W1/W2 support, forecast, selection, execution, and scientific status as separate fields.
 - Use text and shape in addition to color.
 - Keep optional rendering and NCP state out of the default navigation.
 
-The five parts below are design prompts. None is a release commitment.
+The six parts below are design prompts. None is a release commitment.
 
 ## 2. Run library
 
@@ -108,7 +109,37 @@ events, labels, and diagnostics. The current adapter does not implement this com
 }
 ```
 
-## 5. Run comparison
+## 5. Supported decision inspector
+
+This deferred view makes the native W1/W2 decision contract easy to audit. It does not qualify a
+learned world model or claim that selection improves outcomes.
+
+```json
+{
+  "type": "ui_part",
+  "id": "world_model_decision",
+  "title": "Supported World-Model Decision Inspector",
+  "milestone": "deferred Rerun decision-contract view",
+  "requirements": [
+    "Show the exact simulator fork, decision id, model identity, and candidate-pool digest.",
+    "Show whether the decision used a fixed pool or adaptive optimization.",
+    "For a fixed pool, list ordered actions with support, forecast, score, and reference outcome.",
+    "For adaptive search, show rounds, proposals, scores, elites, updates, and the scored final recommendation.",
+    "Show publication time before oracle access, selected action, execution receipt, and replan index.",
+    "Show model-call count, cold start, p50, p95, p99 with uncertainty, memory, and fallback status.",
+    "Separate software-contract validity, W1 status, and W2 status.",
+    "Do not label a forecast causal, physically valid, or beneficial without its frozen evidence."
+  ],
+  "prompt_seed": "Professional Prisoma decision inspector in a compact scientific desktop layout. Header shows fork hash, decision id, model, checkpoint, decision-contract type, and replan index. A fixed-pool table shows ordered actions, support, forecast, score, reference outcome, and selection. An adaptive-search panel shows CEM rounds, proposals, elite sets, distribution updates, and the separately scored final mean. A sequence strip shows Forecast published, Selected, Bridge executed, Receipt committed, Oracle opened, and Labels verified. Side panel shows model calls, cold start, p50, p95, p99 with uncertainty, peak memory, fallback, and separate Software Contract, W1, and W2 status. Use Unknown where no measurement exists. No causal badge, planning-benefit claim, or decorative robot render.",
+  "negative_prompt": "causal world model badge, autonomous success claim, hidden candidates, missing oracle timing, universal planner, game HUD, invented latency, mobile UI",
+  "image": {"width": 1536, "height": 1024},
+  "score_threshold": 9.0,
+  "max_iterations": 10,
+  "allow_img2img": true
+}
+```
+
+## 6. Run comparison
 
 Comparison is an optional replay analysis. It must state the alignment and tolerance contract.
 Prisoma does not currently implement a complete cross-backend comparison application.
@@ -135,7 +166,7 @@ Prisoma does not currently implement a complete cross-backend comparison applica
 }
 ```
 
-## 6. Reconstruction-quality study
+## 7. Reconstruction-quality study
 
 This optional E1 design supports a future reconstruction-quality covariate study. It does not
 implement weighted PID, information gain, or active-view optimization.
@@ -163,7 +194,7 @@ implement weighted PID, information gain, or active-view optimization.
 }
 ```
 
-## 7. Prompt utility
+## 8. Prompt utility
 
 `uidesigner/prompt_loop.py` is an optional operator-run design aid. It extracts these JSON blocks,
 generates an image through FAL, and asks Vertex AI for a bounded critique. It does not build UI code.

@@ -16,6 +16,8 @@ component design. [EXPERIMENTS.md](EXPERIMENTS.md) contains executable proof com
 | Complete Rerun diagnostic application | Specified, not implemented |
 | Tauri/SparkJS shell | Deferred |
 | `(V,L,D,A)` offline harness | Implemented bounded software path |
+| Exact-fork world-model decision reference | Implemented software conformance path |
+| External learned-world-model adapter | Not implemented or MPS-qualified |
 | H1 common preflight | Implemented by `pid-h1-preflight` |
 | H1 Protocol-A reference | Synthetic finite benchmark only |
 | H2 reference | Synthetic fixed-horizon arithmetic only |
@@ -162,6 +164,15 @@ controller output, and executed action separately when they differ. An asynchron
 must also record observation capture, inference start and finish, committed-prefix indices,
 dispatch, acknowledgement, and measured end-to-end delay.
 
+Before H3 admission, bind one target-specific prediction landmark before target availability.
+Bind the maximum observation time in each tensor's ancestry to that landmark. A source must not
+contain its PID target. In particular, reject a
+candidate-action-conditioned `D` when that exact proposal is the target. A downstream command,
+later declared reference-state outcome, or separately measured physical outcome remains eligible
+only when the matched baseline receives the same proposal. Command or simulator-state prediction
+is not physical forecast validity. The current artifact schema does not yet
+validate this receipt.
+
 Strict held-out analysis uses a boolean `success` label and a recognized `split` value. Stronger
 gates can require class coverage, episode disjointness, and accepted axis-provenance markers.
 
@@ -169,8 +180,9 @@ gates can require class coverage, episode disjointness, and accepted axis-proven
 
 ### 7.1 Admission
 
-The harness admits raw bytes, decoded structure, projected distance work, coordinate work, and dense
-solver work before analysis. Limits apply to in-memory and file entry points.
+The harness admits raw bytes, decoded structure, projected distance work, coordinate work, dense
+solver work, and fitted-categorical PID work before analysis. Limits apply to in-memory and file
+entry points.
 
 The default file reader accepts one bounded regular non-symlink snapshot on supported Unix hosts.
 It verifies the same descriptor identity before and after the read and at the lexical path.
@@ -190,18 +202,41 @@ These are static factual-outcome baselines. They are not the H1 response or H2 p
 
 ### 7.3 PID modes
 
-`none` requests no MI or PID estimates. `continuous` requests KSG-based continuous shared
-exclusions. `discrete` requests quantized Williams–Beer `I_min`. `discrete-pls` fits PLS before the
-same quantized measure.
+`none` requests no MI or PID estimates. `continuous` requests KSG-based Ehrlich continuous shared
+exclusions. `categorical-sx` fits equal-width quantizers and estimates the averaged two-source MGW
+shared-exclusions functional on the resulting empirical categorical laws. `categorical-sx-pls`
+fits PLS toward `A` on the same rows used by the fitted categorical screen. Every such estimate
+has a `produced_with_warning` status and an estimator-blocked same-row reason. The split screen
+uses train rows only. It does not score held-out categorical rows. This route is a descriptive
+selection-inflation diagnostic, not an inferential escape hatch.
 
-These modes name different analysis contracts. The harness never pools their atoms or uses one as
-an automatic fallback for another.
+These modes name different analysis contracts. The categorical routes are not Williams–Beer
+`I_min`, BROJA, the continuous Ehrlich functional, or an infomorphic objective. The harness never
+pools their atoms or uses one as an automatic fallback for another.
 
 ### 7.4 Reports
 
 The report records:
 
-- Report contract `prisoma.offline_vlda.report/2` in its hashed configuration.
+- Report contract `prisoma.offline_vlda.report/5` in its hashed configuration.
+- Per-axis support plus one explicit `continuous_tuple_support` value for every requested
+  continuous MI/PID tuple. The tuple assertion covers all required marginal and joint laws and
+  finite information. Per-axis continuity cannot substitute for it.
+- One fitted-quantization receipt per axis for categorical modes. Each receipt binds the defining
+  functional, quantizer, estimator route, canonical edge hash, transform hashes, dimensions,
+  information units, occupancy, and out-of-range policy. The estimate outcome records nats
+  separately.
+- Per-pair empirical-PMF occupancy, singleton, low-count, coverage-indicator, and unseen-state
+  caveat fields from the pinned MGW estimator. They do not prove population support.
+- A private process-local seal over every serialized report field. Publication rejects a changed
+  or deserialized report. The seal is mutation detection, not an external signature.
+- Within-unit-step-run Pearson lag-1 means and defined-dimension coverage for each axis. These are
+  descriptive only. Missing episode identities produce no lag pairs. Each non-singleton segment
+  also needs a strict canonical sequence index. Only adjacent rows whose index advances by one
+  contribute. The report counts excluded gaps. It centers each contiguous run before pooling
+  residual products. A run needs at least three lag pairs because two pairs force Pearson
+  correlation to positive or negative one. The screen produces no inferential sample-size or
+  block-length suggestion. It reports admitted and correlation-eligible pair counts separately.
 - Exact input identity.
 - Estimator and measure identity.
 - Preprocessing provenance.
@@ -212,13 +247,13 @@ The report records:
 - Applied resource limits and projected usage.
 
 Optional uncertainty stays in a separately content-bound sidecar. It cannot alter the main report
-after publication. Sidecar schema 2 records row topology and calibration. It returns a typed skip
+after publication. Sidecar schema 3 records tuple support, row topology, and calibration. It returns a typed skip
 when current row transforms would cross dependent episode boundaries. Serial transforms require
 one episode and a strictly increasing canonical decimal `metadata.sequence_index`. Restricted
 circular shifts produce surrogate tail fractions, not p-values. A combined bootstrap and
 permutation request must use one row-dependence class. An `episode_id` alone does not establish
-order. The temporal AR(1) screen does not establish an estimator effective sample size or a valid
-block length.
+order. The temporal Pearson lag-1 screen does not establish an estimator effective sample size or
+a valid block length.
 
 ## 8. H1 and H2 reference contracts
 
@@ -252,10 +287,11 @@ and local path confinement before the first viewer write.
 The complete diagnostic panel set is not implemented. A future viewer must remain read-only and
 must derive all state from canonical evidence.
 
-## 10. Optional rendering and comparator interfaces
+## 10. World-model and rendering interfaces
 
-Gaussian splats, reconstruction-quality covariates, world-model comparators, and custom product UI
-are optional studies or deferred surfaces. They are not required by the runtime contract.
+The native exact-fork world-model reference uses this control and evidence spine. Learned-model
+and linked mesh-versus-3DGS studies must also preserve it. Reconstruction covariates, the legacy
+WorldWarp comparator, and custom product UI remain optional or deferred.
 
 A world-model adapter must state whether prediction runs at deployment. A planning adapter must
 record at least two proposals, their predictions and scores, and the score-caused selection.
