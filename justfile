@@ -42,6 +42,7 @@ check:
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --all-features --no-deps
     just python-lint
     just python-test
+    just firebreak
     just docs-audit
     just notices-check
 
@@ -116,10 +117,7 @@ firebreak:
       --input crates/pid-sim/fixtures/offline_vlda_fixture.json \
       --summary-json outputs/firebreak_summary.json --runlog outputs/firebreak_runlog.jsonl \
       --pid-mode none
-    grep -q '"majority_success_accuracy"' outputs/firebreak_summary.json
-    grep -q '"heldout_logreg_vlda_success_accuracy"' outputs/firebreak_summary.json
-    grep -q '"pid": "disabled"' outputs/firebreak_summary.json
-    grep -q '"requested": 0' outputs/firebreak_summary.json
+    jq -e '(.metrics.majority_success_accuracy | type == "number") and (.metrics.heldout_logreg_vlda_success_accuracy | type == "number") and .config.metric_pipeline.pid_mode == "Disabled" and .config.metric_pipeline.mi_functional == "not_requested" and .config.metric_pipeline.pid_functional == "not_requested" and .config.metric_pipeline.mi_estimator == "not_applicable" and .config.metric_pipeline.pid_estimator == "not_applicable" and .metrics.estimate_denominators.requested == 0 and .metrics.estimate_denominators.estimated == 0 and .metrics.estimate_denominators.abstained == 0 and .metrics.pid_pairs == {} and .metrics.mi_v_action.status == "not_requested" and .metrics.mi_l_action.status == "not_requested" and .metrics.mi_d_action.status == "not_requested"' outputs/firebreak_summary.json >/dev/null
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/firebreak_runlog.jsonl
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/firebreak_runlog.jsonl | awk '{ for (i=1; i<=NF; i++) seen[$i]=1 } END { exit !(seen["pid_metrics=0"] && seen["pid_metric_events=0"]) }'
     @echo "firebreak OK: core builds NCP-disabled; static label baselines requested no PID atoms"

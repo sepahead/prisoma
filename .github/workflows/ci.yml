@@ -88,10 +88,22 @@ jobs:
           # binary still links shared pid-core geometry and logistic code. This is dependency
           # groundwork, not H1 response scoring or prospective H2 landmark prediction.
           cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/prisoma_firebreak_summary.json --runlog /tmp/prisoma_firebreak_runlog.jsonl --pid-mode none
-          grep -q '"majority_success_accuracy"' /tmp/prisoma_firebreak_summary.json
-          grep -q '"heldout_logreg_vlda_success_accuracy"' /tmp/prisoma_firebreak_summary.json
-          grep -q '"pid": "disabled"' /tmp/prisoma_firebreak_summary.json
-          grep -q '"requested": 0' /tmp/prisoma_firebreak_summary.json
+          jq -e '
+            (.metrics.majority_success_accuracy | type == "number") and
+            (.metrics.heldout_logreg_vlda_success_accuracy | type == "number") and
+            .config.metric_pipeline.pid_mode == "Disabled" and
+            .config.metric_pipeline.mi_functional == "not_requested" and
+            .config.metric_pipeline.pid_functional == "not_requested" and
+            .config.metric_pipeline.mi_estimator == "not_applicable" and
+            .config.metric_pipeline.pid_estimator == "not_applicable" and
+            .metrics.estimate_denominators.requested == 0 and
+            .metrics.estimate_denominators.estimated == 0 and
+            .metrics.estimate_denominators.abstained == 0 and
+            .metrics.pid_pairs == {} and
+            .metrics.mi_v_action.status == "not_requested" and
+            .metrics.mi_l_action.status == "not_requested" and
+            .metrics.mi_d_action.status == "not_requested"
+          ' /tmp/prisoma_firebreak_summary.json >/dev/null
           "$PID_RUNLOG_REPLAY" --validate /tmp/prisoma_firebreak_runlog.jsonl
           "$PID_RUNLOG_REPLAY" /tmp/prisoma_firebreak_runlog.jsonl | grep -F 'pid_metrics=0' >/dev/null
           "$PID_RUNLOG_REPLAY" /tmp/prisoma_firebreak_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null

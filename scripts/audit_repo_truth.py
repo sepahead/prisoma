@@ -1685,7 +1685,18 @@ def _audit() -> int:
 
     for relative in ("justfile", ".github/workflows/ci.yml"):
         text = _read_regular_text(ROOT / relative, label=relative)
-        for required in ("--pid-mode none", "pid_metrics=0", "pid_metric_events=0"):
+        for required in (
+            "--pid-mode none",
+            '.metrics.majority_success_accuracy | type == "number"',
+            '.metrics.heldout_logreg_vlda_success_accuracy | type == "number"',
+            '.config.metric_pipeline.pid_mode == "Disabled"',
+            '.config.metric_pipeline.mi_functional == "not_requested"',
+            '.config.metric_pipeline.pid_functional == "not_requested"',
+            ".metrics.estimate_denominators.requested == 0",
+            ".metrics.pid_pairs == {}",
+            "pid_metrics=0",
+            "pid_metric_events=0",
+        ):
             if required not in text:
                 problems.append(f"{relative} firebreak is missing {required!r}")
         if "H1/H2 baseline predictors" in text:
