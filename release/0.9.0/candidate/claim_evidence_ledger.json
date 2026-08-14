@@ -41,10 +41,10 @@
           "sha256": "88a62e1d945a0de57d6abc064adae94f72b31ccdff196b19060654bc01df4877"
         },
         {
-          "bytes": 32822,
-          "inventory_entry_sha256": "254d5c07d599cf1dc6bb55ff743f5dd09b44815019f03d95ae512a915986eaa9",
+          "bytes": 34076,
+          "inventory_entry_sha256": "aa2f11f7fbd588ce5dbb009929b4649f6a1446b4cd1bd54de121f3bdc00f8d4d",
           "path": "tests/python/test_repo_truth_hardening.py",
-          "sha256": "46953bb1d91b8947a2495b5567a6ce119edb3b9bd74ed9cb7523547b6943245d"
+          "sha256": "a665ad302ce60606a41a0b83bf1af0f406d4e12d060c219195c679e04309fb26"
         }
       ],
       "decision": "PENDING_POST_PUSH_VERIFICATION",
@@ -236,9 +236,9 @@
       "content_bindings": [
         {
           "bytes": 57615,
-          "inventory_entry_sha256": "b44c2dafbaf7b498259a63ab275c0b6178e536326427ad81d8381317f97e769b",
+          "inventory_entry_sha256": "2fef84efb2da8698bbe21af3e76355a55dde794627df547a03cc50946e8efdf1",
           "path": "protocols/capability_matrix_current_v1.json",
-          "sha256": "944ff13e9f24c761c08c07baacc322ea8b6fa4accffeac624b5ca683b9d489a5"
+          "sha256": "57f1a55f571ef36c219c60f13cc8cf6a2541ed8aea8ecfb3def623360fad5dff"
         },
         {
           "bytes": 21113,
@@ -577,7 +577,7 @@
   "record_type": "candidate_claim_to_evidence_ledger",
   "release_version": "0.9.0",
   "schema_version": "prisoma.release-candidate/0.1.0",
-  "source_state_sha256": "58c921d0305a8d46fcedf210425609982ace5b7aa45e2641664a45f479e23f1e",
+  "source_state_sha256": "3d1ad5dd7d68f995dd21c7cb416430fe2cc6cc35a30983db26a97e62f723d772",
   "status_contract": {
     "scientific_statuses": [
       "blocked_not_established",
