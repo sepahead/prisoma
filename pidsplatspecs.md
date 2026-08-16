@@ -214,6 +214,14 @@ These modes name different analysis contracts. The categorical routes are not Wi
 `I_min`, BROJA, the continuous Ehrlich functional, or an infomorphic objective. The harness never
 pools their atoms or uses one as an automatic fallback for another.
 
+The full method identity and publication rules are in
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md).
+Every new route must name one functional, one exact quantity or lattice coordinate, and one tagged
+evaluator-or-estimator edge. The cumulative or Möbius-inverted construction, component,
+aggregation, law kind, source count and order, target, transform, row relation, units, support or
+gauge, validation status, and application verdict are mandatory. A mathematically valid extension
+may remain a research route, but it cannot inherit the identity or evidence of another PID.
+
 ### 7.4 Reports
 
 The report records:
@@ -254,6 +262,12 @@ circular shifts produce surrogate tail fractions, not p-values. A combined boots
 permutation request must use one row-dependence class. An `episode_id` alone does not establish
 order. The temporal Pearson lag-1 screen does not establish an estimator effective sample size or
 a valid block length.
+
+A later group-schedule API must record which callbacks admit repeated rows. Sampling an episode
+with replacement duplicates its numeric coordinates. A new occurrence ID does not make those
+coordinates distinct for continuous kNN. A continuous callback must abstain unless its own sample
+contract admits the realized schedule. Without-replacement group subsampling is a diagnostic with
+its own target, not an automatically calibrated bootstrap interval.
 
 ## 8. H1 and H2 reference contracts
 

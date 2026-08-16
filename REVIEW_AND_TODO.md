@@ -29,11 +29,16 @@ The repository is strongest as a **research specification plus a small, serious 
 
 The main current risks (superseded/updated 2026-07-10) are:
 
-1. High-d MI/coherence is NO-GO; continuous `I^sx` is NOT VALIDATED because Exp0 needs a
-   measure-specific gate. The m-out-of-n output is a stability envelope, not a calibrated CI.
+1. High-dimensional MI/coherence is NO-GO. Continuous `I^sx` has bounded low-dimensional named-
+   fixture evidence, but no matched high-dimensional estimator regime or Prisoma application
+   validation. Exp0 records atom-measure validation as `not_adjudicated` and atom-estimator
+   validation as `blocked`. The m-out-of-n output is a stability envelope, not a calibrated CI.
 2. SAFE conversion exists, but evidentiary capture is blocked on H1 local scores/baselines,
    frozen perturbation transforms, task eligibility, and a nested power design.
-3. Python packaging is wired for local Maturin builds and consumer-tested against pid-rs 1.0’s narrow stable report-first API; default wheels intentionally exclude the deprecated scalar/research surface.
+3. Python packaging is wired for local Maturin builds and consumer-tested against the exact
+   `pid-rs` 0.9.0 post-tag review pin's narrow preview of the proposed 1.0 report-first API.
+   Prisoma makes no 1.x compatibility or publication claim; default wheels intentionally exclude
+   the deprecated scalar/research surface.
 4. `pid-rerun` is useful for validated run-log conversion and diagnostics, but remains a prototype viewer adapter rather than the full Phase 1–3 diagnostic product.
 5. `meshmaker/` was quarantined out of tracking 2026-06-13 (tombstone README only); release residual: `api_keys.txt` must live outside the tree. The orphaned asset reports `FINAL_INTEGRITY_REPORT.md`/`GENERATION_REPORT.md` were deleted 2026-07-06.
 6. The 2026-07-10 audit found substantive doc drift despite green heuristic audits; companion
@@ -73,7 +78,9 @@ Additional documentation-only consistency checks from the 2026-05-10 pass:
 
 #### Concerns
 
-- The default KSG configuration clamps negative MI estimates to zero, which is practical for reports but risky for algebraic cancellation, co-information, and invariant checks.
+- The historical zero-clamping concern is closed at the exact pin: `KsgConfig::default()` uses
+  `NegativeHandling::Allow`, and PID2 forces signed MI terms. Future adapters must keep clamping a
+  presentation-only opt-in because pre-subtraction clamping breaks PID identities.
 - `Pid2Config` now rejects incoherent KSG/ISX settings for `k`, metric, and `tie_epsilon`; the remaining concern is documenting which estimator settings are appropriate for each evidence regime.
 - `pid3_isx` now rejects non-Chebyshev metrics until research-gated support is explicitly added.
 
@@ -292,9 +299,52 @@ The repo needs a cleanup pass that separates the canonical project from local ex
 ### P2: Later Improvements
 
 10. Add approximate or parallel kNN only after correctness gates are stable. *(Exact parallel done 2026-06-14: `cargo … --manifest-path pid-rs/crates/pid-core/Cargo.toml --features parallel` runs the KSG kNN data-parallel via rayon, producing results identical to the serial path — the full pid-core suite incl. the independent cross-validation passes under the feature, validated by a dedicated CI job. Only the **approximate** kNN variant — which would change results — remains deferred per the "after correctness gates are stable" caution.)*
-11. Add a discrete/quantized PID fallback. *(Done 2026-06-11/12: 2- and 3-source discrete PID with an `I_min`-style redundancy (Williams–Beer, explicitly not discrete `i^sx_∩`, see grandplan §7.6 Discrete PID gate) — plus harness `--pid-mode discrete|discrete-pls` and per-pair saturation diagnostics.)*
+11. Preserve the discrete Williams–Beer comparator, but remove its fallback role. *(The 2026-06-11/12 work implemented 2- and 3-source `I_min`-style PID and its saturation diagnostics. That valid work remains in `pid-rs` for research and compatibility. Prisoma no longer exposes it as an active harness mode, active sensitivity branch, or rescue after continuous abstention. The active fitted categorical route is MGW shared exclusions on new empirical categorical laws. The two PIDs are never pooled or relabeled.)*
 12. Split `grandplan.md` into smaller maintainable specs while preserving one canonical index. *(Deferred: pure-maintainability refactor whose main risk is breaking the doc-audit tooling that scans `grandplan.md`; should be done with an explicit split plan, not autonomously.)*
-13. Add benchmark fixtures comparing against external reference implementations where licensing permits. *(Done 2026-06-14, self-contained: `pid-rs/crates/pid-core/tests/cross_validation.rs` re-derives the Williams–Beer `I_min` PID by an independent route and checks `discrete_pid2` against it + the known logic-gate structure. The external SxPID-class refs live under gitignored `.external/` and are not CI-reproducible, so an in-test independent reference is used instead.)*
+13. Add benchmark fixtures comparing against external reference implementations where licensing permits. *(Partially complete. The historical Williams–Beer comparator has an independent in-test route. The pinned MGW route also contains a bounded `csxpid` fixture. These are named-fixture checks, not broad validation. The remaining publication-grade work is a sparse empirical-count path, exact/rational bridge, fixed-source-law fixture, and matched-regime estimator study under the exact functional identity.)*
+
+### Parallel PID methods and ecosystem track
+
+This track supports methods papers, the thesis evidence base, and consumers such as Galadriel. It
+does not bypass the W1/W2 critical path or clear H3. Execute it under
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md):
+
+1. **Repair scientific identity first.** Add separate functional and output-coordinate nodes plus
+   typed evaluator, estimator, transform, certifier, validation, and objective edges while keeping
+   existing `pid-rs` method IDs as canonical routes. Bind cumulative versus Möbius-inverted
+   construction, exact antichain, aggregation, and component on every result.
+2. **Build the categorical finite-law spine.** Refactor one weighted positive-law kernel; add a
+   borrowed bounded empirical-count MGW2 route; bridge admitted counts to the existing exact
+   certifier; then add a distinct specified-rational schema.
+3. **Close provenance and resource gaps.** Add computed unique-row relations, a checked all-
+   components-execute resource sum with co-resident bytes distinct from additive work charges, and
+   nominal permutation-p-value/surrogate-score types whose constructors prevent a surrogate score
+   from entering an FDR family.
+4. **Add bounded publication oracles.** Freeze the fixed-source-law MGW fixture, cross-check row,
+   count, and rational routes, and add binary64 declared-law evaluation only after those routes
+   agree. Keep empirical and specified-law result types distinct.
+5. **Handle dependence without pretending ties disappear.** Add group schedules with callback
+   admissibility. Use a separately justified without-replacement group diagnostic, per-group
+   statistic, or future weighted estimator for continuous data; do not claim bootstrap coverage
+   merely because episode boundaries were preserved.
+6. **Strengthen continuous identity.** Bind the complete Ehrlich PID2 tuple law, finite-information
+   assumptions, source gauge, metric, scale, and preprocessing. Validate a matched estimator
+   regime before any real-embedding interpretation.
+7. **Preserve new mathematics.** Register higher-source, mixed-law, conditional, temporal,
+   manifold, exact-law, and infomorphic work with separate origin, maturity, evidence, and
+   disposition axes. A blocked application remains eligible for a methods or negative-boundary
+   contribution. It never inherits another PID's atoms or validation.
+   In particular, record that the \(\sim\)-PID is BROJA; keep the Gaussian-restricted \(\sim_G\)-
+   PID and its routes distinct because it only bounds BROJA in general; and separately preserve
+   deficiency \(\delta\), Gaussian-channel-restricted \(\delta_G\), the convex-surrogate
+   \(\widehat{\delta}_G\)-PID, the \(\delta^\lambda\) family, I-PID, and the Lyu–Clark–Raviv
+   conditional-independence hierarchy. For \(N\geq3\), publish the latter's
+   named unique/synergy hierarchy quantities without inventing redundancy or calling the output a
+   complete antichain PID.
+8. **Require ecosystem handshakes.** Each consumer binds functional, exact quantity and antichain,
+   cumulative-versus-Möbius construction, component, aggregation, route, law kind, source count,
+   units, revision, features, and gate status. Shared `pid-rs` code is shared implementation
+   ancestry, not independent replication.
 
 ## Suggested Immediate Sequence
 
@@ -334,7 +384,9 @@ Current residuals:
 
 ## Implementation Pass Status: 2026-06-13
 
-Completed since the 2026-06-12 pass (the "capture + analysis" slice — docset v10.3). This pass closes every estimator-side blocker the review previously listed *and* delivers the first real M5 capture path:
+Completed since the 2026-06-12 pass (the "capture + analysis" slice — docset v10.3). This pass
+closed the then-listed harness integration tasks and delivered the first real M5 capture path. It
+did not close the scientific H3 estimator or application gates:
 
 - **P0 item 1 (Exp0 → publishable measurement protocol) closed end-to-end.** The Exp0 binary gains opt-in `--bootstrap`/`--permutation` (+ `--block-size`/`--alpha`): subsample-bootstrap CIs (Politis–Romano, KSG-safe — the naive with-replacement bootstrap is documented as unreliable for kNN MI) and single-source permutation nulls at the favourable dimension, with a **preregistered, ground-truth-derived marginal-significance check** folded into the GO/PIVOT/NO-GO verdict (the permutation null must call a source significant iff it is marginally informative by construction; calibrated 8/8 on the four synthetic scenarios). `pid-core` gains generic `bootstrap_rows_stats`/`permutation_rows_pvalue`. Default runs stay byte-identical, so CI metric counts are unchanged.
 - **P0 items 2 + 4 (the critical path) — first real capture path shipped.** `experiments/safe_adapter/` converts released SAFE rollouts into the `(V,L,D,A)`+labels harness contract, with honest per-variable provenance (D=hidden states, A=actions, labels are native; V/L are token-sliced / explicitly supplied / a labelled text proxy — never fabricated) and the §7.6.3 layerwise physics-probe for `D_hidden[k]` selection. Verified end to end into the real `pid-offline-harness` with `--require-heldout-split`/`-class-coverage`/`-episode-disjoint` all passing. The SAFE-class internal-feature failure detector (P0 item 4) is now a built-in harness baseline (`heldout_logreg_vlda`, leakage-safe), and the faithfulness-checked attribution probe (`experiments/attribution/`, §14.7.1) emits validated `attribution_logged` run logs.
@@ -342,7 +394,10 @@ Completed since the 2026-06-12 pass (the "capture + analysis" slice — docset v
 - **P0 item 3 / P1 item 6 (governance).** `meshmaker/` is quarantined out of tracking (`git rm --cached` — local files kept; tombstone README; `.gitignore` hardened). `scripts/generate_third_party_notices.py` generates a direct-dependency SBOM (Rust licenses via `cargo metadata`, Python versions via `uv.lock`) with a CI drift check.
 - **Verification:** `cargo fmt --all --check`, `cargo clippy --workspace`, `cargo test --workspace`, `cargo clippy/test -p pid-sim --features rapier`, `uv run ruff check .`, the SAFE-adapter + attribution pytest suites, and all three doc audits (incl. the full tracked-Markdown sweep) pass.
 
-**Revised critical path:** the remaining blocker is purely a **data-pull step** — point `experiments/safe_adapter` at the real downloaded SAFE rollouts (verify tensors/coverage/licenses) and run the existing analysis (PID screens + the built-in non-PID baselines incl. the SAFE-class detector + the §14.7.1 attribution probe) under the geometry/uncertainty gates; the preregistered §14.1.1 kill criteria then decide whether PID atoms earn a place. No further estimator, harness, baseline, or attribution code is required for that first study.
+**Historical v10.3 execution priority:** the next harness input was a **data-pull step** — point
+`experiments/safe_adapter` at real downloaded SAFE rollouts, verify tensors, coverage, outcomes,
+splits, and licenses, and run strong non-PID baselines. That was sufficient to start a diagnostic
+capture study. It was never sufficient to interpret PID atoms or declare H3 estimator readiness.
 
 > **Not on the critical path:** `crates/ncp-observer` (the Engram/NEST Neuro-Cybernetic-Protocol bridge) is an **optional** `(V,L,D,A)` source — grandplan does not depend on Engram, and the pure-PID stack builds/gates green with no NCP/Engram/Zenoh dependency (it is excluded from the default cargo workspace). It is exploratory-only until it meets the M5 contract (D `seq`-alignment, honest `L`, split/episode/label structure); bringing it up to bar is a self-contained task tracked in `NCP_DEV_PROMPT.md`. It does not block the SAFE data-pull above.
 
@@ -354,7 +409,9 @@ Two slices; **no research-conclusion change** — no new capture, hypothesis, or
 - **v10.7 (2026-07-06), spec audit + statistics plan:** five-agent grandplan audit + 104-agent adversarially-verified literature sweep; math fixes (δ-direction in findings.md was backwards, digamma, r̄ scoping, CI₃ sign scope, Beyer conditioning); **§14.8 preregistered statistical analysis plan** (one primary endpoint per hypothesis with predicted direction, gatekeeping + BH-FDR, ex-ante regime selection, power analysis as an M5 capture gate, mandatory minimal baseline set) + **§9.7.2b** H2/H3 protocol; H7 split H7a/H7b; H6 Deferred; SSI := −IQR(Syn); discrete-regime preregistration (discrete SxPID upstream, 2–4 sources, not yet harness-wired); July-2026 literature refresh (§12.6 — novelty re-verified: no PID-on-VLA anywhere; "VLDA" unclaimed); NCP pin prose synced v0.5.3.
 - **v10.7 addendum (same day):** triple-check repairs to the new statistical content (H2 units → tasks; H3 → mean per-case Kendall τ; outcome-independent strength matching; distribution-centered permutation placebo; fully specified H9; regime-multiplicity + error-rate statement); **pid-rs 0.4.0 adopted** (upstream v0.3.0/v0.4.0 tags; CountSketch sign fix, true moving-block bootstrap, `NegativeHandling::Allow`, bias-corrected Levina–Bickel) → **Exp0 verdict on synthetic controls now NO-GO** (ID(t) 1.14 → 1.01 confirms the old value was estimator bias; stricter gate, same science); `AGENTS.md`/`CLAUDE.md`/`README.md` rewritten; orphaned asset reports deleted; notices regenerated (CI gate green).
 
-**Critical path UNCHANGED, still open:** the first real-VLA capture — point `experiments/safe_adapter` at the real downloaded SAFE rollouts and run the analysis under the geometry/uncertainty/axis-provenance gates **and the §14.8 statistics plan**; the preregistered kill criteria then decide whether PID atoms earn a place.
+**Historical v10.7 critical path:** the first real-VLA capture was the next diagnostic input under
+the geometry, uncertainty, axis-provenance, and statistics-plan gates. The later world-model-first
+reset superseded this as the primary thesis path. It never established PID readiness.
 
 ## Implementation Pass Status: 2026-06-22
 
@@ -374,13 +431,21 @@ Completed since the 2026-06-13 pass (docset v10.4 cut). This is a science-honest
 - **Degenerate-axis geometry gate** now flags all-constant (zero-variance) variables as a geometry-gate warning (fails `--require-geometry-pass`); test `geometry_gates_flag_all_constant_variable_as_degenerate`.
 - **Naming:** the repo/package/crate rename `pid_vla` -> `prisoma` is complete repo-wide (no `pid_vla` references remain).
 
-**Critical path (UNCHANGED, still open):** the remaining blocker is still the **data-pull step** — point `experiments/safe_adapter` at the real downloaded SAFE rollouts (verify tensors/coverage/licenses) and run the existing analysis under the geometry/uncertainty *and now axis-provenance* gates; the preregistered §14.1.1 kill criteria then decide whether PID atoms earn a place. Exp0 still reports PIVOT/NO-GO on the synthetic high-d controls. No experiment/capture/hypothesis result has been upgraded in this pass.
+**Historical v10.7 priority:** the next input remained the SAFE **data-pull step** under geometry,
+uncertainty, and axis-provenance checks. Exp0 still reported PIVOT/NO-GO on the synthetic high-d
+controls. That priority concerned capture and baseline science; it did not remove the independent
+population, measure, estimator, or application blockers for H3. No experiment, capture, or
+hypothesis result was upgraded in that pass.
 
 ## Implementation Pass Status: 2026-06-12
 
 Completed since the 2026-05-09 pass (commits `20fd4bc`, `7e2c515`, `951a348`, `0b9d4a7` + this pass):
 
-- **Estimator escape hatches shipped:** PLS supervised dimensionality reduction (`pls.rs`; the fix for the Exp0 signal-in-noise finding), discrete 2- and 3-source PID via quantization (`discrete_pid.rs`), block-bootstrap uncertainty (`bootstrap.rs`), and a `pipeline.rs` composition layer (PLS→PID3, per-atom bootstrap CIs, single-source permutation tests, LOO-CV PLS component selection, all-pairs PID2 screening). This closes the library-level half of P0 item 1 and all of P2 item 11.
+- **Historical estimator components shipped, not escape hatches:** PLS supervised dimensionality
+  reduction, discrete two- and three-source Williams–Beer PID, block-bootstrap infrastructure, and
+  a pipeline composition layer were implemented. Each defines its own transformed estimand,
+  measure, or uncertainty assumptions. None rescues a failed shared-exclusions route or closes an
+  H3 gate merely by existing.
 - **Measure identity corrected:** the discrete redundancy is a Williams–Beer-style `I_min` functional, not discrete `i^sx_∩`; code names (`discrete_imin_redundancy*`), provenance strings (`discrete_imin`/`pls_discrete_imin`), and the docset (grandplan §8.1.6, Warning 6 extension) now say so. Cross-mode comparisons are cross-measure comparisons.
 - **Saturation gate implemented and empirically confirmed:** discrete modes emit per-pair `discrete_saturation` diagnostics; smoke fixtures show plug-in MI pinned at the `ln(n)` ceiling being flagged, as §8.1.6 predicts.
 - **Harness modes:** `pid-offline-harness --pid-mode continuous|discrete|discrete-pls` with `--discrete-bins`/`--pls-components`; `just offline-harness-discrete` / `offline-harness-discrete-pls` recipes; unit + smoke coverage for all three modes.
@@ -389,7 +454,19 @@ Completed since the 2026-05-09 pass (commits `20fd4bc`, `7e2c515`, `951a348`, `0
 
 Verification for this pass: `cargo test --workspace` green (35 suites), `cargo check` warning-free, all three doc audits pass, arXiv cache complete with zero italic-title drift.
 
-**Revised critical path (unchanged in substance, sharper in justification):** the single highest-value next step remains **P0 items 2 + 4 — one real VLA/task capture with externally meaningful labels**, run through the offline harness with non-PID baselines and one faithfulness-checked attribution probe (AttnLRP per grandplan §14.7.1). Every estimator-side prerequisite this review previously listed as blocking (uncertainty quantification, supervised projection, a discrete fallback, regime documentation) now exists; the remaining blockers are data and labels, not estimators. Pick the capture target by the grandplan §10.10.13.3 decision matrix; the §7.6.3 Physics-Emergence-Zone probe procedure should choose the `D_hidden[k]` hook layer before geometry gating. **Concrete shortcut identified 2026-06-12:** the SAFE repo (`vla-safe/SAFE`, NeurIPS 2025) released rollout datasets (π0-FAST on Franka; OpenVLA on WidowX, with outcomes) and the code that generates them while extracting internal features — adapting that pipeline to emit this project's `(V,L,D,A)`+labels contract is likely cheaper than building capture from scratch (verify released tensors, per-step coverage, and licenses first). Secondary: wire bootstrap/permutation into the Exp0 runner (closing P0 item 1 end-to-end), and keep `meshmaker/` quarantine (P0 item 3) on the release checklist.
+**Revised critical path:** one real VLA/task capture with externally meaningful labels remains the
+highest-value next input for W1, W2, and the non-PID baseline program. It does not make H3 ready.
+H3 still has open population, measure, estimator, and application work. In particular, the pinned
+surface lacks the requested sparse count-law API, computed row-relation receipt, typed nominal
+p-value boundary, group schedule, declared-law evaluator, and complete continuous tuple/gauge
+contract. Williams–Beer `I_min` is not a fallback and does not close any shared-exclusions gate.
+
+Run the capture through strong non-PID baselines and one faithfulness-checked attribution probe.
+Pick the target by the `grandplan.md` decision matrix. Use the Physics-Emergence-Zone procedure as
+one hook-point prior, not as evidence that the selected layer is valid for PID. The SAFE release
+remains a potentially efficient ingress, subject to tensor, coverage, outcome, split, and license
+verification. Preserve estimator and method work in parallel under
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md).
 
 ## Ten-Scientist Consensus Follow-Up: 2026-05-09
 

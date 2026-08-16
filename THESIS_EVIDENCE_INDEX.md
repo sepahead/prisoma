@@ -37,16 +37,22 @@ later language.
 ## Source-of-truth order
 
 1. [`grandplan.md`](grandplan.md) defines claims, estimands, gates, and stop rules.
-2. [`protocols/world_model_claim_registry_v1.json`](protocols/world_model_claim_registry_v1.json)
+2. [`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md)
+   defines PID object identity, applicability, research preservation, and publication levels.
+3. [`protocols/world_model_claim_registry_v1.json`](protocols/world_model_claim_registry_v1.json)
    records W1-W3 execution and freeze status with permitted and prohibited language.
-3. [`protocols/research_claim_registry_v1.json`](protocols/research_claim_registry_v1.json)
+4. [`protocols/research_claim_registry_v1.json`](protocols/research_claim_registry_v1.json)
    records the same boundaries for the preserved EC1/H1-H4 family.
-4. [`protocols/capability_catalog_v1.json`](protocols/capability_catalog_v1.json) generates the
+5. [`protocols/capability_catalog_v1.json`](protocols/capability_catalog_v1.json) generates the
    machine and human capability matrices.
-5. [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) indexes exact software paths,
+6. [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) indexes exact software paths,
    revisions, proof commands, limitations, and E0–E5 evidence bases.
-6. Run logs, summaries, fixtures, manifests, and command output prove only the bounded behavior
+7. Run logs, summaries, fixtures, manifests, and command output prove only the bounded behavior
    their contracts name.
+
+The rendered PID contract PDF is a publication view, not a second source of truth. Its receipt
+binds the canonical Markdown, renderer, PDF, extracted-text checks, page count, and visual review.
+Any Markdown or renderer change makes that view stale until it is rebuilt and reviewed again.
 
 `just docs-audit`, `just research-governance`, and `just capability-matrix-check` test consistency
 among these sources. They do not perform scientific or independent human review.
@@ -236,6 +242,20 @@ independent implementation. Prisoma's fitted categorical route targets averaged 
 shared exclusions on new empirical categorical laws. It is not `I_min`, BROJA, the continuous
 Ehrlich functional, or an infomorphic objective. None can become an automatic fallback or pooled
 comparison.
+Each result must also identify its cumulative or Möbius-inverted quantity, antichain coordinate,
+pointwise or averaged scope, and net, informative, or misinformative component. A shared
+functional ID does not make those outputs interchangeable.
+
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md)
+defines the required mathematics, result identity, applicability decision, research-preservation
+status, and publication ladder. It keeps a valid extension in the research record when H3 is
+blocked, but it prevents that extension from inheriting another PID's evidence or application
+meaning.
+
+The same contract defines stages `PID-M0` through `PID-M8`. They preserve intake, type each
+scientific object, re-derive the mathematics, decide applicability, freeze the route, execute it,
+challenge it, and publish a paired Markdown/PDF packet. Completing that process is governance
+evidence. It is not H3 evidence unless the four scientific gates also pass.
 
 **Missing scientific evidence**
 
@@ -246,7 +266,7 @@ comparison.
 - a target-specific prediction landmark before target availability, plus a tensor-ancestry receipt
   that excludes post-landmark observations and target injection;
 - an already useful non-PID H1 or H2 problem and a complete strong M1 baseline frontier;
-- one frozen warning-code registry, exact fallback receipt, and complete target-ID ledger;
+- one frozen warning-code registry, exact same-fold M1 substitution receipt, and complete target-ID ledger;
 - one frozen PID-regime and local-feature construction, dependence-aware uncertainty procedure,
   multiplicity rule, support and warning acceptance rule, and replication target;
 - the nested, task-family-blocked, held-out M2-over-M1 comparison whose one-sided lower confidence
@@ -379,6 +399,18 @@ Haldir, Crebain, and other ecosystem projects are optional to the minimum path.
 None of these paper units is complete in 0.9. The software preview makes their current executable
 groundwork and missing evidence auditable; it is not itself paper-level novelty or validation.
 
+The PID method contract and its rendered PDF contribute a reproducible review process for Paper C.
+They do not promote any functional, route, application, or thesis claim. A future Paper C packet
+must instantiate that process with result-specific equations, identities, commands, denominators,
+negative controls, reviewer dispositions, and evidence-level limits.
+
+Paper C can mature through more than one non-conflated contribution. A finite-law methods paper may
+study functional and output-coordinate identity, sparse laws, exact/rational bridges, and misuse-
+resistant types. A categorical paper may study one frozen MGW law family. A continuous methods
+paper may delimit an Ehrlich estimator regime. An application paper needs held-out incremental
+value after all four gates. A rigorous negative paper may localize an undefined, unsupported, or
+estimator-invalid regime. Evidence for one contribution does not pass the gates of another.
+
 ## Claim-language register
 
 | Claim | Permitted statement | Prohibited statement |
@@ -389,7 +421,7 @@ groundwork and missing evidence auditable; it is not itself paper-level novelty 
 | H1-A | The common preflight and deterministic finite-benchmark Protocol-A reference are fixture-runnable scoring primitives and establish no H1-A evidence. They cannot establish H1-B. | Unqualified “H1 passed,” a physical individual effect was observed, or the fixture demonstrates real intervention sensitivity. |
 | H1-B | The randomized closed-loop protocol is specified and blocked. | Protocol B exists as an executed study, or Protocol A establishes closed-loop effect modification. |
 | H2 | The deterministic synthetic reference exercises named risk-estimator and protocol arithmetic on checked fixtures only. | H2 passed, an IPCW risk estimator is automatically a proper observed-data score, or prospective prediction, calibration validity, warning benefit, censoring validity, comparator superiority, safety, transport, or deployment has been shown. |
-| H3 | PID outputs abstain or remain noninterpretable outside their named gates. The primary target is the full policy with exact M1 fallback. | Eligible-only performance, geometry, or emitted numbers establish real-embedding PID validity or incremental value. |
+| H3 | PID outputs abstain or remain noninterpretable outside their named gates. The primary target is the full policy with exact same-fold M1 substitution for every abstention. | Eligible-only performance, geometry, or emitted numbers establish real-embedding PID validity or incremental value. |
 | H4 | The reference attribution path exercises logging and a deletion-ranking-sensitivity control. | The control establishes causal/mechanistic faithfulness, or attribution agreement proves natural policy use, non-use, or H4. |
 | WAM architecture | The dated review classifies the deployed graph and identifies testable comparator arms. | A WAM label, generated video, task success, or action conditioning proves causal dynamics, planning, or VLA obsolescence. |
 

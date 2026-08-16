@@ -1,7 +1,7 @@
 # Prisoma first-principles audit ledger, 2026-08-12
 
 This file is durable audit memory. It records scope, evidence, decisions, and remaining gates for
-the review opened on 2026-08-12 and refreshed through 2026-08-13. It is not a preregistration, a
+the review opened on 2026-08-12 and refreshed through 2026-08-16. It is not a preregistration, a
 scientific result, or a systematic review.
 
 ## Audit identity
@@ -10,12 +10,12 @@ scientific result, or a systematic review.
 - Starting state: clean `main`, equal to `origin/main`.
 - Starting `pid-rs` pin: `796c11e70f009634b853dc4ada6f565563d82f51`.
 - Current public `pid-rs` main observed during review:
-  `7473e62acef6077c2c1147e09d5d1297f2a2874b`.
+  `bc3aa80fb6025e709c2906a08bce25a4fac40578`.
 - Canonical document on entry: `grandplan.md`, docset v12.5.
 - Canonical document after reconciliation: `grandplan.md`, docset v13.0.
 - Primary new family: W1 supported forecast fidelity with secondary ranking, W2 complete-policy selection, and W3 linked
   fidelity tomography. All remain unfrozen and have no empirical result.
-- Review window: 2026-08-12 through 2026-08-13.
+- Review window: 2026-08-12 through 2026-08-16.
 - Holdout and real-study access: not authorized and not performed.
 - Submodule update: not performed.
 
@@ -121,7 +121,7 @@ The additional v13 review records the primary family separately:
 | Time and transport | Leakage, source–target ancestry, and split rules are explicit. Each target needs a pre-availability landmark. A source conditioned on a proposal cannot target that proposal. Downstream targets require matched proposal access. Command prediction is not physical forecast validity. No external or later-time replication exists. |
 | Systems | Inputs and work are bounded. A run log cannot prove an upstream event that capture did not observe. |
 | Provenance | Content binding and replay exist for named artifacts. They are not process, identity, build, or remote attestation. |
-| Deployment | Costs and fallbacks are part of H3. No WAM or MPS candidate is locally qualified. |
+| Deployment | Costs and same-fold M1 substitutions are part of H3. No WAM or MPS candidate is locally qualified. |
 | Governance | The active v3 draft exposes missing choices and blocks H3 freeze on unimplemented ancestry roles. It remains unreviewed, unfrozen, and non-promotable. The superseded v2 bytes remain historical. |
 
 ## Claim decisions
@@ -135,7 +135,7 @@ The additional v13 review records the primary family separately:
 | H1-A | Synthetic scoring reference only | Freeze one positive-margin, one-sided primary response-prediction contract. This is not a physical effect claim. |
 | H1-B | Unimplemented | Freeze one positive-margin, one-sided effect-specific endpoint plus every mandatory design check. Randomization does not establish unrestricted natural pathway use. |
 | H2 | Synthetic arithmetic reference only | Freeze one prediction object, score, risk, censoring law, assumptions, and uncertainty contract. |
-| H3 | Not eligible | Evaluate the full deployed eligibility-warning-abstention-fallback policy, not only cases where PID returns a number. |
+| H3 | Not eligible | Evaluate the full deployed eligibility-warning-abstention-substitution policy, not only cases where PID returns a number. |
 | H4 | Exploratory reference only | Preselect the alternative and companion branch. Do not switch to it after inspecting H3 on the same holdout. |
 
 No scientific PID gate opened during this audit.
@@ -177,7 +177,7 @@ H3 now targets the full frozen population value of one deployed policy. The poli
 - PID measure and preprocessing;
 - estimator and diagnostics;
 - warnings and abstention;
-- exact non-PID fallback;
+- exact same-fold M1 substitution for every abstention;
 - compute and latency effects.
 
 Eligible-only performance is descriptive. It cannot establish the confirmatory H3 claim.
@@ -185,8 +185,9 @@ Eligible-only performance is descriptive. It cannot establish the confirmatory H
 ### PID scientific-object firewall
 
 Do not emit a `wibral_lineage` result identity. Use a provenance and estimand graph. Each artifact
-must declare its object kind, domain, defining reference, functional, evaluation kind, input-law
-kind, implementation, preprocessing, units, aggregation scope, and composition.
+must declare its object kind, domain, defining reference, functional, exact quantity and lattice
+coordinate, component, evaluation kind, input-law kind, implementation, preprocessing, units,
+aggregation scope, and composition.
 
 MGW categorical shared exclusions is a functional on categorical probability laws. Ehrlich
 continuous shared exclusions is a distinct formulation with different support, gauge, and
@@ -195,6 +196,14 @@ functional. Direct evaluation of a specified law is not a sample estimator. An i
 a weighted composition of named atoms and other terms, not a new PID measure. Williams-Beer
 `I_min` and BROJA are separate measures and have no active Prisoma hypothesis. No result transfers
 across these objects without an explicit mapping theorem.
+A cumulative lattice value is not its Möbius-inverted atom. Net, informative, and misinformative
+components remain separate. Pointwise and averaged quantities remain separate.
+
+The normative details are in
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](../../../PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md).
+The contract also preserves valid novel or higher-source PID work as typed research. Inapplicability
+to H3 blocks an application claim, not retention of the functional, derivation, implementation,
+fixture, or negative evidence.
 
 ### NCP observer semantics
 
@@ -357,19 +366,21 @@ cargo +1.93.0 test --locked --workspace --all-features --no-run
 cargo +1.93.0 test --locked --workspace --all-features
 ```
 
-Current public main `7473e62acef6077c2c1147e09d5d1297f2a2874b` is 97 commits beyond the pin.
+Current public main `bc3aa80fb6025e709c2906a08bce25a4fac40578` is 98 commits beyond the pin.
 The consumer run covers the compiled and tested Prisoma Rust surface at `722d3abe`. Head
 `bbdfda40` changes only assurance, workflow, script, and prose surfaces relative
 to that tested revision. Estimator-code anchor `cb3f58f0` adds one bounded KSG integration commit. Prisoma
 inspected its three changed production Rust files and replayed four predecessor-radius fixtures
 plus the structured overflow fixture.
-Current head `7473e62` changes custody and assurance files only. Its full CI run `31724449805`
-failed two jobs. The narrower `Push on main` run `31724449083` passed.
+Head `7473e62` changes custody and assurance files only. Its full CI run `31724449805` failed two
+jobs. The narrower `Push on main` run `31724449083` passed. Current head `bc3aa80` is one custody-
+repair child later. It also changes no crate or Cargo input. Full CI run `31773937366` passed all
+45 jobs, and CodeQL run `31773937102` passed all four jobs.
 
 This result establishes compatibility for the compiled and tested Rust consumer surface. It does
 not establish behavioral compatibility, schema migration, fixture equivalence, or scientific
-value. Exact-head CI run `31686107959` is red on a stale certified-SxPID2 workflow digest.
-Exact-head CodeQL run `31686106737` passed. Upstream still marks broader revision-4 KSG repository
+value. Historical exact-head CI run `31686107959` was red on a stale certified-SxPID2 workflow
+digest. Its CodeQL run `31686106737` passed. Upstream still marks broader revision-4 KSG repository
 integration NO-GO. Consumer compatibility, schema, package, and scientific-value review remain
 adoption blockers.
 

@@ -57,11 +57,13 @@ branch. Leave every inactive protocol slot null. A post-H3 switch to H4 requires
 sample and the frozen sequential-error rule.
 
 PID interpretation additionally requires separate population, measure, estimator, and application
-gates. Declare the object kind, domain, defining reference, estimand, estimator, units, and
-composition. MGW categorical shared exclusions, Ehrlich continuous shared exclusions,
+gates. Declare the object kind, domain, defining reference, functional, exact cumulative or
+Möbius-inverted quantity, antichain coordinate, component, route, units, and composition. MGW
+categorical shared exclusions, Ehrlich continuous shared exclusions,
 finite-sample estimators, Williams–Beer `I_min`, and infomorphic objectives are related but
 non-substitutable objects. Never pool them, auto-route between them, or emit a numeric placeholder
 for an abstention. Do not claim a cross-domain result without an explicit mapping theorem.
+Follow [`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md).
 
 Classify every predictive policy by its deployed computation graph. Keep these cases distinct:
 

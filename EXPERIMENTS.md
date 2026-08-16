@@ -2,6 +2,8 @@
 
 This document is the executable runbook for the world-model-first program and the preserved
 diagnostic protocols. [`grandplan.md`](grandplan.md) is canonical when the two documents differ.
+PID-related modes also follow
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md).
 
 The repository contains protocol groundwork. It does not contain a completed confirmatory study.
 
@@ -18,7 +20,7 @@ The repository contains protocol groundwork. It does not contain a completed con
 | H1-A | Do pre-treatment diagnostics predict a paired frozen-snapshot response? | Common preflight and synthetic Protocol-A reference | Real policy, environment, dose, and estimand remain unfrozen |
 | H1-B | Do pre-treatment diagnostics predict randomized closed-loop effect modification? | Specification only | No randomized implementation or evidence |
 | H2 | Do pre-treatment features predict future failure under one scoring and censoring contract? | Synthetic fixed-horizon risk-estimator arithmetic reference | No prospective real capture or validated calibration |
-| H3 | Does the full PID/abstention/exact-fallback policy add value on the target population? | Estimator diagnostics and bounded harness | Not eligible; high-dimensional path is NO-GO |
+| H3 | Does the full PID/abstention/exact same-fold M1 policy add value on the target population? | Estimator diagnostics and bounded harness | Not eligible; high-dimensional path is NO-GO |
 | H4 | Does availability diverge from response to one tested intervention? | Exploratory attribution reference | No availability or tested-response evidence |
 
 The machine-readable W1-W3 source is
@@ -343,7 +345,7 @@ Available modes are:
 | Mode | Computation | Scientific identity |
 |---|---|---|
 | `none` (default) | Baselines and geometry only | No MI or PID request |
-| `continuous` | KSG MI and Ehrlich-style continuous shared exclusions | Distinct continuous functional and estimator; application-blocked |
+| `continuous` | KSG MI and the Ehrlich continuous shared-exclusions functional through its named kNN route | Distinct continuous functional and estimator; application-blocked |
 | `categorical-sx` | Fitted equal-width quantization, then empirical-PMF MGW SxPID2 | New categorical variables; informative, misinformative, and net atoms |
 | `categorical-sx-pls` | Scope-fit PLS, fitted quantization, then empirical-PMF MGW SxPID2 | Supervised same-row diagnostic with a typed warning; the split screen uses train rows only and never scores held-out rows |
 
@@ -357,11 +359,22 @@ target rows that the categorical screen analyzes. This route measures a fitted e
 selection inflation. It is not a held-out estimate or an inferential high-dimensional escape hatch.
 
 Do not emit a `wibral_lineage` result identity. Each current result must name its full-team
-functional, estimator revision, source and target variables, transform, units, and gate verdict.
+functional, exact cumulative or Möbius-inverted quantity, antichain coordinate, component,
+aggregation scope, estimator revision, source and target variables, transform, units, and gate verdict.
 A future direct-law or objective result must also bind evaluation kind, input-law kind,
-aggregation scope, and composition. MGW categorical shared exclusions, continuous Ehrlich shared
-exclusions, a statistic that estimates either, a direct declared-law evaluator, and an infomorphic
-training objective are related but non-substitutable. Transfer requires a mapping theorem.
+aggregation scope, and composition. An objective instance additionally binds every input-quantity
+identity, the complete coefficient vector, non-PID terms, sign convention, and optimization
+direction. MGW categorical shared exclusions, continuous Ehrlich shared exclusions, a statistic
+that estimates either, a direct declared-law evaluator, and an infomorphic training objective are
+related but non-substitutable. Transfer requires a mapping theorem.
+A net atom, informative atom, and misinformative atom also remain separate coordinates. Never
+compare or pool them by matching the informal label alone.
+
+Apply the complete method and mathematics review in
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md)
+before adding a mode, sensitivity branch, or thesis claim. A method that is mathematically valid
+but inapplicable to H3 remains a preserved research object. It must not be renamed as an existing
+PID or used as an automatic fallback.
 
 ### 5.3 Admission and diagnostics
 
@@ -397,7 +410,7 @@ Command or simulator-state prediction is not physical forecast validity.
 
 If H3 activates, use the frozen matched-access comparator registry and predeclared selection or
 ensemble rule. Measure incremental predictive or decision value out of fold. Report warning,
-abstention, and fallback rates. Define improvement so larger values are better. Require its
+abstention, and same-fold M1 substitution rates. Define improvement so larger values are better. Require its
 one-sided lower confidence bound to exceed the positive useful margin under the frozen
 multiplicity rule. Noninferiority, equivalence, and eligible-only performance cannot establish
 added value.
@@ -486,6 +499,14 @@ report counts excluded gaps. It centers both lagged vectors inside each contiguo
 pooling residual products. A run needs at least three lag pairs. Two pairs force Pearson
 correlation to positive or negative one. It reports admitted and correlation-eligible pair counts.
 It derives no estimator sample size or block length. Justify either quantity independently.
+
+A future group-aware schedule is only a schedule substrate. Whole-group sampling with replacement
+duplicates every numeric row in a repeated episode. Occurrence IDs preserve provenance but do not
+remove the coordinate ties that the pinned continuous KSG/Ehrlich route rejects. The first
+continuous episode route must therefore use a separately justified without-replacement group
+subsampling diagnostic, per-group statistic, or new weighted/cluster-aware estimator. It must not
+claim bootstrap confidence-interval calibration. Categorical callbacks may admit repeated groups
+under a separately frozen sampling estimand.
 
 ## 9. Reproducibility checklist
 

@@ -42,11 +42,15 @@ Follow the complete policy and exception list in `AGENTS.md`.
    because default Experiment 0 reports atom-measure validation as `not_adjudicated` and
    atom-estimator validation as `blocked`, while the strict band gates analytic MI rather than
    atoms (`findings.md`). It never compares shared-exclusions redundancy with a zero target.
-   Sampled-mean δ is descriptive, not a validity gate. One
-   (PID measure, preprocessing, estimator config) tuple = one pre-outcome frozen regime. The
+   Sampled-mean δ is descriptive, not a validity gate. One (functional, exact output coordinate,
+   preprocessing, evaluator-or-estimator route) tuple = one pre-outcome frozen regime. The
    `categorical-sx` route fits equal-width quantizers and estimates averaged two-source MGW shared
    exclusions on the resulting empirical laws. It is not Williams–Beer `I_min`, BROJA, continuous
    Ehrlich shared exclusions, or an infomorphic objective. Never pool or auto-route these objects.
+   Apply `PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`. Bind the exact functional, cumulative
+   or Möbius-inverted quantity, lattice coordinate, aggregation scope, and component. Functional
+   identity alone does not identify a PID output. Preserve valid novel routes under distinct
+   research identities instead of deleting or relabeling them.
    Confirmatory claims are bound by the
    §4 claim-template registries (EC1, H1–H4 and W1–W3), the §3.8 PID kill rules, and the §6 statistical
    analysis plan. Every H1 result must say H1-A or H1-B. H1 success needs a positive useful
@@ -124,9 +128,10 @@ subsets of the required local gate.
   qualification. Refined low-overhead architecture prose and the prepared-stream-monitor gap
   record are coordination-only. B01 remains `IN_PROGRESS` with no passing receipt. See the
   [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1a04294c90c1b50eba06ae1c6afe9c951319250d/evidence/implementation/task-ledger.v1.json).
-- **The estimator pin is deliberate.** Public `pid-rs` main was observed at `7473e62` on
-  2026-08-13. Its estimator-code parent is `cb3f58f0`; the child changes custody only. It has
+- **The estimator pin is deliberate.** Public `pid-rs` main was observed at `bc3aa80` on
+  2026-08-14. Its estimator-code grandparent is `cb3f58f0`; the two later commits change custody
+  and assurance only. It has
   newer unadopted method catalogs, formal/categorical assurance work,
   source-errata records, and exact-certifier surfaces. Keep `796c11e` until a consumer-owned
-  compatibility and scientific-value review supports a pin change. Full exact-head CI is red in
-  two jobs, while a narrower push receipt passed. New provenance surfaces do not open PID gates.
+  compatibility and scientific-value review supports a pin change. Full exact-head CI passed 45
+  jobs, and CodeQL passed four jobs. Provider green and new provenance do not open PID gates.

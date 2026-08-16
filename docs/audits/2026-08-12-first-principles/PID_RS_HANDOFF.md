@@ -1,10 +1,10 @@
 # `pid-rs` handoff from the Prisoma first-principles audit
 
-Review window: 2026-08-12 through 2026-08-13.
+Review window: 2026-08-12 through 2026-08-16.
 
 Prisoma pin retained: `796c11e70f009634b853dc4ada6f565563d82f51`.
 
-Public `pid-rs` main observed: `7473e62acef6077c2c1147e09d5d1297f2a2874b`.
+Public `pid-rs` main observed: `bc3aa80fb6025e709c2906a08bce25a4fac40578`.
 
 Latest reviewed estimator-code anchor: `cb3f58f0b190454cb3f1090de8798261ec78f194`.
 
@@ -24,7 +24,7 @@ Do not update the Prisoma pin yet.
 The current upstream tree is materially stronger than the pin. It has method-identity catalogs,
 clearer categorical atom types, exact categorical certification, formal assurance, KSG arithmetic
 work, support-change records, software identity, source-errata records, and a proposed scientific
-outcome schema. Public main is 97 commits ahead of the Prisoma pin.
+outcome schema. Public main is 98 commits ahead of the Prisoma pin.
 
 An isolated clean Prisoma consumer build and all-feature test run against exact revision
 `722d3abe` passed. The interval after the earlier `00fce70d` check changes assurance artifacts,
@@ -48,14 +48,23 @@ replayed its four predecessor fixtures plus the overflow fixture on current-head
 passed. This is a narrow review, not a full consumer replay or authority to update the pin.
 Upstream still marks the broader revision-4 KSG repository integration **NO-GO**.
 
-Current public head `7473e62` is the direct child of `cb3f58f0`. It changes workflow, custody,
-formal, evidence, and verifier-script surfaces. It changes no file under `crates/`, no Cargo input,
-and no Rust or Python package metadata. Its own changelog grants no estimator, PID, scientific,
-integration, or review credit. Exact-head CI run
+Head `7473e62` is the direct child of `cb3f58f0`. It changes workflow, custody, formal, evidence,
+and verifier-script surfaces. It changes no file under `crates/`, no Cargo input, and no Rust or
+Python package metadata. Its own changelog grants no estimator, PID, scientific, integration, or
+review credit. Its exact-head CI run
 [`31724449805`](https://github.com/sepahead/pid-rs/actions/runs/31724449805) failed two of 45
 jobs: the exact-count SxPID2 reference and KSG arithmetic/phase-isolation jobs. The separate
 [`Push on main` run 31724449083](https://github.com/sepahead/pid-rs/actions/runs/31724449083)
-passed. A narrow push receipt does not substitute for the failed full CI workflow.
+passed. These runs remain historical negative and narrow evidence.
+
+Current public head `bc3aa80` is the sole direct child of `7473e62`. It repairs the hosted-
+recovery custody wiring. It changes assurance and evidence surfaces only. It changes no crate,
+Cargo input, or estimator code and grants no scientific credit. Exact-head full CI run
+[`31773937366`](https://github.com/sepahead/pid-rs/actions/runs/31773937366) completed successfully
+with 45 successful jobs. Exact-head CodeQL run
+[`31773937102`](https://github.com/sepahead/pid-rs/actions/runs/31773937102) completed successfully
+with four successful jobs. These provider receipts close the prior exact-head CI defect. They do
+not establish consumer compatibility, estimator validity, or Prisoma application value.
 
 The full pin-to-head interval does change package metadata. `pid-core` adds build dependencies on
 `serde`, `serde_json`, and `sha2`. `pid-python` adds `serde_json`, and `Cargo.lock` changes. The new
@@ -69,8 +78,8 @@ completed successfully on 2026-08-13. All 45 jobs passed. The
 [`bbdfda40` CodeQL run](https://github.com/sepahead/pid-rs/actions/runs/31651702504) also passed.
 These provider results satisfy the upstream-CI check only for that earlier head. They do not bind
 `cb3f58f0` or replace consumer-owned compatibility, schema, package, and scientific-value review.
-Exact-head [CI run 31686107959](https://github.com/sepahead/pid-rs/actions/runs/31686107959)
-is red. Its certified-SxPID2 job rejected a stale reviewed workflow digest. Exact-head
+The later historical `cb3f58f0` [CI run 31686107959](https://github.com/sepahead/pid-rs/actions/runs/31686107959)
+is red. Its certified-SxPID2 job rejected a stale reviewed workflow digest. The matching
 [CodeQL run 31686106737](https://github.com/sepahead/pid-rs/actions/runs/31686106737) passed.
 
 ## Evidence collected by Prisoma
@@ -88,15 +97,17 @@ All three commands passed. The all-feature run executed 531 Rust unit and integr
 checked-in submodule remained clean at `796c11e`. The temporary worktree is an audit-only input and
 must be removed before the Prisoma change closes.
 
-Current main `7473e62acef6077c2c1147e09d5d1297f2a2874b` is 97 commits beyond the Prisoma pin.
+Current main `bc3aa80fb6025e709c2906a08bce25a4fac40578` is 98 commits beyond the Prisoma pin.
 The full consumer run remains bound to `722d3abe`. The `722d3abe..bbdfda40` interval changes only
 upstream assurance, workflow, script, and prose surfaces. The later `bbdfda40..cb3f58f0` interval
 contains the bounded Rust change reviewed below.
-The direct-child `cb3f58f0..7473e62` interval changes custody and assurance surfaces only. It does
-not change estimator code or dependency inputs.
+The direct-child `cb3f58f0..7473e62` interval changes custody and assurance surfaces only. The
+direct-child `7473e62..bc3aa80` interval repairs that custody wiring. Neither interval changes
+estimator code or dependency inputs.
 
-At the final 2026-08-13 observation, all 45 hosted CI jobs for `bbdfda40` had passed. Its CodeQL
-workflow also passed. This closes the provider-CI row only for `bbdfda40`.
+At the historical 2026-08-13 observation, all 45 hosted CI jobs for `bbdfda40` had passed. Its
+CodeQL workflow also passed. This closes the provider-CI row only for `bbdfda40`; the later
+`bc3aa80` receipts above are the current observed provider status.
 
 The exact `bbdfda40..cb3f58f0` interval contains one commit. Prisoma inspected its three changed
 production Rust files and the upstream claim boundary. These current-head focused tests passed:
@@ -133,6 +144,10 @@ Recommended upstream wording:
 > distinct functionals. Fitted quantization creates categorical variables. The plug-in result
 > targets MGW shared exclusions on their empirical categorical law. It is not an estimator of the
 > original continuous-law functional, and no cross-domain equivalence is implied.
+
+Also avoid “genuine PID” as a contrastive qualifier. Use the exact functional name. MGW,
+Ehrlich, Williams–Beer `I_min`, BROJA, and other well-defined constructions remain different PIDs
+with different commitments. None becomes uniquely genuine by repository preference.
 
 Prisoma corrects this boundary in its own types and prose. It does not patch the pinned submodule.
 
@@ -276,6 +291,13 @@ The provenance and estimand graph needed by Prisoma is:
   Wibral (2025) extend it to trivariate local objectives. These compositions are neither PID
   measures nor estimators.
 
+Functional identity is still not one scalar identity. Every result must also bind the exact
+cumulative or Möbius-inverted quantity, antichain coordinate, pointwise or averaged scope, and
+net, informative, or misinformative component. A cumulative redundancy value is not its atom. A
+net atom is not either nonnegative component. Use typed `defines_quantity`, `targets_functional`,
+`evaluates_functional`, `implements_route`, `recovers_on_domain`, `motivated_by`, `validated_by`,
+and `composes_quantities` edges. Use an alias only for definitional identity.
+
 For the same fixed categorical alphabet, event map, lattice, and exact source marginal law, the MGW
 informative averaged components depend only on the source law. They are therefore invariant across
 conditions that reuse that exact source law. An empirical route needs the same source counts, not
@@ -286,7 +308,9 @@ negative-surprisal component, not error, harm, or deception.
 The first upstream repair is a nonbreaking catalog graph. Keep current method IDs canonical for
 the estimator routes that they already identify. Add paper-defined functional identities in a
 separate scientific-object registry or method-catalog v2. Link each route with a typed
-`targets_functional_id` edge. The highest-value new scientific input is then a bounded sparse
+`targets_functional` edge and link quantities, evaluators, implementations, recovery domains,
+motivations, validation, and compositions with their own edge kinds. The highest-value new
+scientific input is then a bounded sparse
 empirical-count-law MGW API. It should share canonical table mechanics with the row API and avoid
 row expansion. Bridge its fixed-width count view to the arbitrary-precision exact-count certifier
 through a versioned lossless schema adapter. Then add a separate specified-rational-law schema
@@ -295,8 +319,8 @@ and, after bounded agreement checks, a declared binary64 finite-law evaluator.
 The supporting contract work is:
 
 - typed fitted-transform receipts that compute relations from caller-declared row identities;
-- a public resource constructor and conservative checked composition for retained output plus
-  transient callback scratch;
+- a public resource constructor and checked component sum, with co-resident bytes distinct from
+  additive pairwise and operation work charges;
 - a fixed-source-law fixture that checks MGW informative-atom invariance;
 - generic group-aware schedules that cannot splice independent groups;
 - nominal p-value and surrogate-tail types that cannot enter the same FDR API; and
@@ -311,6 +335,13 @@ does not certify soft sigmoid-derived mass laws, adaptive bins, stopped binning 
 guards. Sampling a target would change the object to a Monte Carlo empirical law. Prisoma will not
 use that substitution silently.
 
+Process evidence is also required. Each adopted wave needs a versioned Markdown method-change
+packet that maps equations, domains, objects, routes, tests, nonclaims, migration effects, and
+negative evidence. Prisoma's consumer decision uses the stages in
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](../../../PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md).
+Its PDF is a deterministic publication view. A receipt binds both artifacts and records text and
+page-by-page visual checks. This process record grants no estimator or scientific credit by itself.
+
 ## Consumer acceptance matrix
 
 | Review item | Current evidence | Required before pin change |
@@ -324,7 +355,8 @@ use that substitution silently.
 | Continuous KSG assurance | Improved upstream evidence | Re-run low-dimensional analytic and external fixtures. Retain abstention and support checks. |
 | Continuous `I^sx_∩` validity | No Prisoma application evidence | Keep measure, estimator, and application gates closed. |
 | Run-log compatibility | Not established | Replay schema-1 and schema-2 Prisoma fixtures and reject schema confusion. |
-| Upstream hosted CI | `bbdfda40` CI and CodeQL passed. `cb3f58f0` CodeQL passed, but its CI run `31686107959` failed. Current-head `7473e62` full CI run `31724449805` failed two jobs; only the narrower `Push on main` run `31724449083` passed. | Require a green full CI run bound to the exact adoption head. |
+| Method and review process | Consumer contract specified; result-specific packet absent | Bind the upstream method-change packet, Prisoma mathematics/applicability review, exact commands, negative evidence, and paired Markdown/PDF receipt. |
+| Upstream hosted CI | Historical failures remain recorded. Current-head `bc3aa80` full CI run `31773937366` passed 45 jobs and CodeQL run `31773937102` passed four jobs. | Recheck the exact future adoption head. Provider green is necessary but does not replace consumer review. |
 | Prisoma application value | Not established | Show a reviewed improvement that closes a named Prisoma obligation. |
 
 ## Scientific boundary
@@ -347,7 +379,7 @@ functional. Each object must remain separately named and interpreted.
 
 `pid-rs` already has `MIGRATION.md` and release-scope ledgers. The useful missing artifact is not a
 second generic migration guide. Prisoma needs a compact consumer delta for the exact interval
-`796c11e..7473e62`, with estimator-code changes distinguished from custody-only descendants.
+`796c11e..bc3aa80`, with estimator-code changes distinguished from custody-only descendants.
 
 Please provide or confirm:
 
@@ -359,7 +391,9 @@ Please provide or confirm:
 - which continuous guarantees cover KSG MI versus KSG-backed shared exclusions;
 - the exact assumptions of the Lean statements and exact certifiers;
 - the role and stability of schema-3 scientific outcome records;
-- a green exact-head hosted CI result, bound to revision and run URL;
+- a versioned method-change packet that maps each equation and test to one exact object, quantity,
+  route, domain, and nonclaim;
+- preservation of exact-head hosted CI and CodeQL results bound to revision and run URL;
 - whether a neutral row-transform-tail API name can supplement the p-value compatibility name;
 - whether a future group-aware schedule can preserve episode boundaries by construction;
 - how fitted-quantizer metadata will record same-row, disjoint-row, and unknown row relations
@@ -370,15 +404,31 @@ Please provide or confirm:
   panicking while it prints the multi-line replay summary;
 - a statement that Prisoma compatibility and VLA application validity remain consumer-owned.
 
-## Ready-to-send message
+### Consumer research registry — retained here, not sent as current upstream work
 
-**Title:** Prisoma consumer-delta request for `pid-rs@796c11e..7473e62`
+Prisoma should preserve the bivariate BROJA/\(\sim\)-PID; the distinct Gaussian-restricted
+\(\sim_G\)-PID and its evaluator and estimator routes; the deficiency \(\delta\)-PID; the
+Gaussian-channel-restricted \(\delta_G\) functional; the convex-surrogate
+\(\widehat{\delta}_G\)-PID and its evaluator; the \(\delta^\lambda\) family; the
+information-deficiency I-PID; and the Lyu–Clark–Raviv conditional-independence hierarchy as
+separate research objects. That registry work is useful consumer-side preservation, but it is
+**not part of the send-now `pid-rs` request**. It must not widen the bounded shared-exclusions,
+estimand, resource, row-relation, or resampling work below and must not create new runtime modes.
+
+## Ready-to-send scientific and contract core
+
+The copyable body begins at the title below. It excludes the comparator-registry programme above.
+The `pid-runlog` BrokenPipe request later in the body is a separable maintenance annex, not PID
+science and not a prerequisite for the six-part shared-exclusions foundation.
+
+**Title:** Prisoma consumer-delta request for `pid-rs@796c11e..bc3aa80`
 
 Prisoma opened a first-principles estimator adoption review on 2026-08-12 and refreshed it through
-2026-08-13. It remains pinned to
+2026-08-16. It remains pinned to
 `796c11e70f009634b853dc4ada6f565563d82f51`. Public main was observed at
-`7473e62acef6077c2c1147e09d5d1297f2a2874b`; the latest reviewed estimator-code anchor is its
-parent `cb3f58f0b190454cb3f1090de8798261ec78f194`.
+`bc3aa80fb6025e709c2906a08bce25a4fac40578`; the latest reviewed estimator-code anchor is its
+grandparent `cb3f58f0b190454cb3f1090de8798261ec78f194`. A direct remote-head check on 2026-08-16 found
+the same public-main revision; this records observation, not permission to update Prisoma's pin.
 
 We tested Prisoma's clean Rust workspace against exact revision `722d3abe` in an isolated tree.
 Head `bbdfda40` has byte-identical crates, Cargo files, Rust toolchain, and Python package metadata.
@@ -406,6 +456,15 @@ Prisoma does not ask for one generic “Wibral PID.” It needs the MGW categori
 continuous objects under separate contracts, with the goal-function, parthood, and infomorphic
 work recorded at their correct composition or semantic layer. Public `pid-rs` may retain its
 existing method IDs, but each must bind the complete defining team and exact reference.
+Each result must also bind its exact cumulative or Möbius-inverted quantity, lattice coordinate,
+pointwise or averaged scope, and net, informative, or misinformative component. A functional ID
+alone does not identify the output.
+No new BROJA, Gaussian-restricted, deficiency, I-PID, Lyu-hierarchy, or other comparator
+implementation is requested in this package. Prisoma preserves those objects in its consumer-side
+research registry and will open a separately scoped request if one becomes scientifically active.
+Infomorphic compositions likewise remain downstream typed compositions rather than PID methods.
+The current consumer-side method contract is
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](../../../PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md).
 
 Please also correct three retained-pin metadata boundaries. Fitted-quantizer types currently claim
 outside/separate fitting that the API does not enforce. The kd-tree documentation includes the
@@ -413,13 +472,20 @@ Ehrlich redundancy term even though that term uses its own quadratic scan. Defau
 quantize-then-MGW results continuous and recommend `I_min` when continuous kNN fails. We suggest
 typed row-relation receipts, exact backend-specific wording, and separate cross-estimand language.
 
-For future work, first split paper-defined functional identity from runtime estimator identity in
-the catalog. Then add a bounded sparse empirical-count-law MGW API. Please bridge it to the
-existing exact-count certifier. Add a separate specified-rational-law schema next. After bounded
-agreement checks, add a declared binary64 finite-law evaluator. Supporting work should add
-fit/evaluation row receipts, checked resource composition, fixed-source-law invariance tests, and
-group-aware schedules. Please do not treat the current count-law certifier as assurance for soft
-neural laws, adaptive binning, stopped gradients, or training guards.
+For future work, first split paper-defined functional and output-coordinate identity from runtime
+estimator identity in the catalog. Then add a bounded sparse empirical-count-law MGW API. Please
+bridge it to the existing exact-count certifier. Add a separate specified-rational-law schema next.
+After bounded agreement checks, add a declared binary64 finite-law evaluator. Supporting work
+should add fit/evaluation row receipts, a checked all-components-execute resource sum with typed
+memory/work semantics, fixed-source-law invariance tests, and group-aware schedules. Please do not
+treat the current count-law certifier as assurance for soft neural laws, adaptive binning, stopped
+gradients, or training guards.
+
+A group schedule does not automatically make continuous uncertainty valid. Whole-group
+replacement duplicates numeric coordinates; occurrence IDs preserve provenance but do not remove
+the exact ties rejected by the continuous KSG/Ehrlich route. Start continuous episode work with a
+separately justified without-replacement group subsampling diagnostic, per-group statistic, or
+future weighted/cluster-aware estimator. Do not infer bootstrap coverage from schedule validity.
 
 The pinned generic resampling surface already withholds a bootstrap summary or transform tail
 fraction after any requested replicate fails. It also types circular-shift output as an approximate
@@ -439,23 +505,23 @@ span overflow fixture on exact current-head bytes. All five passed. Upstream sti
 broader KSG revision-4 repository integration NO-GO. Please preserve that boundary and provide
 exact-head hosted CI evidence before recommending adoption.
 
-Exact-head CI run `31686107959` is currently red because the certified-SxPID2 job detects a stale
-reviewed workflow digest. Exact-head CodeQL run `31686106737` passed. Please repair and rerun the
-failed exact-head gate without weakening its custody rule.
+Historical exact-head CI run `31686107959` was red because the certified-SxPID2 job detected a
+stale reviewed workflow digest. Its CodeQL run `31686106737` passed. Preserve this as correction
+history rather than current status.
 
-Current public head `7473e62` is a custody-only direct child of that estimator anchor. It changes
-no crate or Cargo input and grants no estimator or scientific credit. Its full CI run
-`31724449805` still failed the exact-count SxPID2 and KSG arithmetic/phase-isolation jobs. Its
-separate `Push on main` run `31724449083` passed. Please provide a green full exact-head run before
-recommending adoption.
+Head `7473e62` is a custody-only direct child of that estimator anchor. Its full CI run
+`31724449805` failed the exact-count SxPID2 and KSG arithmetic/phase-isolation jobs. Its separate
+`Push on main` run `31724449083` passed. Current head `bc3aa80` is one custody-repair child later.
+Its full CI run `31773937366` passed all 45 jobs, and CodeQL run `31773937102` passed all four
+jobs. Neither child changes crate or Cargo inputs or grants estimator or scientific credit.
 
 The atom split into `SxPointwiseAtom` and `SxAveragedAtom`, the `prob` replacement with
 `empirical_count` and `empirical_probability`, and the interpretation envelopes are especially
 relevant. The pin-to-head interval also adds `pid-core` build dependencies on `serde`,
 `serde_json`, and `sha2`; adds `serde_json` to `pid-python`; revises resampling identities; and adds
 an experimental schema-3 type foundation. Run `31651702557` completed with all 45 jobs passing
-for `bbdfda40`. CodeQL run `31651702504` also passed for that earlier head. These are not exact-
-head receipts for `7473e62`.
+for `bbdfda40`. CodeQL run `31651702504` also passed for that earlier head. The exact current-head
+receipts are the `bc3aa80` runs named above.
 
 Prisoma will keep population, measure, estimator, and application gates separate. Upstream
 categorical assurance will not be treated as continuous VLA validation. A failed continuous term

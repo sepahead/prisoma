@@ -5,27 +5,65 @@
 - Added an ASD-STE100 Issue 9 writing policy to the contributor guidance. The policy uses
   “STE-aligned” language and preserves technical, scientific, legal, generated, and immutable
   content boundaries.
-- Refreshed the living ecosystem overlay through 2026-08-13. The reviewed `pid-rs@796c11e` and NCP
-  `v0.8.0` pins remain deliberate. Current public heads and the unchanged Paper2Brain descriptor
-  bytes are recorded without claiming compatibility, integration, or scientific promotion.
+- Refreshed the living ecosystem overlay through 2026-08-13 and the `pid-rs` public-head status
+  through 2026-08-14. The reviewed `pid-rs@796c11e` and NCP `v0.8.0` pins remain deliberate.
+  Current public heads and the unchanged Paper2Brain descriptor bytes are recorded without
+  claiming compatibility, integration, or scientific promotion.
 - Added a 2026-08-12 first-principles audit memo and a `pid-rs` adoption handoff. The memo keeps
   PID conditional, tightens pathway-use language to named interventions, and preserves the
   population, measure, estimator, and application gates.
-- Refreshed that handoff through `pid-rs@7473e62`. Estimator-code anchor `cb3f58f0` changes bounded
+- Refreshed that handoff through `pid-rs@bc3aa80`. Estimator-code anchor `cb3f58f0` changes bounded
   KSG integration evidence and classifies kd-tree span overflow as `NumericalInstability`. Four
-  predecessor-radius fixtures and one structured-overflow fixture pass locally. Current head adds
-  custody and assurance surfaces only. Full CI run `31724449805` failed two assurance jobs, while
-  narrower push run `31724449083` passed. The reviewed pin remains.
+  predecessor-radius fixtures and one structured-overflow fixture pass locally. Head `7473e62`
+  added custody and assurance surfaces only, and full CI run `31724449805` failed two jobs.
+  Current head `bc3aa80` repairs that wiring. Full CI run `31773937366` passed 45 jobs, and CodeQL
+  run `31773937102` passed four jobs. The reviewed pin remains because provider green is not a
+  consumer compatibility or scientific-validity result.
 - Added a separate `pid-rs` extension brief. It compares twelve designs across twenty scientific
-  and engineering lenses. It first repairs scientific-object identities and route edges. The
-  implementation order then starts with resource composition, row-relation receipts, nominal tail
-  types, a sparse MGW count-law API, and a fixed-source-law fixture. Later work adds distinct
+  and engineering lenses. It first repairs scientific-object, output-coordinate, and route-edge
+  identities. The implementation order then starts with typed memory/work resource composition,
+  row-relation receipts, nominal tail types, a sparse MGW count-law API, and a fixed-source-law
+  fixture. Later work adds distinct
   declared-mass and rational-certificate paths, group-aware schedules, and a tuple-level Ehrlich
   assumption contract. The brief keeps categorical MGW, Schick-Poland's
   measure-theoretic construction, practical continuous Ehrlich shared exclusions, estimators, and
   infomorphic objectives as non-substitutable objects. It requests no BROJA or `I_min` fallback.
   It also requests a neutral, content-bound `pid-runlog` decision record. Schema 2 otherwise forces
   forecast commitments and execution receipts through semantically wrong label envelopes.
+- Added the normative PID method-selection, mathematics, and publication contract. It requires a
+  complete functional/quantity-coordinate/law/route/transform/support/result identity. It keeps
+  cumulative values, Möbius atoms, antichain coordinates, aggregations, and net, informative, and
+  misinformative components distinct. It separates declared-law
+  evaluators from sample estimators, and gives direct-law routes an evaluator-correctness gate
+  rather than a false estimator claim. It corrects the Matthias result to its three-source
+  counterexample and all-source-count family scope. It also rejects unordered-set claims when row
+  identities repeat and records why whole-group replacement does not make continuous kNN valid.
+  It corrects \(\sim\)-PID to its BROJA identity while recognizing \(\sim_G\) as a distinct
+  Gaussian-coupling-restricted PID whose equality to BROJA on Gaussian input laws remains
+  conjectural. It separately records the \(\sim_G\) law evaluator and sample routes, deficiency
+  \(\delta\), Gaussian-channel-restricted \(\delta_G\), and the convex-surrogate
+  \(\widehat{\delta}_G\)-PID and evaluator. It also
+  preserves the genuinely new \(\delta^\lambda\) family—with its unresolved small-parameter
+  normalization boundary—and information-deficiency I-PID from the
+  same 2023 paper, and keeps all of them separate from the Lyu–Clark–Raviv
+  conditional-independence Gaussian hierarchy, whose \(N\geq3\) quantities omit redundancy and
+  are not a complete antichain PID. It also makes every infomorphic objective instance bind its
+  atom map and coefficient vector.
+  Valid higher-source and novel PID work remains preserved as typed research, methods, or negative-
+  boundary material. It cannot rescue or pool with another PID without a mapping theorem. The
+  review/to-do record now also names the actual 0.9.0 post-tag pin and the pin's signed-MI default,
+  instead of advertising an unadopted 1.x surface or a superseded zero-clamping concern.
+- Added the `PID-M0` through `PID-M8` method and publication process. It preserves intake, types
+  each scientific object, re-derives the mathematics, decides applicability, freezes the route,
+  records execution, challenges the result, and publishes a paired Markdown/PDF packet. The
+  deterministic PDF is a derived view. Its receipt binds source, renderer, output, extracted-text
+  checks, page count, and page-by-page visual review. This process evidence does not promote any
+  PID gate or result.
+- Added two mathematics boundaries from the primary papers. The raw \(\delta^\lambda\) objective
+  satisfies \(0\leq\delta^\lambda\leq\lambda I(M;X\mid Y)\) through the feasible copy route, so an
+  unscaled small-\(\lambda\) BROJA identification needs more than the paper's endpoint prose. The
+  Lyu hierarchy's order-specific synergistic effects can be signed, and fixed ridge
+  regularization is a distinct route that does not retain exact blockwise affine invariance.
 - Changed replay-summary assertions in local recipes and CI to drain stdout. This avoids an
   upstream `pid-runlog-replay` broken-pipe panic when an early-closing consumer finds a match.
   The `pid-rs` handoff records the reproduced CLI defect and the requested regression.
@@ -112,7 +150,8 @@
   quantized, or singular tuple contracts abstain before the KSG/Ehrlich assertion is constructed.
   The uncertainty sidecar advances to schema 3 and binds the tuple declaration per pair.
 - Recast EC1 and H1–H4 as unfrozen claim templates. The plan now separates H1-A from H1-B,
-  scores H3 on the full target population with exact fallback, and bounds H4 to one tested
+  scores H3 on the full target population with exact same-fold M1 substitution for abstentions,
+  and bounds H4 to one tested
   intervention construction. H2 now freezes a scoring contract that binds the prediction object
   and distinguishes complete-data scores, censoring-adjusted horizon scores, risk estimators, and
   full-distribution likelihoods. A forecast-independent conditional IPCW Brier construction can
@@ -1154,7 +1193,7 @@ critical path is still the first real-VLA capture (not done). The discrete-harne
   NB: the pin is the commit `7e8f16d` — one commit past the `release: 0.3.0` commit, whose
   workspace version is `0.3.0`; upstream has **not** cut a `v0.3.0` git *tag* yet, so
   `git describe` reports `v0.2.0-22-g7e8f16d`. The crate version, not a tag, is 0.3.0. 0.3.0
-  adds a *genuine* discrete shared-exclusions PID (`sxpid.rs`: `discrete_sxpid2` /
+  adds the categorical MGW shared-exclusions PID route (`sxpid.rs`: `discrete_sxpid2` /
   `discrete_sxpid3`, plus n-source SxPID [sic — 2–4 sources; see v10.7]), numerical-stability hardening across
   the estimators, criterion benchmarks, and a run-log `logical_trace_hash` (wall-clock-
   excluded logical hash). prisoma's `crates/pid-rerun` was updated for the new

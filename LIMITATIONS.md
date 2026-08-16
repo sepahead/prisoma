@@ -20,6 +20,8 @@ The preserved EC1/H1-H4 state is
 generated [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) is the software/evidence
 inventory. It currently has no `validated` rows. If this summary and the canonical specification
 ever differ, the more restrictive statement governs until the discrepancy is reviewed.
+PID-specific method selection and publication also follow
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md).
 
 ## Scientific status in this candidate
 
@@ -56,7 +58,7 @@ The following language is deliberately narrower than the project objectives.
 | H1-A | The schema-v2 preflight input contract, schema-v3 result artifact, and deterministic finite-benchmark Protocol-A software reference are fixture-runnable scoring primitives. They establish no H1-A evidence and cannot establish H1-B. | Unqualified “H1 passed,” “a physical individual effect was observed,” or “closed-loop robustness was established.” |
 | H1-B | A randomized closed-loop design is specified in the canonical plan; execution remains blocked. | Any statement that Protocol B was implemented, randomized, analyzed, or validated. Protocol A may not be substituted for Protocol B. |
 | H2 | The deterministic synthetic reference exercises the named fixed-horizon, grouped fitting, IPCW risk-estimator, reliability-bin, alarm, nondetection, and declared-payoff arithmetic on checked fixtures only. | “H2 passed,” an `IPCW` label establishes propriety, a likelihood for another prediction object is interchangeable, or any claim of prospective prediction, calibration validity, warning benefit, censoring-assumption validity, comparator superiority, transport, safety gain, or deployment validity. |
-| H3 | PID estimates abstain or remain noninterpretable outside their named population, measure, estimator, and application gates. The primary target is the full policy with exact M1 fallback. | Any claim that eligible-only performance, geometry, a nonzero atom, or an emitted number establishes real-embedding PID validity or incremental value. |
+| H3 | PID estimates abstain or remain noninterpretable outside their named population, measure, estimator, and application gates. The primary target is the full policy with exact same-fold M1 substitution for every abstention. | Any claim that eligible-only performance, geometry, a nonzero atom, or an emitted number establishes real-embedding PID validity or incremental value. |
 | H4 | The reference attribution path exercises canonical logging and a deletion-ranking-sensitivity control. | Any claim that the control establishes causal/mechanistic faithfulness, natural policy use, a tested-intervention effect, or H4. |
 
 “Specified,” “implemented,” “tested,” and “validated” are different states. In particular, a
@@ -105,7 +107,7 @@ substitute—H1-A's typed response, comparator, positive-margin one-sided succes
 uncertainty, multiplicity, and scope contract; H1-B's primary endpoint, hierarchy,
 positive-margin success, mandatory design checks, and directional replication; H2's aligned
 prediction-object/target/censoring/one-primary-scoring-contract/non-rescuable-success contract,
-H3's full-population fallback policy, positive incremental-value margin, one-sided superiority
+H3's full-population same-fold M1 substitution policy, positive incremental-value margin, one-sided superiority
 decision, dependence-aware uncertainty, replication target, and warning dispositions, plus H3/H4
 selection and a target-specific source-ancestry contract that excludes post-landmark observations
 and target injection. It also types H4 target sampling, transport, one tuple/outcome, simultaneous inference,
@@ -144,11 +146,11 @@ high-dimensional MI/coherence route is NO-GO, and continuous shared-exclusions P
 embeddings is not application-validated. An output may be computed only when declared support
 permits it; an abstention has no numeric placeholder and must not be interpreted as zero.
 
-Public `pid-rs` main was observed at `7473e62` on 2026-08-13. Its estimator-code parent is
-`cb3f58f0`; the child changes custody and assurance surfaces only. Newer method catalogs,
-formal/categorical assurance work, source-errata records, and exact-certifier surfaces remain
-unadopted. Full exact-head CI is red in two jobs, while a narrower push receipt passed. Provenance
-improvements do not establish application validity.
+Public `pid-rs` main was observed at `bc3aa80` on 2026-08-14. Its estimator-code grandparent is
+`cb3f58f0`; the two later commits change custody and assurance surfaces only. Newer method
+catalogs, formal/categorical assurance work, source-errata records, and exact-certifier surfaces
+remain unadopted. Full exact-head CI passed 45 jobs, and CodeQL passed four jobs. These provider
+receipts do not establish consumer compatibility, estimator validity, or application validity.
 
 Population, measure, estimator, and application verdicts are separate. Geometry diagnostics and
 sampled-mean delta are descriptive and cannot clear those gates. The fitted categorical route
@@ -156,9 +158,24 @@ constructs empirical categorical laws and targets the averaged two-source MGW sh
 functional. Continuous Ehrlich shared exclusions, MGW categorical shared exclusions,
 Williams–Beer `I_min`, BROJA, finite-sample estimators, and infomorphic objectives are related but
 non-interchangeable objects. Prisoma does not use `I_min` or BROJA for an active hypothesis.
+Functional identity is also not enough to identify an output. Cumulative lattice values,
+Möbius-inverted atoms, antichain coordinates, pointwise and averaged quantities, and net,
+informative, and misinformative components remain distinct.
 Categorical reports retain empirical occupancy and a coverage warning indicator. Neither observed
 coverage nor a low singleton fraction proves coverage of the population law or removes plug-in
 bias.
+
+The exact separation and method-admission rules are in
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md).
+The current pin does not contain the requested sparse count-law API, declared rational or
+binary64 law evaluator, functional registry, computed row-relation proof, group schedule, or
+neutral decision event. Documentation of those requests is not evidence that they ship.
+
+Valid higher-source, mixed-law, conditional, temporal, manifold, exact-law, and objective-
+composition research is not rejected by this boundary. It remains a distinct research candidate
+until its mathematics, estimator or evaluator, oracle, dependence contract, and application gate
+exist. A failed application route may still support a methods result or a rigorous negative
+boundary. It must not be relabeled as another PID or used to rescue the failed claim.
 Quantization, PLS, scaling, and other fitted transformations must be fitted inside training folds
 for any future held-out comparison. H3 requires an eligible
 episode-local feature and a task-family-blocked M2-over-M1 comparison after the non-PID H1 or H2

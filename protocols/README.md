@@ -3,6 +3,8 @@
 This directory contains machine-readable **current-state** protocol and ecosystem ledgers. They
 do not replace `grandplan.md`, preregister a real experiment, or turn software fixtures into
 scientific evidence.
+PID functional identity, method applicability, research preservation, and publication levels are
+governed by [`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](../PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md).
 
 - `world_model_claim_registry_v1.json` is the unfrozen v13.0 W1–W3 registry. W1 and W2 are the
   only proposed primary scientific claims. W3 is secondary or exploratory. The registry records
@@ -49,7 +51,7 @@ scientific evidence.
   no-censoring branch requires complete follow-up for the full frozen eligible population, never
   outcome-selected complete cases;
   calibration/actionability, external replication, multiplicity, and non-rescuable success
-  contract; H3's full inherited target-ID ledger, exact same-fold M1 fallback, complete-population
+  contract; H3's full inherited target-ID ledger, exact same-fold M1 substitution, complete-population
   paired-scoring policy, fail-closed receipt/reporting rules, positive useful-value margin,
   one-sided superiority decision, PID-feature construction, dependence-aware uncertainty,
   multiplicity, replication target, support acceptance, warning-code dispositions, and a typed

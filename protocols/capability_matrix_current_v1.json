@@ -59,7 +59,7 @@
         },
         {
           "path": "findings.md",
-          "sha256": "a85c87d1b09bea23363809c844a0870eff90e358821534e6179c52520457722f"
+          "sha256": "d0c11bd4de24fe96f2f8a689041a43c58d8263b439b8c2839302d2af33fbf6cb"
         }
       ],
       "known_limitations": "The high-dimensional MI/coherence route is NO-GO and continuous shared-exclusions atoms on real VLA embeddings remain application-blocked; an abstention is not a zero estimate.",
@@ -112,7 +112,7 @@
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "294563f3397fbbfcea5f8d0e6f1e17fa36357030f3dcd7c0bb8bc8f555cae4d0"
+          "sha256": "c22f2c8aac322051e84dec46fd9c96fa36905e185b52884370061dc101329a07"
         }
       ],
       "known_limitations": "TCP/WebSocket binaries refuse non-loopback bind addresses and start with mutations disabled, but forwarding/proxying/tunnelling a loopback listener is not prevented. TCP/stdio JSONL lines have a 1 MiB cap, WebSocket upgrade/incoming-frame inputs have 16 KiB/1 MiB caps, and network read/write operations have 30-second timeouts. Standard profiles have no total request/session, request-count, or aggregate-traffic limit, so progress-making trickle traffic may persist. The optional Engram profile adds finite request-count, aggregate-input, pairing-attempt, and run-log limits, but no independent wall-clock deadline. Its separate capability row records startup-secret-possession pairing and its limits. The enumerated WebSocket gate requires GET /bridge HTTP/1.1, exactly one each of a nonempty Host, Upgrade websocket, tokenized Connection containing upgrade, version 13, and a base64 16-byte key, and no Origin; it does not claim general malformed-request detection. Client application messages are unfragmented, masked UTF-8 text frames; ping, pong, and close control frames are supported, while binary frames, fragmentation, and extensions/RSV use are rejected. The JSON-RPC 2.0 surface is single-request only: missing-id notifications are silent and distinct from explicit null, parameters are omitted or named objects rather than positional arrays, undeclared top-level method keys are rejected, sim.step requires numeric dt, and batches are unsupported. Profile-invalid parameters use -32602; handler/domain failures after validation use -32000. File RPCs provide non-adversarial canonical confinement and no-replace outputs, not a security-grade sandbox against hardlinks, aliases, or concurrent filesystem mutation. Export parses/manifests the same exact byte snapshot read from the source and stages/syncs/installs no-clobber finalized RRD bytes/hash. Executable transport run logs call File::sync_all for the initial prefix, each session flush before a wire response, and the terminal seal; generic SimBridgeSession<W> durability is sink-defined. There is no parent-directory fsync, power-loss durability, or cross-file run-log/export transaction. Crashes or provenance-storage failures may leave incomplete/unreadable logs, an apparently complete terminal record with indeterminate status/durability, or orphan RRDs. Standard profiles have no authentication. No profile provides authenticated actor identity, authorization, TLS, redaction, remote-security assessment, full target UI/VLA/backend control coverage, or a versioned subscription stream; actor identity remains locally declared.",
@@ -188,7 +188,7 @@
         },
         {
           "path": "EXPERIMENTS.md",
-          "sha256": "b8fe8eb8d2fc75467d050e1b1e5fbad2a7ba003be73d00191617ac0a6f0d7990"
+          "sha256": "246432f69394beba3e2a36acba32e5bbc34bfd1e9994c6c9064deab8caa9eb71"
         }
       ],
       "known_limitations": "Checked inputs are synthetic fixtures. The categorical-sx route estimates averaged two-source MGW shared exclusions on empirical laws after fitted equal-width quantization. It is not Williams-Beer I_min, Ehrlich continuous shared exclusions, an infomorphic objective, or a mapping among those objects. Emitted geometry, temporal, and PID diagnostics do not establish population, measure, estimator, or application validity for real embeddings. The process-local report seal detects mutation after analysis but is not a signature, process attestation, or authority to republish deserialized evidence.",
@@ -318,7 +318,7 @@
       "feature_id": "experiment.ec1_external_benchmark",
       "feature": "EC1 conventional-stack and standard-container benchmark",
       "status": "specified",
-      "exact_revision": "local-sha256:948c0dc028177cde59f0856f72da544118f56f0e23deabd0e975d6c32b1054ee",
+      "exact_revision": "local-sha256:a793128dfa1736f45d237222dba0e2b0666928871b39c152e6407c6e815ff2af",
       "revision_inputs": [
         "grandplan.md",
         "protocols/research_claim_registry_v1.json"
@@ -327,7 +327,7 @@
       "evidence_artifacts": [
         {
           "path": "grandplan.md#88-external-benchmark-for-the-infrastructure-claim",
-          "sha256": "cec3865f2078cb3d05e3c2a443a873297806756a5a53d0a7d38666f6de2d81a1"
+          "sha256": "0ad357d004d9a667f55b08610ad74c0b8c25d952dc7d3a1d1717b05f39bf8002"
         },
         {
           "path": "protocols/research_claim_registry_v1.json",
@@ -419,7 +419,7 @@
       "feature_id": "experiment.h1_protocol_b",
       "feature": "Randomized closed-loop H1 Protocol B",
       "status": "specified",
-      "exact_revision": "local-sha256:948c0dc028177cde59f0856f72da544118f56f0e23deabd0e975d6c32b1054ee",
+      "exact_revision": "local-sha256:a793128dfa1736f45d237222dba0e2b0666928871b39c152e6407c6e815ff2af",
       "revision_inputs": [
         "grandplan.md",
         "protocols/research_claim_registry_v1.json"
@@ -428,7 +428,7 @@
       "evidence_artifacts": [
         {
           "path": "grandplan.md",
-          "sha256": "cec3865f2078cb3d05e3c2a443a873297806756a5a53d0a7d38666f6de2d81a1"
+          "sha256": "0ad357d004d9a667f55b08610ad74c0b8c25d952dc7d3a1d1717b05f39bf8002"
         },
         {
           "path": "protocols/research_claim_registry_v1.json",
@@ -448,7 +448,7 @@
       "feature_id": "experiment.h2_real_prospective",
       "feature": "Real prospective H2 failure-prediction study",
       "status": "specified",
-      "exact_revision": "local-sha256:948c0dc028177cde59f0856f72da544118f56f0e23deabd0e975d6c32b1054ee",
+      "exact_revision": "local-sha256:a793128dfa1736f45d237222dba0e2b0666928871b39c152e6407c6e815ff2af",
       "revision_inputs": [
         "grandplan.md",
         "protocols/research_claim_registry_v1.json"
@@ -457,7 +457,7 @@
       "evidence_artifacts": [
         {
           "path": "grandplan.md",
-          "sha256": "cec3865f2078cb3d05e3c2a443a873297806756a5a53d0a7d38666f6de2d81a1"
+          "sha256": "0ad357d004d9a667f55b08610ad74c0b8c25d952dc7d3a1d1717b05f39bf8002"
         },
         {
           "path": "protocols/research_claim_registry_v1.json",
@@ -548,7 +548,7 @@
       "feature_id": "experiment.linked_fidelity_tomography",
       "feature": "Linked mesh/3DGS, learned/reference dynamics, policy-response, and selection tomography",
       "status": "specified",
-      "exact_revision": "local-sha256:151f679d7463848ad57d12f6e13c1989d5bb644a5a70efe6c0f9b9cabffcc0f5",
+      "exact_revision": "local-sha256:e59cb8e0e4f7236088832e5e88361e1257b13030016b7d2778dcadaec1e58b30",
       "revision_inputs": [
         "grandplan.md",
         "ARCHITECTURE.md",
@@ -560,11 +560,11 @@
       "evidence_artifacts": [
         {
           "path": "grandplan.md",
-          "sha256": "cec3865f2078cb3d05e3c2a443a873297806756a5a53d0a7d38666f6de2d81a1"
+          "sha256": "0ad357d004d9a667f55b08610ad74c0b8c25d952dc7d3a1d1717b05f39bf8002"
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "294563f3397fbbfcea5f8d0e6f1e17fa36357030f3dcd7c0bb8bc8f555cae4d0"
+          "sha256": "c22f2c8aac322051e84dec46fd9c96fa36905e185b52884370061dc101329a07"
         },
         {
           "path": "protocols/world_model_claim_registry_v1.json",
@@ -623,7 +623,7 @@
       "feature_id": "governance.m0_research_ledgers",
       "feature": "Machine-checkable M0 research-governance honesty scaffolds",
       "status": "tested",
-      "exact_revision": "local-sha256:02171173dff721d791a255d00d5700e2086a61c46c9fe22547b99af0828434bd",
+      "exact_revision": "local-sha256:0413b1637a94eb2ca43a71bb7b8b39a200bfb70768f855a8cdfecfbe361d3efd",
       "revision_inputs": [
         "grandplan.md",
         "protocols/m0_preregistration_skeleton_v1.json",
@@ -703,7 +703,7 @@
       "feature_id": "governance.world_model_claim_ledger",
       "feature": "Machine-checkable W1-W3 claim-boundary ledger",
       "status": "tested",
-      "exact_revision": "local-sha256:a8f8aa455f84d9d97463266d3a6ee767f72ffed9e2563ccfec706cfceaac3e94",
+      "exact_revision": "local-sha256:1abebfb429dd16663aac671b5b0847a94ee251e7cb6d0430c63b56da1069b311",
       "revision_inputs": [
         "grandplan.md",
         "protocols/world_model_claim_registry_v1.json",
@@ -741,7 +741,7 @@
       "feature_id": "integration.standard_format_adapters",
       "feature": "MCAP/rosbag2 and LeRobot/RLDS storage adapters",
       "status": "specified",
-      "exact_revision": "local-sha256:948c0dc028177cde59f0856f72da544118f56f0e23deabd0e975d6c32b1054ee",
+      "exact_revision": "local-sha256:a793128dfa1736f45d237222dba0e2b0666928871b39c152e6407c6e815ff2af",
       "revision_inputs": [
         "grandplan.md",
         "protocols/research_claim_registry_v1.json"
@@ -750,11 +750,11 @@
       "evidence_artifacts": [
         {
           "path": "grandplan.md#86-interoperability-not-reinvention",
-          "sha256": "cec3865f2078cb3d05e3c2a443a873297806756a5a53d0a7d38666f6de2d81a1"
+          "sha256": "0ad357d004d9a667f55b08610ad74c0b8c25d952dc7d3a1d1717b05f39bf8002"
         },
         {
           "path": "grandplan.md#88-external-benchmark-for-the-infrastructure-claim",
-          "sha256": "cec3865f2078cb3d05e3c2a443a873297806756a5a53d0a7d38666f6de2d81a1"
+          "sha256": "0ad357d004d9a667f55b08610ad74c0b8c25d952dc7d3a1d1717b05f39bf8002"
         }
       ],
       "known_limitations": "No MCAP/rosbag2 or LeRobot/RLDS import/export implementation and conformance fixture exists; local JSON/NPZ paths are not substitutes unless explicitly justified and benchmarked.",
@@ -770,7 +770,7 @@
       "feature_id": "integration.structurally_different_adapter",
       "feature": "Structurally different independent EC1 adapter",
       "status": "specified",
-      "exact_revision": "local-sha256:948c0dc028177cde59f0856f72da544118f56f0e23deabd0e975d6c32b1054ee",
+      "exact_revision": "local-sha256:a793128dfa1736f45d237222dba0e2b0666928871b39c152e6407c6e815ff2af",
       "revision_inputs": [
         "grandplan.md",
         "protocols/research_claim_registry_v1.json"
@@ -779,7 +779,7 @@
       "evidence_artifacts": [
         {
           "path": "grandplan.md",
-          "sha256": "cec3865f2078cb3d05e3c2a443a873297806756a5a53d0a7d38666f6de2d81a1"
+          "sha256": "0ad357d004d9a667f55b08610ad74c0b8c25d952dc7d3a1d1717b05f39bf8002"
         },
         {
           "path": "protocols/research_claim_registry_v1.json",
@@ -817,7 +817,7 @@
         },
         {
           "path": "NCP_DEV_PROMPT.md",
-          "sha256": "94ef741b486a827e18b58ceacfebbb1c5d0af9838af4a8fb80980428ccf39e73"
+          "sha256": "c2efcef4b20e5e84cd6507c805753bcfd8ef5bc7c8768ea8d7638fd1a92b5e00"
         }
       ],
       "known_limitations": "The 18 frozen scenarios cover only the frozen v0.8.0 base-route wire surface. Whole-tick omission is a known native blind spot. No live timing, QoS, reconnect, authentication, ACL, security, E4, or EC1 result follows. P01, P02, and P03 are OPEN, not dependency-ready, and NOT RUN. P03 covers fault-observatory migration and Prisoma observer-role qualification.",
@@ -891,11 +891,11 @@
         },
         {
           "path": "findings.md",
-          "sha256": "a85c87d1b09bea23363809c844a0870eff90e358821534e6179c52520457722f"
+          "sha256": "d0c11bd4de24fe96f2f8a689041a43c58d8263b439b8c2839302d2af33fbf6cb"
         },
         {
           "path": "grandplan.md",
-          "sha256": "cec3865f2078cb3d05e3c2a443a873297806756a5a53d0a7d38666f6de2d81a1"
+          "sha256": "0ad357d004d9a667f55b08610ad74c0b8c25d952dc7d3a1d1717b05f39bf8002"
         }
       ],
       "known_limitations": "This is the canonical shared implementation, not independent corroboration; high-dimensional nuisance tests are NO-GO and current real-embedding shared-exclusions application validity is blocked.",
@@ -911,7 +911,7 @@
       "feature_id": "proposal.gauss_mi_covariate",
       "feature": "Reconstruction-quality covariate and active-view study",
       "status": "specified",
-      "exact_revision": "local-sha256:6ee815145e77b26f279d1702972d3b0b303bf38d1a1498f032ac0cf2aa720e2a",
+      "exact_revision": "local-sha256:b7a9eaf8e8dd4774ab2e36932d487da26cbcca4703f83a491ea775f610a92aeb",
       "revision_inputs": [
         "GAUSS_MI_INTEGRATION.md",
         "grandplan.md",
@@ -928,7 +928,7 @@
         },
         {
           "path": "grandplan.md",
-          "sha256": "cec3865f2078cb3d05e3c2a443a873297806756a5a53d0a7d38666f6de2d81a1"
+          "sha256": "0ad357d004d9a667f55b08610ad74c0b8c25d952dc7d3a1d1717b05f39bf8002"
         }
       ],
       "known_limitations": "No reconstruction-quality measurement contract, validated posterior/predictive observation law, active-view implementation, or empirical study exists; it is optional nuisance-analysis design only.",
@@ -946,7 +946,7 @@
       "feature_id": "proposal.gauss_mi_weighted_pid",
       "feature": "Rejected GauSS-MI-weighted KSG/MI/PID sketch (non-implementation record)",
       "status": "deferred",
-      "exact_revision": "local-sha256:6ee815145e77b26f279d1702972d3b0b303bf38d1a1498f032ac0cf2aa720e2a",
+      "exact_revision": "local-sha256:b7a9eaf8e8dd4774ab2e36932d487da26cbcca4703f83a491ea775f610a92aeb",
       "revision_inputs": [
         "GAUSS_MI_INTEGRATION.md",
         "grandplan.md",
@@ -963,7 +963,7 @@
         },
         {
           "path": "grandplan.md",
-          "sha256": "cec3865f2078cb3d05e3c2a443a873297806756a5a53d0a7d38666f6de2d81a1"
+          "sha256": "0ad357d004d9a667f55b08610ad74c0b8c25d952dc7d3a1d1717b05f39bf8002"
         }
       ],
       "known_limitations": "The retained expression is a rejected heuristic without a named population functional, derivation, support/positivity conditions, consistency result, calibrated interval, or oracle evidence; it must not be implemented as written.",
@@ -979,7 +979,7 @@
       "feature_id": "proposal.m4_predictive_policy_qualification",
       "feature": "M4 Max action-conditioned world-model qualification",
       "status": "specified",
-      "exact_revision": "local-sha256:1a58fc9d3cfaa2980c2b563bffdaaecfd4d519df3efaa4b264bf4493f01331e8",
+      "exact_revision": "local-sha256:e53d30d6f045fd043534673882936609fb2748c4d5527bb920cbf80cc0f67593",
       "revision_inputs": [
         "docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md",
         "grandplan.md",
@@ -996,11 +996,11 @@
         },
         {
           "path": "grandplan.md",
-          "sha256": "cec3865f2078cb3d05e3c2a443a873297806756a5a53d0a7d38666f6de2d81a1"
+          "sha256": "0ad357d004d9a667f55b08610ad74c0b8c25d952dc7d3a1d1717b05f39bf8002"
         },
         {
           "path": "RESEARCH_VLA_D_NCP.md",
-          "sha256": "415c21853f067173439d72dd48837d2bd3613354a5ec76df0baaf6f6a8cec549"
+          "sha256": "c81b5dbee01a5209b7753ffee59a5acbd29690b6850bdcc0a5518b245b4b5787"
         },
         {
           "path": "protocols/world_model_claim_registry_v1.json",
@@ -1021,7 +1021,7 @@
       "feature_id": "proposal.worldwarp_external",
       "feature": "WorldWarp external world-model comparator",
       "status": "specified",
-      "exact_revision": "local-sha256:6e2ec4a54277eb9b22baeccd7666be09b381b053e3556d738e38ce168410b908",
+      "exact_revision": "local-sha256:beab218f4de9d58ac1b81dd437eb79a032754b8b01714a97ace87828e4648434",
       "revision_inputs": [
         "WORLD_WARP_INTEGRATION.md",
         "grandplan.md",
@@ -1036,7 +1036,7 @@
         },
         {
           "path": "grandplan.md",
-          "sha256": "cec3865f2078cb3d05e3c2a443a873297806756a5a53d0a7d38666f6de2d81a1"
+          "sha256": "0ad357d004d9a667f55b08610ad74c0b8c25d952dc7d3a1d1717b05f39bf8002"
         }
       ],
       "known_limitations": "No pinned consumer-owned adapter, executable fixture, rights-approved model/data bundle, matched-support study, or E4 result exists; generated scenes are not causal ground truth and this comparator is off the critical path.",
@@ -1071,7 +1071,7 @@
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "294563f3397fbbfcea5f8d0e6f1e17fa36357030f3dcd7c0bb8bc8f555cae4d0"
+          "sha256": "c22f2c8aac322051e84dec46fd9c96fa36905e185b52884370061dc101329a07"
         }
       ],
       "known_limitations": "Local exact-event replay and sidecar checks do not supply policy/controller/simulator/physical replay evidence or the external negative-case benchmark required by EC1.",
@@ -1109,7 +1109,7 @@
         },
         {
           "path": "README.md",
-          "sha256": "9f5538f36fc4b896e16733854eed566f3aeab39cdca8c20e8bb5152f0699c5fe"
+          "sha256": "01369f77a31a42986c88dee697f5061769c365031fa3529cf953c68307b05df0"
         }
       ],
       "known_limitations": "The scripted push-to-goal fixture is a deterministic software cross-check, not a real VLA policy/environment choice, external adapter, validated simulator, or physical repeatability study.",
@@ -1128,7 +1128,7 @@
       "feature_id": "ui.tauri_sparkjs_shell",
       "feature": "Tauri/SparkJS custom-rendering shell",
       "status": "deferred",
-      "exact_revision": "local-sha256:9a9e459e0f295cee38ab7348f206cd10b6b9a381001e58a8217331cb84685402",
+      "exact_revision": "local-sha256:9ae727ea56cafe1340265d17d1d97a1604641c72a9e9f7ce59b6b0e55f233508",
       "revision_inputs": [
         "grandplan.md",
         "ARCHITECTURE.md"
@@ -1137,11 +1137,11 @@
       "evidence_artifacts": [
         {
           "path": "grandplan.md",
-          "sha256": "cec3865f2078cb3d05e3c2a443a873297806756a5a53d0a7d38666f6de2d81a1"
+          "sha256": "0ad357d004d9a667f55b08610ad74c0b8c25d952dc7d3a1d1717b05f39bf8002"
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "294563f3397fbbfcea5f8d0e6f1e17fa36357030f3dcd7c0bb8bc8f555cae4d0"
+          "sha256": "c22f2c8aac322051e84dec46fd9c96fa36905e185b52884370061dc101329a07"
         }
       ],
       "known_limitations": "No runnable shell or custom renderer exists; it is a Phase-4 product surface and explicitly not a thesis dependency.",
@@ -1172,11 +1172,11 @@
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "294563f3397fbbfcea5f8d0e6f1e17fa36357030f3dcd7c0bb8bc8f555cae4d0"
+          "sha256": "c22f2c8aac322051e84dec46fd9c96fa36905e185b52884370061dc101329a07"
         },
         {
           "path": "pidsplatspecs.md",
-          "sha256": "86b4d0c5a32c4bc20db264af53f921764944325f9f07577ded440787a20d8889"
+          "sha256": "df6d6329c371b148b6bef408645f1e73d3b5729661b62485bb212afa4024cd3d"
         }
       ],
       "known_limitations": "The converter surfaces current summary, provenance, validation, and attribution tracks. It omits FrameObserved, reduces flow vectors to magnitudes, and ignores world-model candidate metadata. Pinned Rerun 0.34.1 has no anisotropic GaussianSplats3D archetype; its PLY path reduces splats to spherical points and ignores opacity. The complete Phases 1-3 blueprint is not built. The converter is a derived view, not W1-W3 evidence.",
@@ -1193,7 +1193,7 @@
       "feature_id": "viewer.rerun_full_blueprint",
       "feature": "Complete Rerun Phases 1-3 diagnostic viewer",
       "status": "specified",
-      "exact_revision": "local-sha256:a661f8d0ab7787982ae589ca7ca4c6da5cd54f6d9459ad47abb44fb0db980d46",
+      "exact_revision": "local-sha256:b64f5401f497b930acfd939f728e021a15b2cff9926c5f589e7a9f82e665c1ac",
       "revision_inputs": [
         "grandplan.md",
         "DIAGRAMS.md",
@@ -1204,15 +1204,15 @@
       "evidence_artifacts": [
         {
           "path": "grandplan.md",
-          "sha256": "cec3865f2078cb3d05e3c2a443a873297806756a5a53d0a7d38666f6de2d81a1"
+          "sha256": "0ad357d004d9a667f55b08610ad74c0b8c25d952dc7d3a1d1717b05f39bf8002"
         },
         {
           "path": "DIAGRAMS.md",
-          "sha256": "3d5fc48ba00062f8b345ed01e11045e858767e765ef9702a2519c6ba811906e5"
+          "sha256": "3418d8eb1d8d0837ba0096b9c38d5469e7526a42a222ae95d6dcb247bf7ece37"
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "294563f3397fbbfcea5f8d0e6f1e17fa36357030f3dcd7c0bb8bc8f555cae4d0"
+          "sha256": "c22f2c8aac322051e84dec46fd9c96fa36905e185b52884370061dc101329a07"
         }
       ],
       "known_limitations": "Only conversion groundwork is runnable; the complete time-machine panels, heatmaps, interaction blueprint, and viewer acceptance tests remain unimplemented.",

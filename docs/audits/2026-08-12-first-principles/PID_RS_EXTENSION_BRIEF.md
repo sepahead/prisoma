@@ -5,10 +5,16 @@ Review completed: 2026-08-14. Literature cutoff: 2026-08-13.
 Prisoma pin: `796c11e70f009634b853dc4ada6f565563d82f51`.
 
 Public `pid-rs` head observed during this review:
-`7473e62acef6077c2c1147e09d5d1297f2a2874b`.
+`bc3aa80fb6025e709c2906a08bce25a4fac40578`.
+
+Latest reviewed estimator-code anchor: `cb3f58f0b190454cb3f1090de8798261ec78f194`.
+The later `7473e62..bc3aa80` interval repairs custody and assurance surfaces. It does not change
+crate or Cargo inputs and grants no new estimator or scientific credit.
 
 This brief is a request for upstream design work. It does not authorize a Prisoma pin change.
 It does not claim that a proposed method is implemented, validated, or fit for a hypothesis.
+The governing Prisoma method and publication rules are in
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](../../../PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md).
 
 ## Decision
 
@@ -16,8 +22,8 @@ Do not ask `pid-rs` for a generic “Wibral PID.” No such single scientific ob
 
 Ask for a small foundation bundle first. Separate contract repair from new scientific input:
 
-1. represent each paper-defined functional separately from its estimator, evaluator, transform,
-   and downstream composition;
+1. represent each paper-defined functional and output coordinate separately from its estimator,
+   evaluator, transform, and downstream composition;
 2. expose a bounded sparse empirical-count-law API for two-source categorical MGW shared
    exclusions;
 3. record the relation computed from caller-declared transform-fit and evaluation row identities,
@@ -31,9 +37,18 @@ rational-law input. Add a declared binary64 finite-law MGW evaluator only after 
 agree on bounded fixtures. These are the highest-value next scientific extensions. They make
 finite laws inspectable without row expansion or target sampling.
 
-Add generic group-aware resampling next. Prisoma can map groups to episodes. Improve the
-continuous Ehrlich contract after that. Keep an infomorphic objective record separate from the
-PID functional and estimator.
+Add generic group-aware schedule infrastructure next. Prisoma can map groups to episodes. Do not
+present whole-group replacement bootstrap as a continuous kNN solution: repeated groups duplicate
+their numeric coordinates, and occurrence IDs do not remove exact ties. The first continuous route
+must use a separately justified without-replacement group subsampling diagnostic, per-group
+statistic, or future weighted/cluster-aware estimator. Improve the continuous Ehrlich contract
+after that. Keep an infomorphic objective record separate from the PID functional and estimator.
+Preserve the BROJA/\(\sim\)-PID, the distinct Gaussian-restricted \(\sim_G\)-PID, the deficiency
+\(\delta\)-PID, the Gaussian-channel-restricted \(\delta_G\) quantity, the convex-surrogate
+\(\widehat{\delta}_G\)-PID, the \(\delta^\lambda\) family, the information-deficiency I-PID, and the
+distinct Lyu–Clark–Raviv Gaussian information hierarchy as research registry nodes; this request
+does not make them new runtime modes. The \(\sim\)-PID is the BROJA-PID, but \(\sim_G\) is a
+different restricted functional whose equality to BROJA on Gaussian input laws is conjectured.
 
 Do not make BROJA, Williams–Beer `I_min`, a mixed-law proposal, or a failed continuous estimate a
 fallback for Prisoma. Do not prioritize GPU or MPS work for the small categorical path.
@@ -53,52 +68,95 @@ in `label_observed`. This schema request is orthogonal to every PID item below.
 
 Do not emit a `wibral_lineage` result identity. The author name is useful for literature search,
 but it does not identify a scientific object. Represent the ecosystem as a provenance and
-estimand graph. Functional nodes define quantities. Estimator edges map observations to an
-estimate of one named functional. Evaluator edges map a declared law to that functional's value.
-Preprocessing and objective-composition nodes remain separate. Every result must bind the
-applicable node and edge identifiers.
+estimand graph. Functional nodes define named quantities and lattice coordinates. Estimator edges
+map observations to an estimate of one named coordinate. Evaluator edges map a declared law to
+that coordinate's value. Preprocessing and objective-composition nodes remain separate. Every
+result must bind the applicable node and edge identifiers.
 
 The identifiers below are proposed stable semantic IDs, not names assigned by the cited authors.
 Keep current `pid-rs` IDs canonical for their existing estimator, pipeline, and validation rows.
-They are not aliases for a paper-defined functional. Add a typed `targets_functional_id` edge.
-Bind complete author lists, references, versions, and software revisions in metadata rather than
-in stable IDs.
+They are not aliases for a paper-defined functional. Add typed `defines_quantity`,
+`targets_functional`, `evaluates_functional`, `implements_route`, `recovers_on_domain`,
+`motivated_by`, `validated_by`, and `composes_quantities` edges. Bind complete author lists,
+references, versions, and software revisions in metadata rather than in stable IDs. Reserve
+`alias_of` for definitionally identical identities.
 
 The current method-catalog schema cannot represent this whole graph. It has no functional,
 declared-law evaluator, reference, theorem, or objective-composition node kinds. Use a separate
-scientific-object registry or a method-catalog v2. A minimal Wave 0 can add functional identities
-and `targets_functional_id` without blocking later graph work.
+scientific-object registry or a method-catalog v2. A minimal Wave 0 can add functional and
+quantity-coordinate identities plus typed target edges without blocking later graph work.
 
 | Graph node or edge | Proposed identity | What it is | What it is not | Prisoma use |
 |---|---|---|---|---|
 | Wibral–Priesemann–Kay–Lizier–Phillips neural goal functions | `reference.neural-goal-coordinates.2017` | A coordinate language for comparing and composing PID terms into neural goals | A PID functional, estimator, or implemented arbitrary learning rule | Design context only |
 | Gutknecht–Wibral–Makkeh parthood and logic | `semantics.pid-information-parthood.2021` | A semantic foundation for PID atoms, lattices, and information parthood | A finite-sample estimator | Semantic authority |
 | Makkeh–Gutknecht–Wibral categorical shared exclusions | `functional.shared-exclusions.mgw-categorical` | A pointwise functional on categorical probability laws, differentiable on its declared fixed-support domain | Ehrlich continuous PID, a quantizer, or an infomorphic objective | Active low-dimensional categorical diagnostic |
+| MGW cumulative lattice quantity | `quantity.shared-exclusions.mgw-categorical.cumulative` | One cumulative shared-exclusion value at an exact antichain coordinate | Its Möbius-inverted atom or a generic redundancy scalar | Required result coordinate |
+| MGW Möbius atom quantity | `quantity.shared-exclusions.mgw-categorical.mobius-atom` | One atom obtained by Möbius inversion on the declared lattice | A cumulative value or another lattice coordinate | Required result coordinate |
 | Empirical-PMF categorical route | current `shared-exclusions.categorical` targeting `functional.shared-exclusions.mgw-categorical` | A plug-in estimator of the categorical MGW functional when counts represent sampled observations | A second PID definition, a declared-law evaluator, or a population-law certificate | Active descriptive estimator route |
 | Schick-Poland et al. measure-theoretic shared exclusions | `functional.shared-exclusions.measure-theoretic-2021` | An arXiv-preprint construction for broad random-variable domains | The later practical Ehrlich formula or its kNN estimator | Literature and theorem boundary only |
 | Ehrlich et al. purely continuous analytic shared exclusions | `functional.shared-exclusions.ehrlich-continuous` | A continuous counterpart inspired by categorical shared exclusions, with its own analytic estimand and assumptions | Binned MGW, an unrelated method, or a proved categorical-to-continuous equivalence | Default-off research functional |
 | Ehrlich source-disjunction kNN route | current `shared-exclusions.continuous-report` targeting `functional.shared-exclusions.ehrlich-continuous` | A finite-sample estimator that targets the Ehrlich continuous functional | The functional itself or a categorical estimator | Default-off, application-blocked estimator route |
 | Williams–Beer categorical redundancy | `functional.pid.williams-beer-imin` | A separate PID comparator based on `I_min` | MGW shared exclusions or a fallback after continuous abstention | Inactive comparator only |
-| Bivariate infomorphic objective | `composition.infomorphic.bivariate-2025` | A weighted composition of named categorical MGW atoms and residual entropy | The empirical law construction, gradient route, a new PID definition, or an estimator guarantee | Future typed composition only |
+| Lyu–Clark–Raviv conditional-independence hierarchy | `functional.information-hierarchy.lyu-conditional-independence` | Two-source redundancy plus per-source unique information, order-\(K\) synergistic effects, narrow synergy, and total synergistic effect; it deliberately defines no redundancy for \(N\geq3\) | A complete higher-source antichain PID or atoms from another functional | Preserved research identity only |
+| Lyu Gaussian covariance-law evaluator | `evaluator.information-hierarchy.lyu-gaussian-covariance-law` | Log-determinant evaluation of the named hierarchy quantities on a positive-definite jointly Gaussian law | A sample estimate or distribution-free formula | Future law-specific sensitivity route |
+| Lyu sample-covariance plug-in route | `route.information-hierarchy.lyu-sample-covariance-plugin` | A sample estimator for the named Gaussian hierarchy quantities | The population evaluator, a complete \(N\geq3\) PID, or shared-exclusions validation | Preserved research route only |
+| BROJA/\(\sim\)-PID | `functional.pid.broja-bivariate` | The Bertschinger et al. optimization-based bivariate PID; \(\sim\)-PID is another name for this same functional | Deficiency \(\delta\), `I_min`, MMI, shared exclusions, \(\delta^\lambda\), or I-PID | Preserved comparator only |
+| Gaussian-restricted \(\sim_G\)-PID | `functional.pid.sim-g-gaussian-restricted` | The BROJA/\(\sim\) optimization with candidate couplings restricted to jointly Gaussian laws; it bounds BROJA in general | BROJA/\(\sim\) itself or an evaluator route; equality for Gaussian input \(P\) is conjectured | Preserved research functional only |
+| \(\sim_G\) Gaussian covariance-law evaluator | `evaluator.pid.sim-g-gaussian-covariance-law` | Declared-law optimization targeting the \(\sim_G\)-PID | An evaluator for unrestricted BROJA/\(\sim\), a sample estimate, or proof of the equality conjecture | Future law-specific research route |
+| \(\sim_G\) sample plug-in route | `route.pid.sim-g-gaussian-sample-plugin` | Sample-covariance estimation of \(\sim_G\) without the later finite-sample correction | The declared-law evaluator, BROJA/\(\sim\), a Gaussianity test, or the bias-corrected route | Preserved research route only |
+| \(\sim_G\) bias-corrected sample route | `route.pid.sim-g-gaussian-sample-bias-corrected-2023` | The paper's distinct finite-sample bias-corrected estimation route targeting \(\sim_G\) | A new functional, exact evaluator, unrestricted BROJA/\(\sim\), or permission to analyze atomic data | Preserved research route only |
+| Bivariate deficiency PID | `functional.pid.deficiency-delta-bivariate` | The distinct deficiency-based \(\delta\)-PID | BROJA/\(\sim\), \(\sim_G\), MMI, shared exclusions, or I-PID | Preserved comparator only |
+| Gaussian-channel-restricted deficiency | `functional.pid.deficiency-delta-g-gaussian-channel-restricted` | \(\delta_G\), obtained by restricting the degrading channel to the linear additive Gaussian class; it upper-bounds unrestricted deficiency | The unrestricted \(\delta\)-PID or the convex surrogate | Preserved research functional only |
+| Convex Gaussian deficiency surrogate | `functional.pid.deficiency-delta-g-hat-convex` | The paper-defined \(\widehat{\delta}_G\)-PID; a further surrogate with proved bounds and extremal agreements relative to \(\delta\) | \(\delta\), \(\delta_G\), or numerical solver error | Preserved research proxy functional only |
+| Convex-surrogate law evaluator | `evaluator.pid.deficiency-delta-g-hat-convex-law` | Declared-Gaussian-covariance evaluation route for the \(\widehat{\delta}_G\) convex program | An exact evaluator of \(\delta\) or \(\delta_G\), a sample estimator, or a certificate | Preserved research route only |
+| Lagrangian deficiency family | `functional.pid.deficiency-lagrangian-delta-lambda-bivariate` | A parameterized \(\delta^\lambda\)-PID family for \(\lambda\geq0\); the paper states deficiency and BROJA endpoint connections, but its displayed raw objective tends to zero at small \(\lambda\) when exact copying is feasible, so a normalized or lexicographic limit theorem is still required | One parameter-free functional, an unqualified `recovers_on_domain` edge, or an alias relation among parameter instances | Preserved research family only; \(\lambda=0\) is a degenerate endpoint |
+| Information-deficiency I-PID | `functional.pid.information-deficiency-i-bivariate` | A distinct bivariate PID designed to capture unique information through an auxiliary random variable; proved Blackwellian for jointly Gaussian laws, with the general claim left conjectural | BROJA/\(\sim\), \(\delta\), \(\delta^\lambda\), or a Gaussian sample route | Preserved research identity only |
+| Bivariate infomorphic objective | `composition.infomorphic.bivariate-2025` | A paper-defined parametric family of weighted compositions of named categorical MGW atoms and residual entropy; one coefficient vector identifies one objective instance | The empirical law construction, gradient route, a new PID definition, or an estimator guarantee | Future typed composition only |
 | Bivariate infomorphic empirical conditional-gradient route | `evaluation.infomorphic.bivariate-conditional-gradient-2025` | An empirical binned-source/model-conditional law construction and partial derivative with the histogram and bin map held fixed | The full derivative of MGW over an induced joint law or a consistency theorem | Future typed evaluation edge only |
-| Trivariate infomorphic objectives | `composition.infomorphic.trivariate-2025` | A trivariate extension that composes named PID atoms into local neural objectives | The bivariate PNAS object, a PID definition, or an estimator guarantee | Future typed composition only |
+| Trivariate infomorphic objectives | `composition.infomorphic.trivariate-2025` | A distinct parametric family that composes named PID atoms into local neural objectives; the atom map and coefficient vector identify an instance | The bivariate PNAS object, a PID definition, or an estimator guarantee | Future typed composition only |
 | Trivariate infomorphic empirical conditional-gradient route | `evaluation.infomorphic.trivariate-conditional-gradient-2025` | An empirical-source/model-conditional training route with declared binning and stopped-gradient semantics | The objective itself or a full-law gradient theorem | Future typed evaluation edge only |
 | Matthias et al. PID inconsistency result | `theorem.pid-axiom-inconsistency.2025-v1` | An arXiv-v1 theorem about one unavoidable axiom trade-off | Evidence that PID is useless, that MGW is validated, or that a particular negative atom is necessary | Required interpretation warning |
 
 The categorical MGW paper establishes fixed-support differentiability with respect to a
 categorical PMF and a target chain rule. It does not promise nonnegative net atoms. The 2025
-arXiv-v1 preprint proves
-that no PID with an associated redundancy measure satisfies local positivity, target chain rule,
-and re-encoding invariance simultaneously for every source count. That theorem does not validate
-MGW or prove that any particular negative MGW atom is necessary or correct.
+arXiv-v1 preprint gives a three-source counterexample and proves that no single PID family with an
+associated redundancy measure can satisfy local positivity, target chain rule, and re-encoding
+invariance for all source counts. It does not prove nonexistence at every fixed source count. It
+does not validate MGW or prove that any particular negative MGW atom is necessary or correct. Its
+counterexample is discrete; the paper leaves a continuous-only restriction open.
 
 The categorical MGW and Ehrlich objects are related, not interchangeable. Ehrlich et al. present a
 purely continuous analytic counterpart inspired by categorical shared exclusions. They also state that their
 practical analytic formulation does not retain every property of the earlier measure-theoretic
 proposal. Shared motivation and notation do not supply a general output-identification theorem.
 
-Metadata must therefore bind `functional_id`, `input_law_kind`, `units`, and aggregation scope.
-Use one tagged route: `SampleEstimator { estimator_id }` or
+Gaussianity likewise does not choose a PID. The \(\sim\)-PID is the BROJA-PID, but \(\sim_G\) is
+a distinct functional obtained by restricting its coupling optimization to jointly Gaussian
+\(Q\). It upper- or lower-bounds the corresponding BROJA atoms in general; equality for Gaussian
+input \(P\) is conjectured. Likewise, unrestricted deficiency \(\delta\), Gaussian-channel-
+restricted \(\delta_G\), and the further convex-surrogate \(\widehat{\delta}_G\)-PID are distinct
+objects related by restrictions, bounds, and proved extremal agreements. The Lyu–Clark–Raviv
+hierarchy uses yet another definition. The same 2023
+unique-information paper also defines the parameterized \(\delta^\lambda\) family and a distinct
+I-PID; it proves the I-PID Blackwellian for jointly Gaussian laws but leaves the general claim
+conjectural. For \(N\geq3\), the Lyu hierarchy does not assign redundancy and therefore must not be
+serialized as a complete PID lattice. Its declared-covariance evaluator and sample-covariance
+plug-in estimator are different graph edges. An empirical covariance matrix, marginal normality
+check, ridge, or bias correction does not prove the required joint law or make atomic and dependent
+robotics data admissible.
+
+Do not encode “bias corrected” as a maturity or correctness claim. Later component-specific bias
+work reports unequal bias across PID atoms and describes its own corrections as heuristic despite
+large-sample analysis. The 2023 \(\sim_G\) correction is therefore one named estimator route that
+still needs matched-regime bias, variance, coverage, and failure evaluation and does not become an
+unrestricted BROJA estimator without the missing equality theorem.
+
+Functional identity alone is insufficient. Metadata must also bind `quantity_id`, the exact
+antichain or lattice coordinate, cumulative-versus-Möbius construction, pointwise-versus-averaged
+scope, averaging law, and `net | informative | misinformative` component. A cumulative value is
+not its atom. A net atom is not either nonnegative component. Metadata must also bind
+`input_law_kind` and units. Use one tagged route: `SampleEstimator { estimator_id }` or
 `DeclaredLawEvaluator { evaluator_id }`. Derive evaluation kind from that variant. Add an optional
 typed preprocessing identity and `composition_id` when applicable. This prevents contradictory
 estimator/evaluator metadata. A finite-sample estimator is an edge to its named functional. It is
@@ -148,7 +206,7 @@ injected, or that an observed association is causal.
 
 ## Observed upstream boundary
 
-The requests above are not renames for current public APIs. At observed head `7473e62`:
+The requests above are not renames for current public APIs. At observed head `bc3aa80`:
 
 - the method catalog has strong origin and constraint fields, but it does not expose separate
   paper-defined functional nodes for the empirical categorical and continuous estimator rows;
@@ -159,10 +217,18 @@ The requests above are not renames for current public APIs. At observed head `74
   composition method;
 - quantizer reports bind training-input and transform-input hashes, but no row-set relation;
 - row resampling types independent rows or one weakly stationary series, but no group plan;
-- permutation reports already distinguish calibrated p-values from approximate surrogate scores;
+- permutation reports record calibrated-p-value versus approximate-surrogate semantics, but both
+  values still occupy the same optional binary64 field shape rather than distinct nominal types;
 - the continuous report binds source-gauge prose, but one support contract carries a broad
   population assertion; and
 - no declared binary64 finite-law MGW or infomorphic-objective API was found.
+
+The recovery head has terminal full CI run
+[`31773937366`](https://github.com/sepahead/pid-rs/actions/runs/31773937366) with 45 successful
+jobs. Its CodeQL run
+[`31773937102`](https://github.com/sepahead/pid-rs/actions/runs/31773937102) has four successful
+jobs. These receipts repair the earlier exact-head hosted failures. They do not establish
+downstream compatibility, estimator validity, or a Prisoma application gate.
 
 The neutral tail name is therefore an ergonomic follow-up. It is not a request to replace the
 existing typed calibration field. The other items close distinct input, provenance, resource, or
@@ -216,8 +282,8 @@ struct NormalizedFiniteLaw2<S1, S2, T> {
 }
 
 enum ComputedRowIdentityRelation {
-    SameOrderedSequence,
-    SameUnorderedSet,
+    SameOrderedUniqueSequence,
+    SameUniqueIdentitySet,
     PartialOverlap { shared_identities: usize },
     Disjoint,
 }
@@ -271,8 +337,11 @@ unused zero-probability states. Otherwise, defer declared-alphabet metadata from
 Compute row relations jointly from caller-declared stable row identities. This proves the relation
 among supplied identities, not that they truthfully identify physical sampling units. Retain exact
 per-row identities or their digests while computing disjointness. A whole-set digest alone cannot
-prove overlap. Reject duplicate identities unless multiplicity is part of the declared unit. A
-caller assertion must never inhabit a computed variant.
+prove overlap. The first API must reject duplicate identities. If multiplicity is later required,
+add an explicitly occurrence-aware multiset contract; do not call it an unordered set. A caller
+assertion must never inhabit a computed variant. Keep row and group identities separate: row IDs
+are unique, while episode or cluster IDs may repeat across rows and define the split/uncertainty
+hierarchy.
 
 Give nominal tail types private checked constructors. Return them only from a transform whose
 typed null supports that calibration. Bind every p-value to family, hypothesis, null, and algorithm
@@ -288,7 +357,7 @@ impl ResourceEstimate {
         pairwise_distances: u128,
         operations_hint: u128,
     ) -> Self;
-    fn checked_conservative_sum(
+    fn checked_component_sum(
         operation: &'static str,
         estimates: impl IntoIterator<Item = Self>,
     ) -> PidResult<Self>;
@@ -296,9 +365,11 @@ impl ResourceEstimate {
 ```
 
 The constructor is required because external crates cannot construct a `#[non_exhaustive]`
-literal. Use component-wise checked sums. The callback declaration must charge retained output and
-transient scratch separately. Do not claim a universal sequential peak until those resources have
-different types.
+literal. Use component-wise checked sums. Summed `estimated_bytes` is a conservative co-resident
+memory upper bound when components may coexist. Summed `pairwise_distances` and
+`operations_hint` are additive work charges, not simultaneous resources. The callback declaration
+must charge retained output and transient scratch separately. Do not claim a universal sequential
+peak until those resources have different types.
 
 ## Twelve candidate approaches
 
@@ -389,8 +460,9 @@ Cons:
 ### O5 — checked multi-stage resource composition
 
 Add a public component constructor and checked composition for `ResourceEstimate`. Start with a
-conservative simultaneous sum. Add a more precise phase plan only when retained outputs and
-transient scratch are typed separately.
+checked component-wise aggregate. Treat bytes as a conservative co-resident bound and the two work
+fields as additive charges. Add a more precise phase plan only when retained outputs and transient
+scratch are typed separately.
 
 Pros:
 
@@ -408,7 +480,8 @@ Cons:
 
 Add a generic schedule-first API that preserves group or cluster boundaries by construction. Keep
 “episode” semantics in Prisoma. Keep independent-cluster, one-series block, and two-level designs
-as different schemes. Give repeated sampled groups distinct occurrence identities.
+as different schemes. Give repeated sampled groups distinct occurrence identities. Treat callback
+admissibility as a separate contract.
 
 Pros:
 
@@ -421,6 +494,10 @@ Cons:
 - Equal-group and equal-row targets are different estimands.
 - A two-level episode-plus-block scheme needs stronger assumptions.
 - Few episodes cannot support credible group-level uncertainty.
+- Whole-group replacement duplicates numeric rows. The pinned continuous KSG/Ehrlich route rejects
+  the resulting exact ties; occurrence IDs repair provenance, not coordinates.
+- Without-replacement group subsampling targets an m-of-G diagnostic and does not automatically
+  calibrate a confidence interval for the full-group estimator.
 
 ### O7 — nominal row-transform tail API
 
@@ -444,6 +521,8 @@ Cons:
 Commit a small two-source specified-rational law family. Freeze one alphabet, event map, and
 lattice. Define each full joint law separately. Independently marginalize every condition and
 require exact equality of `P(S1,S2)` before testing the informative-component invariance.
+Treat the relationship as paper-derived and the fixture as project-defined validation unless an
+exact primary-source theorem locator is pinned.
 
 Pros:
 
@@ -478,7 +557,8 @@ Cons:
 ### O10 — typed infomorphic objective specification
 
 Define one record for the objective composition and another for its empirical evaluation or
-training edge. Bind atom coefficients, residual entropy, hybrid law construction, binning,
+training edge. Bind exact functional and coordinate IDs, atom coefficients, residual entropy,
+hybrid law construction, binning,
 gradient-stop boundaries, fit relation, and numerical guards. Do not call either record a PID
 measure.
 
@@ -549,7 +629,7 @@ The scientific lenses are:
 | O3 rational bridge | 3 | 2 | 2 | 3 | 3 | 0 | 1 | 1 | 3 | 3 |
 | O4 row relation | 3 | 3 | 3 | 3 | 3 | 2 | 3 | 1 | 2 | 3 |
 | O5 resource composition | 3 | 3 | 3 | 3 | 3 | 1 | 3 | 2 | 2 | 3 |
-| O6 episode plans | 3 | 3 | 3 | 2 | 2 | 3 | 1 | 3 | 2 | 3 |
+| O6 episode plans | 3 | 3 | 3 | 2 | 2 | 1 | 1 | 3 | 2 | 3 |
 | O7 nominal tail | 3 | 2 | 2 | 3 | 3 | 1 | 1 | 2 | 2 | 3 |
 | O8 invariance fixture | 3 | 2 | 2 | 3 | 3 | 0 | 1 | 1 | 3 | 3 |
 | O9 Ehrlich contract | 3 | 1 | 3 | 2 | 2 | 0 | 2 | 2 | 3 | 3 |
@@ -592,11 +672,13 @@ an unidentified functional or an unavailable validation oracle.
 
 ### Wave 0 — repair meaning before adding scope
 
-Keep the current scientific-object split. Add distinct paper-defined functional identities through
-a catalog-v2 schema or separate scientific-object registry. Keep current method IDs canonical for
-their existing routes. Link them through typed edges such as `targets_functional_id`. Correct any
-remaining metadata that calls categorical MGW and continuous Ehrlich one measure. Make old fitted
-transform entry points report unknown row relation unless computed evidence exists.
+Keep the current scientific-object split. Add distinct paper-defined functional and output-
+coordinate identities through a catalog-v2 schema or separate scientific-object registry. Keep
+current method IDs canonical for their existing routes. Link them through the typed graph edges
+defined above. Correct any metadata that calls categorical MGW and continuous Ehrlich one measure.
+Replace “genuine PID” qualifiers with the exact functional name. They can wrongly imply that other
+well-defined PID measures are illegitimate rather than different.
+Make old fitted-transform entry points report unknown row relation unless computed evidence exists.
 
 This wave also retains the exact method catalog, units, aggregation scope, and status boundaries.
 It is prerequisite work, not a scientific extension.
@@ -608,9 +690,10 @@ extension. If only one scientific feature can land, choose O1. If only one low-r
 change can land, choose O5.
 
 O5 is the best immediate engineering change. Add a public component constructor and checked
-conservative composition method first. It must sum bytes, pairwise work, and operation hints with
-overflow checks. Do not use a maximum for memory unless the API types retained outputs and
-transient scratch.
+component sum first. It must sum bytes, pairwise work, and operation hints with overflow checks.
+Only the byte field is a conservative co-resident memory bound. The other fields are additive work
+charges. Do not use a maximum for memory unless the API types retained outputs and transient
+scratch.
 
 The resampling callback must then bind one preprocessing disposition. At minimum, distinguish
 `refit_inside_every_transform` from `held_fixed_conditional_analysis`. A successful refit claim
@@ -676,7 +759,11 @@ For O6, separate these cases:
 
 The API must not concatenate groups. It must record the declared statistical unit, row-weighting
 rule, group count, group-size distribution, ordered schedule hash, realized row count, and sampled
-group occurrences. Do not call any of these an effective sample size.
+group occurrences. Do not call any of these an effective sample size. The schedule must also bind
+callback admissibility. Replacement sampling may serve categorical or other duplicate-tolerant
+statistics. A continuous KSG/Ehrlich callback must abstain on duplicate-producing schedules. Start
+continuous work with a separately justified without-replacement group subsampling diagnostic or
+defer it until a weighted or cluster-aware estimator exists; do not claim bootstrap calibration.
 
 For O9, use one typed contract for the complete PID2 tuple. The contract must enumerate every
 marginal and joint law required by the three KSG MI terms and the Ehrlich redundancy term. It must
@@ -692,7 +779,8 @@ layer, or separate objective crate rather than stable `pid-core`.
 Start O10 as an objective-composition record plus a separate empirical evaluation record. Do not
 start with a training engine. Required fields include:
 
-- `functional_id`, `composition_id`, and one tagged `route`;
+- `functional_id`, exact `quantity_id` and lattice coordinate for every term,
+  `composition_id`, and one tagged `route`;
 - `SampleEstimator { estimator_id }` or `DeclaredLawEvaluator { evaluator_id }`, from which the
   evaluation kind is derived;
 - source and target roles;
@@ -755,9 +843,10 @@ The first three waves need the following minimum tests.
 
 ### Law identity
 
-- Row input and the equivalent sparse count law return bit-identical numeric coordinates on the
-  shared admitted domain up to the exact-count binary64 ceiling. Full reports retain different
-  provenance.
+- Row input and the equivalent sparse count law return bit-identical numeric coordinates only on a
+  versioned canonical-lowering intersection. Bind the total-count bound, fixed-width count bound,
+  feature/platform identity, arithmetic contract, coordinate set, and exact-count binary64
+  ceiling. Full reports retain different provenance.
 - Permuting sparse cells does not change the canonical law or result.
 - Duplicate cells either reject or merge under one documented deterministic rule.
 - Zero, negative, and non-finite masses reject under typed policies.
@@ -776,7 +865,8 @@ The first three waves need the following minimum tests.
 - All averaged atoms reconstruct the required mutual-information terms.
 - Informative and misinformative components remain distinct from signed net atoms.
 - Every full joint fixture independently marginalizes to the same exact specified-rational source
-  law.
+  law on one frozen alphabet, event map, source order, positive support, antichain lattice, and log
+  base.
 - That family has an identical averaged informative cumulative and atom vector in every condition.
 - For that family, each change in net atom equals the negative change in its misinformative atom.
 - A changed source marginal breaks the invariance fixture as expected.
@@ -785,8 +875,12 @@ The first three waves need the following minimum tests.
 
 ### Fit relation
 
-- Identical ordered row identities produce computed ordered-sequence equality.
-- A reordering produces computed unordered-set equality, not ordered equality.
+- Identical ordered unique row identities produce computed ordered-sequence equality.
+- A reordering produces computed unique-set equality, not ordered equality.
+- Duplicate row identities reject in the first API. A future multiset route needs a new nominal
+  relation and occurrence semantics.
+- Repeated episode identities are accepted only in the separate group field and never satisfy or
+  defeat a unique-row relation by themselves.
 - Disjoint declared row identities produce a computed disjoint relation.
 - Partial overlap records the overlap and cannot claim disjointness.
 - Every computed relation binds fit/evaluation digests, cardinalities, sampling-unit kind, and
@@ -813,14 +907,25 @@ The first three waves need the following minimum tests.
 - Mixed group coverage and missing order fail closed.
 - Equal-group and equal-row weighting produce different typed estimands.
 - Repeated sampled groups receive distinct occurrence identities.
+- A repeated-group categorical callback can pass only under its declared sampling estimand.
+- A continuous KSG/Ehrlich callback rejects any schedule that duplicates numeric rows.
+- Without-replacement group subsampling is labeled as its own m-of-G diagnostic and does not emit a
+  bootstrap-calibrated confidence interval without a separate theorem.
 
 ### Tail calibration
 
 - The current weak-stationarity circular-shift surrogate cannot construct a nominal p-value.
 - A future circular-shift randomization p-value needs a distinct exact invariance/null contract.
 - Full and block shuffles construct p-values only under the matching null declaration.
-- Every p-value binds its predeclared family, hypothesis, null, and algorithm identity.
-- BH and BY accept nominal p-values and reject surrogate-tail values by type.
+- Every p-value binds its predeclared family, hypothesis, null, null-invariance group or randomized-
+  assignment mechanism, orbit conditioning, draw scheme/count/stream, tail rule, correction, and
+  exact/conditional/Monte-Carlo status.
+- Ordinary row permutation rejects under dependence unless the declared null supplies the required
+  invariance. A block, group, or circular transformation cannot borrow validity from a differently
+  defined null.
+- BH and BY accept nominal p-values and reject surrogate-tail values by type. BH additionally
+  requires a justified independence or applicable positive-dependence regime; BY does not repair an
+  invalid p-value or a post-selected family.
 - Compatibility wrappers are bit-identical to the new API for the same valid null.
 
 ### Continuous contract
@@ -837,6 +942,20 @@ The first three waves need the following minimum tests.
   support size, not expanded sample count.
 - Common count scaling does not increase allocations or work on the sparse route.
 - This is one bounded measurement, not a universal M4 performance promise.
+
+### Process and publication packet
+
+- Each wave has one versioned Markdown method-change packet. It names every functional, quantity,
+  evaluator, estimator, transform, certifier, validation artifact, and objective that changed.
+- The packet contains defining equations, paper theorem locators, project derivations, admitted law
+  domains, source-count scope, failure behavior, nonclaims, migration impact, and rejected routes.
+- Tests map to those exact claims. Passing tests are not evidence for a different functional,
+  coordinate, route, source count, or application.
+- Negative fixtures, superseded derivations, and failed gates remain addressable. A later route
+  does not overwrite them.
+- Prisoma records its consumer review in canonical Markdown and a deterministic PDF view. A build
+  receipt binds source, renderer, PDF, exact command, extracted-text checks, page count, and visual
+  review. The PDF is not an independent authority.
 
 ## Questions for the upstream agent
 
@@ -860,7 +979,12 @@ Please answer these before implementation:
 11. Does the infomorphic specification belong in `pid-core`, a new crate, or only a schema?
 12. Which parts can ship stable, and which must remain behind an experimental feature?
 
-## Ready-to-send message
+## Ready-to-send scientific and contract core
+
+The body below is the only send-now PID request. The broad comparator registry in this brief is a
+consumer-side preservation programme, not current upstream implementation work. The adjacent
+`pid-runlog` decision-record proposal is a separate maintenance request and must be sent, scheduled,
+or declined independently.
 
 **Title: Prisoma request for a typed finite-law and resampling foundation**
 
@@ -875,23 +999,30 @@ Estimator improvements cannot clear Prisoma's population, measure, or applicatio
 
 Please model these objects as a provenance and estimand graph. Keep existing method IDs canonical
 for the routes they already identify. Do not alias an estimator to a functional. Add stable
-functional identities through a scientific-object registry or method-catalog v2, then link routes
-with `targets_functional_id`. Bind complete defining teams, exact references, publication status,
-and software revisions in metadata. Separate functional nodes, sample-estimator edges,
-declared-law evaluator edges, transforms, validations, references, theorems, and objective
-compositions. Ehrlich is a related continuous counterpart, but no general mapping theorem
-identifies its outputs with categorical MGW outputs.
+functional and quantity-coordinate identities through a scientific-object registry or method-
+catalog v2. Link routes with typed target, evaluator, implementation, recovery-domain,
+motivation, validation, and composition edges. Bind complete defining teams, exact references,
+publication status, and software revisions in metadata. Separate cumulative lattice values,
+Möbius-inverted atoms, net/informative/misinformative components, and pointwise/averaged results.
+Ehrlich is a related continuous counterpart, but no general mapping theorem identifies its
+outputs with categorical MGW outputs.
+
+Do not add BROJA, Gaussian-restricted, deficiency, I-PID, Lyu-hierarchy, or other comparator
+implementations for this request. Prisoma preserves those separately typed objects in its own
+research registry; none is a fallback, alias, or new runtime mode here.
 
 Our highest-value upstream package has six parts:
 
-1. separate paper-defined functional identities and typed route edges;
+1. separate paper-defined functional and output-coordinate identities plus typed graph edges;
 2. a borrowed, bounded sparse empirical-count-law API for two-source categorical MGW;
 3. row-relation receipts computed from declared identities, starting additively at the quantizer;
-4. a public resource constructor plus conservative checked composition;
+4. a public resource constructor plus a checked all-components-execute sum with typed memory/work
+   semantics;
 5. an exact fixed-source-law MGW invariance fixture; and
 6. nominal p-value and surrogate-tail Rust types that cannot enter the same FDR API.
 
-Separately, please add a versioned `pid-runlog` decision-record event. Prisoma currently transports
+**Separate maintenance annex; not part of the PID package:** consider a versioned `pid-runlog`
+decision-record event. Prisoma currently transports
 forecast commitments and execution receipts through `label_observed` because schema 2 has no
 neutral inline record. They are not labels. The new event should bind a decision id, stage, payload
 schema, canonical payload hash, payload, optional step/time, and bounded metadata. Keep restored-fork
@@ -912,7 +1043,11 @@ origins separately for hybrid infomorphic laws.
 
 For robotics data, the next request is a generic group-aware schedule API. Prisoma will map groups
 to episodes. It must keep independent clusters, one stationary series, and two-level designs
-separate. It must never splice groups by default.
+separate. It must never splice groups by default. It must also bind callback admissibility.
+Whole-group replacement duplicates numeric coordinates; occurrence IDs do not make those rows
+valid for continuous kNN. Start the continuous route with a separately justified without-
+replacement group subsampling diagnostic, per-group statistic, or future weighted/cluster-aware
+estimator. Do not claim bootstrap confidence-interval calibration from the schedule alone.
 
 For continuous PID2, please replace one blanket support assertion with a tuple-level contract that
 binds every required marginal and joint population assertion, finite-information assumption,
@@ -920,9 +1055,15 @@ source gauge, and preprocessing identity. This remains caller-declared and does 
 Prisoma application.
 
 Please keep BROJA and `I_min` out of any fallback path. Split an infomorphic objective composition
-from its empirical conditional-gradient evaluation edge. Neither is a PID measure. Device
-acceleration is lower priority than scientific identity, bounded resources, row provenance,
-dependence, and validation.
+from its empirical conditional-gradient evaluation edge. Neither is a PID measure. Bind the exact
+atom identities, coefficient vector, residual terms, sign convention, and optimization direction
+for every objective instance. Device acceleration is lower priority than scientific identity,
+bounded resources, row provenance, dependence, and validation.
+
+Please accompany each accepted wave with a versioned Markdown method-change packet. It must map
+equations, law domains, object and route IDs, tests, nonclaims, migrations, and negative evidence.
+Prisoma will bind its consumer decision to that packet and publish a deterministic PDF view with a
+source-to-render receipt. This process artifact is separate from estimator or scientific credit.
 
 The full twenty-lens review, acceptance tests, and twelve design alternatives are in this file.
 
@@ -933,8 +1074,13 @@ The full twenty-lens review, acceptance tests, and twelve design alternatives ar
 - [Gutknecht, Wibral, and Makkeh, parthood and formal logic](https://arxiv.org/abs/2008.09535)
 - [Schick-Poland et al., measure-theoretic discrete and continuous PID](https://arxiv.org/abs/2106.12393)
 - [Ehrlich et al., continuous shared exclusions and estimation](https://arxiv.org/abs/2311.06373)
+- [Venkatesh and Schamberg, deficiency PID for multivariate Gaussian laws](https://arxiv.org/abs/2105.00769)
+- [Venkatesh, Gurushankar, and Schamberg, \(\delta^\lambda\), I-PID, and interpretations of \(\delta\) and BROJA/\(\sim\)](https://arxiv.org/abs/2302.11873)
+- [Venkatesh et al., restricted-Gaussian \(\sim_G\) PID, estimation, and bias correction](https://arxiv.org/abs/2307.10515)
+- [Koçillari et al., component-specific PID sampling bias and heuristic corrections](https://doi.org/10.1101/2024.06.04.597303)
+- [Lyu, Clark, and Raviv, conditional-independence Gaussian hierarchy](https://arxiv.org/abs/2605.09919)
 - [Makkeh et al., infomorphic learning framework](https://pmc.ncbi.nlm.nih.gov/articles/PMC11912414/)
 - [Schneider et al., infomorphic objective (verified ICLR 2025 proceedings)](https://proceedings.iclr.cc/paper_files/paper/2025/hash/87d8ed41d250c401a68f05100e0a4ef0-Abstract-Conference.html)
 - [Matthias et al., PID inconsistency results](https://arxiv.org/abs/2512.16662)
 - [`pid-rs` retained Prisoma pin](https://github.com/sepahead/pid-rs/tree/796c11e70f009634b853dc4ada6f565563d82f51)
-- [`pid-rs` observed public head](https://github.com/sepahead/pid-rs/tree/7473e62acef6077c2c1147e09d5d1297f2a2874b)
+- [`pid-rs` observed public head](https://github.com/sepahead/pid-rs/tree/bc3aa80fb6025e709c2906a08bce25a4fac40578)

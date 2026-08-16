@@ -248,6 +248,18 @@ prove population support. Continuous requests also require a complete-tuple join
 finite-information declaration. Per-axis continuity alone is insufficient. New summary
 configurations bind report contract `prisoma.offline_vlda.report/5`. Publication rejects an
 unversioned or unknown report contract.
+
+Use [`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md)
+before selecting or interpreting any PID-related route. It separates functionals, declared-law
+evaluators, sample estimators, transforms, certifiers, validation artifacts, objective
+compositions, and application interpretations. It also separates cumulative lattice values,
+Möbius-inverted atoms, antichain coordinates, pointwise and averaged quantities, and net,
+informative, and misinformative components. It preserves higher-source and novel PID work as typed
+research objects without letting one PID rescue, pool with, or masquerade as another.
+It also defines the `PID-M0` through `PID-M8` process. That process preserves intake, checks the
+mathematics and applicability, freezes the route, records execution and review, and builds a
+paired Markdown/PDF publication packet. The PDF is a deterministic derived view, not a second
+scientific authority.
 Publication also requires the private in-process seal created by the analysis call. Treat a saved
 summary as read-only evidence. Rerun the analysis to publish a new summary or run log.
 
@@ -335,6 +347,7 @@ Read these documents in this order:
 | Document | Purpose |
 |---|---|
 | [grandplan.md](grandplan.md) | Canonical research and engineering specification |
+| [PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md) | PID mathematics, route selection, research preservation, and publication contract |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Current system design, boundaries, and overhead model |
 | [EXPERIMENTS.md](EXPERIMENTS.md) | Executable proof paths and blocked scientific protocols |
 | [DIAGRAMS.md](DIAGRAMS.md) | Compact architecture and evidence-flow diagrams |

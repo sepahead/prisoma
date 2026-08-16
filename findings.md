@@ -344,7 +344,7 @@ Based on Exp0 findings (negative vulnerability observed in `redundant_copy` at `
 | :--- | :--- | :--- | :--- | :--- |
 | **V, L, D** (Raw) | architecture-dependent ambient width; effective dimension unmeasured | unknown until profiled | **High risk** (current synthetic nuisance controls show concentration/coherence failures; real-representation frequency is unassessed) | **Do not interpret atoms**; profile first, then define and validate any reduced/quantized or MI-only regime separately |
 | **V, L, D** (Reduced) | measured, not assumed | candidate Euclidean chart | Bias risk | MI/Shannon invariants only if every constituent MI passes `MI_GATE` |
-| **A, Flow summaries, Proprio** | often single-digit to low-tens | validate | Lower, not zero, risk | One named MGW categorical or Ehrlich continuous functional only after its exact gates pass |
+| **A, Flow summaries, Proprio** | often single-digit to low-tens | validate | Lower, not zero, risk | One named MGW categorical or Ehrlich continuous functional and one exact output coordinate, only after its exact gates pass |
 | **Possible manifolds** | measured | unknown until calibrated | Geometry/model risk | No default; compare separately validated MI pipelines, and make no atom claim without a measure-specific derivation/oracle |
 
 ### 2. Applied V-L-A-D Scenarios
@@ -364,7 +364,9 @@ Based on Exp0 findings (negative vulnerability observed in `redundant_copy` at `
     *   **Sources:** **Flow summaries** (e.g., object centroid trajectories or principal flow statistics; low‑d by construction), **Proprio** (~7D).
     *   **Method candidate:** one explicitly named shared-exclusions functional. Use MGW on a
         declared categorical law or Ehrlich on its declared continuous domain. Do not conflate the
-        two. Require the exact population, measure, estimator, and application gates.
+        two. Also name the cumulative or Möbius-inverted quantity, antichain coordinate,
+        aggregation, and component. Require the exact population, measure, estimator, and
+        application gates.
     *   **Why:** Lower effective source and target dimensions can make kNN estimation more
         plausible. A low-dimensional target alone is insufficient when another source or the
         product space remains high-dimensional.
@@ -491,6 +493,10 @@ transform, test on held-out data, and include shuffled-target selection controls
    leakage-controlled regime. The fitted categorical modes target MGW shared exclusions on new
    empirical categorical laws. They are not `I_min` or a fallback for continuous failure. Their
    fitted-transform receipts improve identity, but their scientific gates remain blocked.
+   Apply the functional/law/route separation in
+   [`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md)
+   before comparing any result. Preserve valid higher-source or novel PID work as a separate
+   research object; do not give it another PID's name or evidence.
 4. **DO** treat direct recovery or information-coherence failures as stop signals for the exact
    estimator tuple. Treat geometry diagnostics as warnings/descriptive evidence unless a validated
    support envelope has calibrated an abstention rule; the application gate remains blocked either
@@ -534,7 +540,7 @@ unconditional theorem of failure for every distribution or nearest-neighbor esti
 
 ---
 
-*Last updated: 2026-08-13 (docset v13.0 — world-model-first and first-principles claim boundaries reconciled;
+*Last updated: 2026-08-14 (docset v13.0 — world-model-first and first-principles claim boundaries reconciled;
 gate verdicts mapped onto the four PID gates
 of `grandplan.md` §7.1; MI/coherence estimator gate NO-GO separated from the continuous
 `I^sx_∩` application gate BLOCKED / NOT APPLICATION-VALIDATED; nuisance-dimension atom

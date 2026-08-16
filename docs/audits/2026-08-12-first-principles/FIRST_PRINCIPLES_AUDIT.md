@@ -1,6 +1,6 @@
 # Prisoma first-principles audit, 2026-08-12
 
-This memo records the review opened on 2026-08-12 and refreshed through 2026-08-13. It covers
+This memo records the review opened on 2026-08-12 and refreshed through 2026-08-16. It covers
 Prisoma's hypotheses, claims, sources, architecture, implementation, and documentation. It is a
 repository audit. It is not a preregistration, a scientific result, a systematic review, or
 evidence that M0 is freeze-ready.
@@ -62,7 +62,7 @@ The most important source-design correction is:
 | Pinned `pid-rs` | `796c11e70f009634b853dc4ada6f565563d82f51` |
 | Pinned description | `v0.9.0-7-g796c11e` |
 | Immutable `pid-rs` 0.9.0 tag commit | `a9a275157237999c8da6ab813130d74f6113dec9` |
-| Public `pid-rs` main observed | `7473e62acef6077c2c1147e09d5d1297f2a2874b` |
+| Public `pid-rs` main observed | `bc3aa80fb6025e709c2906a08bce25a4fac40578` |
 | Real-study or holdout access | none |
 | Submodule update | none |
 
@@ -219,7 +219,7 @@ full frozen target population. That policy includes:
 - estimator configuration;
 - eligibility and support checks;
 - warning and abstention rules;
-- the exact non-PID fallback;
+- the exact same-fold M1 substitution for every abstention;
 - latency, failure, and compute costs;
 - the comparator and minimum useful effect.
 
@@ -270,7 +270,7 @@ count alone is not evidence of precision.
 
 Missing sources, ineligible regimes, observer drops, censoring, warning states, and estimator
 abstention must remain visible. Complete-case filtering changes the target. A future deployment
-claim must score the fallback policy on those cases.
+claim must score the same-fold M1 substitution policy on those cases.
 
 ### Cost and timeliness are scientific comparison axes
 
@@ -403,14 +403,24 @@ used as a source, and no claim changed because of one.
 This was a broad decision-focused source review. It was not a registered systematic review. Search
 provenance is not complete enough to support that label.
 
+The follow-up method adjudication is recorded in
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](../../../PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md).
+It corrects the Matthias result to a three-source counterexample ruling out one all-source-count
+family with the three named properties. It does not infer nonexistence at each fixed source count.
+The counterexample is discrete and does not close the continuous-only question. The adjudication
+also preserves valid new PID objects while requiring separate functional, output-coordinate,
+evaluator or estimator, transform, oracle, and application identities. A cumulative lattice value,
+Möbius atom, net component, informative component, misinformative component, pointwise value, and
+average remain distinct even when they share one functional.
+
 ### Sources that changed the plan
 
 | Source family | Primary source fact | Prisoma consequence |
 |---|---|---|
-| PID object identity | MGW categorical and Ehrlich continuous shared exclusions are distinct functionals. Williams-Beer `I_min` and BROJA are other measures. A finite-sample estimator, a declared-law evaluator, and an infomorphic objective are different object kinds again. | Use a provenance and estimand graph. Declare the functional, evaluation kind, input-law kind, implementation, transform, units, aggregation, and composition. Never pool or transfer results without a mapping theorem. |
+| PID object identity | MGW categorical and Ehrlich continuous shared exclusions are distinct functionals. Williams-Beer `I_min` and BROJA are other measures. A finite-sample estimator, a declared-law evaluator, and an infomorphic objective are different object kinds again. One functional also defines distinct cumulative values, Möbius atoms, lattice coordinates, aggregations, and components. | Use a provenance and estimand graph. Declare the functional, exact quantity and coordinate, component, evaluation kind, input-law kind, implementation, transform, units, aggregation, and composition. Never pool or transfer results without a mapping theorem. |
 | Continuous estimation | KSG is a nearest-neighbor estimator with difficult finite-sample behavior under strong dependence. | Keep dimension, tie, support, power, and external-fixture gates. |
-| Gaussian multi-source PID | Lyu, Clark, and Raviv give covariance-based closed forms under a Gaussian model and a different measure family. | Treat it as a separately named sensitivity regime, not shared-exclusions validation. |
-| Multimodal PID | Sensory PID applies conditional PID with modality and instruction interventions. | Generic multimodal PID is not novel. Prisoma must add sequential and claim-matched experiments. |
+| Gaussian information decompositions | Lyu, Clark, and Raviv give covariance-law formulas and sample-covariance plug-in estimators for a conditional-independence hierarchy. It has two-source redundancy and multi-source unique/synergy quantities, but deliberately no redundancy or complete antichain PID for \(N\geq3\). The \(\sim\)-PID is the BROJA-PID, but \(\sim_G\) is a distinct Gaussian-coupling-restricted PID that only bounds BROJA in general; equality on Gaussian input laws is conjectured. Deficiency \(\delta\), Gaussian-channel-restricted \(\delta_G\), and convex-surrogate \(\widehat{\delta}_G\) are further distinct objects. The related 2023 paper separately introduces \(\delta^\lambda\), whose raw small-parameter endpoint needs a normalization theorem before it can be identified with BROJA, and I-PID. | Register every functional or hierarchy quantity and route separately. Use a Gaussian route only as a predeclared law-specific sensitivity regime; never as shared-exclusions validation or a generic “Gaussian PID.” |
+| Multimodal PID | Sensory PID applies its named conditional-PID construction with modality and instruction interventions. | That construction is not a generic multimodal PID and does not transfer to another functional. Prisoma must add sequential and claim-matched experiments. |
 | VLA monitoring | SAFE, Tri-Info, Hide-and-Seek, ActProbe, VLAConf, and related work span strong supervised, action, latent, uncertainty, and calibration baselines. | Freeze matched-access comparators and report cost, latency, calibration, and transport. |
 | VLA mechanisms | CofactVLA, Häon et al., and related work use counterfactual masks, sparse features, and steering. | Intervention novelty is narrow. Require engagement, specificity, and closed-loop replication. |
 | Executable policy | Same weights can behave differently under robot, controller, and normalization changes. WAV adds future-state and value latents. | Capture executable state and stratify transport by policy architecture and embodiment. |
@@ -441,6 +451,12 @@ provenance is not complete enough to support that label.
   information](https://doi.org/10.1103/PhysRevE.69.066138), 2004.
 - Gao, Ver Steeg, and Galstyan, [Efficient MI estimation under strong
   dependence](https://arxiv.org/abs/1411.2003), 2015.
+- Venkatesh and Schamberg, [Partial information decomposition via deficiency for
+  multivariate Gaussians](https://arxiv.org/abs/2105.00769), 2021/2022.
+- Venkatesh, Gurushankar, and Schamberg, [Capturing and interpreting unique
+  information](https://arxiv.org/abs/2302.11873), 2023.
+- Venkatesh et al., [Gaussian PID: bias correction and application to
+  high-dimensional data](https://arxiv.org/abs/2307.10515), 2023.
 - Lyu, Clark, and Raviv, [Closed-Form Gaussian Estimators for Multi-Source
   PID](https://arxiv.org/abs/2605.09919), 2026.
 - Fang et al., [Sensory PID](https://arxiv.org/abs/2606.00959), 2026.
@@ -506,7 +522,7 @@ The full numbered bibliography and its role in the plan remain in `grandplan.md`
 
 ## `pid-rs` review
 
-The observed upstream head is 97 commits beyond the local pin. It adds substantial assurance and
+The observed upstream head is 98 commits beyond the local pin. It adds substantial assurance and
 API work. Prisoma checked, built all test targets, and ran its all-feature Rust consumer suite
 against exact revision `722d3abeb922fc4119ecb9f92d7fedca096c9f77` in an isolated clean tree.
 Head `bbdfda40f0a49a2260b10eafdcb438fc61ae94e9` changes only assurance, workflow,
@@ -530,15 +546,17 @@ are scientifically useful. They require a serialized-data and Python migration r
 
 Estimator-code anchor `cb3f58f0b190454cb3f1090de8798261ec78f194` adds one bounded KSG integration
 commit. Prisoma inspected its three changed production Rust files and replayed four predecessor-radius
-fixtures plus the structured overflow fixture. Exact-head CI run `31686107959` is red on a stale
-certified-SxPID2 workflow digest. Exact-head CodeQL run `31686106737` passed. Upstream still marks
+fixtures plus the structured overflow fixture. Historical exact-head CI run `31686107959` was red
+on a stale certified-SxPID2 workflow digest. Its CodeQL run `31686106737` passed. Upstream still marks
 broader revision-4 KSG integration NO-GO. The upstream release scope explicitly does not claim
 downstream Prisoma compatibility or VLA application validity. The provider result does not replace
 the open consumer review, so the pin remains fixed. `PID_RS_HANDOFF.md` contains the acceptance
 matrix and ready-to-send message.
-Current public head `7473e62` is a custody-only direct child. It changes no crate or Cargo input.
-Its full CI run `31724449805` failed two jobs, while its narrower `Push on main` run `31724449083`
-passed. Neither run changes the adoption decision.
+Head `7473e62` is a custody-only direct child. It changes no crate or Cargo input. Its full CI run
+`31724449805` failed two jobs, while its narrower `Push on main` run `31724449083` passed. Current
+head `bc3aa80` is one custody-repair child later and also changes no crate or Cargo input. Full CI
+run `31773937366` passed all 45 jobs, and CodeQL run `31773937102` passed all four jobs. Provider
+green does not change the adoption decision or open a scientific gate.
 
 ## Documentation reconciliation
 

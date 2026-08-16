@@ -2,14 +2,15 @@
 
 - **Document:** canonical `grandplan.md` — **docset v13.0** (living spec; prior versions remain in git history; the reviewed v12.5 bundle is immutable under `docs/reviews/2026-07-12-grandplan-v12.5/`)
 - **Reviewed scientific base:** 2026-07-12
-- **Current first-principles reconciliation:** 2026-08-13
+- **Current first-principles reconciliation:** 2026-08-16
 - **Repository snapshot reviewed:** `sepahead/prisoma@64bd881248463e7142d022bb95a5850bcf8fced2`; second-round review bundle preserved at `docs/reviews/2026-07-12-grandplan-v12.5/`
 - **Status:** world-model-first research specification plus a preserved, unfrozen v12.5 diagnostic claim family; not a preregistration or empirical result
-- **Repo-truth note (post-review):** the reviewed snapshot pinned NCP `v0.7.1`/wire 0.7 and `pid-rs@8a5a9dd`/0.4.0; the repository has since migrated to NCP **`v0.8.0`/wire 0.8** and the exact `pid-rs` **0.9.0 post-tag review source at `796c11e70f009634b853dc4ada6f565563d82f51`**, seven commits after the `v0.9.0` review tag, so active implementation-status statements below use the current pins while references to snapshot `64bd881…` remain historical; the 2026-08-13 network refresh rechecked `pid-rs`, NCP, and Paper2Brain public main; the Paper2Brain Prisoma descriptor bytes remained unchanged; none of these reviews supplied scientific conformance; this 0.9 review surface makes no 1.x compatibility or registry/wheel publication promise
+- **Repo-truth note (post-review):** the reviewed snapshot pinned NCP `v0.7.1`/wire 0.7 and `pid-rs@8a5a9dd`/0.4.0; the repository has since migrated to NCP **`v0.8.0`/wire 0.8** and the exact `pid-rs` **0.9.0 post-tag review source at `796c11e70f009634b853dc4ada6f565563d82f51`**, seven commits after the `v0.9.0` review tag, so active implementation-status statements below use the current pins while references to snapshot `64bd881…` remain historical; the 2026-08-13 network refresh rechecked `pid-rs`, NCP, and Paper2Brain public main, and the 2026-08-16 follow-up rechecked `pid-rs`; the Paper2Brain Prisoma descriptor bytes remained unchanged; none of these reviews supplied scientific conformance; this 0.9 review surface makes no 1.x compatibility or registry/wheel publication promise
 - **Seventh adversarial revision:** paired-estimand separation, causal-heterogeneity scoring repair, expanded 2025–2026 monitor/calibration/safety comparators, estimator-status reconciliation, post-pin `pid-rs` development review, full public-repository ecosystem audit, alarm-policy specification, and reference deduplication completed 2026-07-12
 - **Eighth first-principles reconciliation:** bounded claim language, H1 protocol identity, H2 scoring-rule and censoring-estimator separation, full-policy H3 semantics, tested-response H4 language, and an updated primary-source review completed 2026-08-12. This reconciliation reopens review of the all-null diagnostic successor draft. It does not authorize holdout access.
 - **Ninth frontier correction:** deployed-graph WAM taxonomy, causal simulator admission, planner qualification, and the low-overhead M4 path reconciled through 2026-08-13. The review does not promote a model or open any scientific gate.
 - **Tenth thesis reset:** exact-fork world-model decisions, linked dynamics/appearance/decision contrasts, and an M4-first execution ladder became the primary program on 2026-08-13. The prior EC1/H1–H4 family remains a secondary unfrozen diagnostic program. This reset creates no scientific result.
+- **Eleventh PID-method reconciliation:** the functional, output-coordinate, law, evaluator, estimator, transform, certifier, objective, and interpretation layers are now governed by the typed [`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md). The reconciliation preserves valid research extensions while forbidding cross-PID fallback, atom pooling, and evidence transfer without a mapping theorem. It creates no estimator, application, or publication result.
 
 > **Thesis in one sentence.** Prisoma is a low-overhead, content-bound laboratory that tests whether an action-conditioned world model preserves declared reference-state consequences, and separately measured physical consequences where available, across exact simulator forks, matched mesh/3DGS observations, frozen policies, and closed-loop execution.
 
@@ -104,7 +105,11 @@ The novelty case in v10.7 is too broad. By August 13, 2026:
 - VLA diagnosis already combines representation tracing, attention knockout, causal masking, object-removal counterfactuals, sparse-feature intervention, activation steering, and closed-loop behavior tracing [R26–R31, R114–R116];
 - recent work treats action normalization and controller conventions as part of the executable policy, and it shows that identical weights can yield different robot behavior [R117];
 - recent monitor and orchestration work adds transient-risk aggregation and recovery systems, which narrows any broad monitoring or integration novelty claim [R118–R119];
-- a new closed-form Gaussian multi-source PID family uses conditional-independence measures and covariance plug-in estimators; it is a distinct measure and model, not a drop-in validation of shared exclusions [R126];
+- a new conditional-independence Gaussian information hierarchy has closed-form covariance-law
+  quantities and sample-covariance plug-in estimators. It provides two-source redundancy plus
+  multi-source unique-information and order-specific synergy quantities, but deliberately assigns
+  no redundancy for three or more sources and is therefore not a complete higher-source antichain
+  PID. It is not a drop-in validation of shared exclusions [R126];
 - world–value–action policies now plan through future-state and trajectory-value latents, which further widens the policy-state and architecture transport problem [R127];
 - August systems now span predictive-training auxiliaries, intended-future policies,
   action-conditioned predictors, and candidate planners [R128–R137];
@@ -383,6 +388,15 @@ composition. Related objects remain typed and non-substitutable:
    a new PID functional or estimator. The pinned count-law API does not certify arbitrary soft
    weighted laws, adaptive bins, stopped binning gradients, or training guards.
 
+Functional identity does not identify one scalar output. Each lattice-PID result must also bind the
+exact cumulative or Möbius-inverted quantity, antichain coordinate, pointwise or averaged scope,
+averaging law, and net, informative, or misinformative component. A non-lattice hierarchy result
+instead binds its exact named quantity and output index; it must not invent a lattice coordinate.
+A cumulative lattice value is not its atom. A net atom is not either nonnegative component. Use
+typed graph edges for definition, targeting, evaluation, implementation, recovery on a stated
+domain, motivation, validation, and composition. Shared authors, notation, or lineage do not
+create an alias or mapping theorem.
+
 No result transfers between these objects without an explicit mapping theorem. In particular,
 quantization does not establish a discrete-to-continuous limit or an equivalence with the
 continuous Ehrlich formulation.
@@ -399,6 +413,21 @@ does not use Williams–Beer `I_min` or BROJA to define an active hypothesis, su
 shared-exclusions estimate, rescue a result, or form an active sensitivity branch. Those measures
 may appear only as clearly excluded historical context. Their atoms are never pooled, relabeled,
 or treated as replicated shared-exclusions evidence.
+
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md)
+is the normative method-selection appendix for this plan. Before a PID-related object can enter a
+claim, it must identify the paper-defined functional, law class, evaluator or estimator route,
+transform, row relation, source count and lattice or hierarchy output structure, units, support or
+gauge, validation level, and application verdict. A declared-law evaluator and a sample estimator
+are different routes. A certifier and a validation fixture are evidence about a route, not
+additional PIDs. An infomorphic objective is a downstream composition.
+
+Novel valid extensions are retained as typed research objects. Higher-source categorical MGW,
+specified rational and binary64 laws, mixed or conditional proposals, temporal constructions,
+manifold estimators, and objective compositions are not discarded merely because they are outside
+the active H3 path. Each needs its own definition, domain, axioms, estimator or evaluator, oracle,
+failure contract, and publication level. Failure at an application gate removes an extension from
+that application claim. It does not erase valid mathematics, software, or negative evidence.
 
 The repository’s status must be stated at four levels. First, its high-dimensional MI/coherence checks are **NO-GO**. Second, the current pinned `pid-rs` review source has semi-analytic low-dimensional additive-Gaussian continuous-redundancy oracle checks with closed-form pointwise terms and discrete SxPID reference agreement, so it is inaccurate to say that no estimator validation exists. Third, current Experiment 0 never compares shared-exclusions redundancy with a zero target: its binary-default sweep covers 12 scenario–dimension cells over three deterministic seeds (36 case results), while the one-seed run-log recipe covers the same 12 cells once. Both report the high-dimensional MI/coherence verdict as **NO-GO**, atom-measure validation as `not_adjudicated`, and atom-estimator validation as `blocked`; the strict path gates only the curated analytic-MI band and reports atoms separately. Fourth, the repository now pins the exact `pid-rs` 0.9.0 post-tag review source at `796c11e70f009634b853dc4ada6f565563d82f51`, which includes the reproducible fixture against the authors’ public `csxpid` implementation, agreement within `1e-12` nats on that fixture, fail-closed continuous-support contracts, and report-first provenance. The migration changes what is runnable and which samples abstain; it does **not** validate dependent, high-dimensional VLA embeddings or make a 1.x compatibility promise. Continuous atoms on real embeddings therefore remain blocked [R61, R73].
 
@@ -798,7 +827,7 @@ Compare capacity- and tuning-budget-matched nested models:
 - \(M_2\): \(M_1\) plus preregistered PID features generated only from training-reference fits that passed all gates.
 
 **Common comparison population (frozen policy).** H3 uses full-target-population scoring with
-exact \(M_1\) fallback whenever \(M_2\) abstains. Before any outer-holdout outcome is accessed,
+exact same-fold \(M_1\) substitution whenever \(M_2\) abstains. Before any outer-holdout outcome is accessed,
 bind one canonical ordered ledger of unique candidate IDs and inherit, unchanged, the target
 population, unit, cluster, eligibility/time-zero rule, sampling weights, and outer split from
 exactly one active parent H1 or H2 estimand. For every ledger ID, \(M_1\) must emit one held-out
@@ -808,29 +837,29 @@ abstention. Define the deployed \(M_2\) policy by
 \widetilde M_2(i)=
 \begin{cases}
 M_2(i), & \text{for a clean produced output, or an allowlisted warning with use-output disposition},\\
-M_1(i), & \text{for an abstention, or a warning with fallback disposition}.
+M_1(i), & \text{for an abstention, or a warning with the legacy fallback disposition}.
 \end{cases}
 \]
 Any warning with a block disposition makes the affected primary comparison unavailable. An
 unknown or malformed warning follows the fail-closed rule below.
-The fallback is the exact recorded \(M_1\) output for the same candidate and outer fold; it is not
+The substituted value is the exact recorded \(M_1\) output for the same candidate and outer fold; it is not
 a numeric placeholder for an abstained PID estimate. Score \(M_1\) and \(\widetilde M_2\) with the
 same ordered IDs, outcomes, weights, clusters, folds, and primary endpoint. The primary denominator
 is the complete frozen target ledger, never the subset on which PID happened to be eligible or
-numerically successful. Under a decomposable loss, each fallback candidate contributes exactly
+numerically successful. Under a decomposable loss, each substituted candidate contributes exactly
 zero paired incremental score while retaining its target weight; for a nondecomposable endpoint,
 apply the locked endpoint functional to both complete paired ledgers. Missing, duplicate, extra,
 or misaligned IDs; a missing \(M_1\) output; an
-untyped or internally contradictory \(M_2\) state; a fallback mismatch; post-outcome eligibility;
+untyped or internally contradictory \(M_2\) state; a substitution mismatch; post-outcome eligibility;
 or drift in outcome, weight, cluster, fold, endpoint, or population binding blocks the primary H3
 result. Publish content hashes for the frozen target ledger and the per-candidate paired-scoring
-receipt. Report produced, produced-with-warning, and abstained counts by reason plus the fallback
+receipt. Report produced, produced-with-warning, and abstained counts by reason plus the substitution
 count. An eligible-only comparison may be reported only as a labeled secondary diagnostic.
 Before outcome access, freeze a registry of every possible `produced_with_warning` code and assign
 each code exactly one disposition: permit the PID-augmented output, use the exact same-fold
-\(M_1\) fallback, or block the comparison. Only explicitly allowlisted warning codes may use the
+\(M_1\) substitution, or block the comparison. Only explicitly allowlisted warning codes may use the
 PID-augmented output. An absent, unknown, malformed, or unregistered warning code defaults
-fail-closed to exact \(M_1\) fallback when the paired receipt remains valid, and otherwise blocks
+fail-closed to exact same-fold \(M_1\) substitution when the paired receipt remains valid, and otherwise blocks
 the affected primary comparison. Warning frequencies and dispositions are reported by code; they
 cannot be rewritten after outcomes are inspected.
 
@@ -983,7 +1012,7 @@ No prose claim may outrun this matrix. The final manuscript should instantiate o
 | Paired algorithmic response | immutable pre-treatment snapshot, exact clone/reset contract, declared RNG coupling, direct paired response, outer-fold prediction | second construction or policy before language beyond the frozen construction and regime | mutable shared state, unquantified Monte Carlo error, or physical-effect language |
 | Closed-loop effect moderation | pre-treatment feature, assignment integrity, outer-fold evaluation on randomized outcomes, calibration, useful-margin test | directional replication | post-treatment moderator, in-sample subgrouping, or paired-software contrast substituted for physical outcomes |
 | Prospective monitor | landmark freeze, censoring/competing-risk handling, external/temporal holdout, calibration, decision utility | external task/time block | frame leakage or prevalence-obscured metric |
-| PID incremental value | all four gates, matched baselines, nested cross-fitting, one frozen target-ID ledger, and full-population \(M_1\) fallback scoring for every \(M_2\) abstention | second regime/policy | complete-case scoring, ID drift, unsupported local score, or shared-code “validation” |
+| PID incremental value | all four gates, matched baselines, nested cross-fitting, one frozen target-ID ledger, and full-population same-fold \(M_1\) substitution for every \(M_2\) abstention | second regime/policy | complete-case scoring, ID drift, unsupported local score, or shared-code “validation” |
 | Availability–tested-intervention-effect divergence | one frozen tuple and outcome; held-out availability superiority; randomized cell-average effect equivalence; target sampling/transport contract and weights; engagement/support; weight uncertainty; simultaneous familywise control; joint design power | second construction or policy before language beyond the exact frozen construction | nonsignificant effect treated as equivalence, treatment randomization treated as target sampling, one construction generalized to natural non-use, in-sample region discovery, or region mass called individual-effect prevalence |
 | Transport | named target population, overlap, effect-modifier audit, external data | another site/embodiment when claimed | “different benchmark” without transport assumptions |
 | Safety relevance | process/outcome measure, failure coverage, intervention evaluation | operational context | certification language or unmeasured hazards |
@@ -1644,7 +1673,7 @@ Use hierarchical gatekeeping:
 2. one primary source/target contract;
 3. one primary endpoint for the selected H1 protocol, one primary scoring contract for H2, and one
    complete frozen tuple for H4;
-4. one locked PID measure/regime for H3;
+4. one locked PID functional, output coordinate, and evaluator-or-estimator regime for H3;
 5. strong familywise-error control or simultaneous confidence regions over every confirmatory
    family, including all H4 primary cells and both availability/effect components;
 6. false-discovery-rate procedures only for explicitly secondary families; and
@@ -1656,7 +1685,9 @@ insufficient, and FDR control cannot substitute for simultaneous confirmatory co
 regions are learned, region discovery, tuning, and multiplicity calibration occur entirely before
 the untouched randomized confirmation sample.
 
-Do not select a layer, projection dimension, PID measure, or temporal window because it maximizes the test statistic. A multiverse may be reported, but the confirmatory result must remain the locked branch.
+Do not select a layer, projection dimension, PID functional, output coordinate, route, or temporal
+window because it maximizes the test statistic. A multiverse may be reported, but the confirmatory
+result must remain the locked branch.
 
 ## 6.8 Uncertainty and dependence
 
@@ -1763,6 +1794,12 @@ Treat four different questions as four independent gates:
 4. **Application gate:** are the real embeddings and sampling process sufficiently close to a validated regime for interpretation?
 
 Passing an MI coherence check does not validate a PID measure. Passing a low-dimensional PID fixture does not validate high-dimensional embeddings. Stability across seeds does not establish correctness.
+
+These four labels describe the current sample-estimator path. A direct specified-law route must
+call gate 3 an **evaluator-correctness gate**, not an estimator-validity gate. It checks the
+declared law, canonicalization, arithmetic, implementation, and independent oracle. It grants no
+finite-sample or population-sampling claim. An exact certifier covers only its admitted inputs and
+named coordinates. See the method-selection contract for the complete route identity.
 
 ## 7.2 Current repository status
 
@@ -1878,7 +1915,9 @@ Required checks:
 - training-only fitting for every held-out, inferential, or predictive evaluation;
 - an explicit `descriptive_same_rows` label when a same-row fit is used only for an in-sample
   software screen; that screen cannot support held-out, predictive, or application claims;
-- exact function, backend revision, log unit, source order, target, and atom convention;
+- exact functional or hierarchy, cumulative or Möbius-inverted quantity or named hierarchy index,
+  antichain coordinate when applicable, aggregation, component, backend revision, log unit, source
+  order, and target;
 - minimum cell occupancy and effective support;
 - held-out assignment stability;
 - sensitivity to codebook size and seed;
@@ -2223,12 +2262,12 @@ Use **connected** only for E2 or above, **integrated** only for E3 or above, and
 
 The review snapshot remains the provenance baseline. This living matrix incorporates dated,
 verified post-review changes. The NCP provider boundary was rechecked against official main on
-13 August 2026. The `pid-rs` public-main comparison was rechecked on 13 August 2026. An external
+13 August 2026. The `pid-rs` public-main comparison was rechecked on 16 August 2026. An external
 project can mature without raising its **relationship to Prisoma**.
 
 | Repository | Audited relationship to Prisoma | Evidence level | Scientifically useful role | Boundary / required next evidence |
 |---|---|---:|---|---|
-| `pid-rs` | Direct git submodule deliberately pinned to the 0.9.0 post-tag review source at `796c11e70f009634b853dc4ada6f565563d82f51`, seven commits after the immutable `v0.9.0` review tag at `a9a275157237999c8da6ab813130d74f6113dec9`; Prisoma crates path-depend on its estimator/run-log crates. Public main was observed at `7473e62acef6077c2c1147e09d5d1297f2a2874b` | E2; root and consumer conformance checks support E3 for the tested local paths | canonical estimator implementation, run-log schema, low-dimensional analytic/external fixtures, discrete references, fail-closed support contracts and reports | upstream main adds unadopted method catalogs, formal/categorical assurance work, support-change and concentration records, Lean 4.33 formal replay hardening, source-errata and evidence-boundary registries, and exact-certifier surfaces, but says Prisoma integration is not claimed. An isolated all-feature Prisoma check, test-target build, and 531-test run passed at `722d3abe`. Head `bbdfda40` changes only upstream assurance surfaces relative to that tested revision. Estimator-code anchor `cb3f58f0` adds one bounded KSG integration commit. Prisoma inspected its three changed production Rust files and replayed four predecessor-radius fixtures plus the structured overflow fixture. Current public head `7473e62` is a custody-only direct child with no crate or Cargo-input change. Its full CI run `31724449805` failed two jobs, while its narrower `Push on main` run `31724449083` passed. Upstream still marks broader revision-4 KSG repository integration NO-GO. Retain the reviewed pin until consumer-owned scientific-value and adoption checks pass. The fixtures do not establish VLA application validity [R72–R73] |
+| `pid-rs` | Direct git submodule deliberately pinned to the 0.9.0 post-tag review source at `796c11e70f009634b853dc4ada6f565563d82f51`, seven commits after the immutable `v0.9.0` review tag at `a9a275157237999c8da6ab813130d74f6113dec9`; Prisoma crates path-depend on its estimator/run-log crates. Public main was observed at `bc3aa80fb6025e709c2906a08bce25a4fac40578` | E2; root and consumer conformance checks support E3 for the tested local paths | canonical estimator implementation, run-log schema, low-dimensional analytic/external fixtures, discrete references, fail-closed support contracts and reports | upstream main adds unadopted method catalogs, formal/categorical assurance work, support-change and concentration records, Lean 4.33 formal replay hardening, source-errata and evidence-boundary registries, and exact-certifier surfaces, but says Prisoma integration is not claimed. An isolated all-feature Prisoma check, test-target build, and 531-test run passed at `722d3abe`. Head `bbdfda40` changes only upstream assurance surfaces relative to that tested revision. Estimator-code anchor `cb3f58f0` adds one bounded KSG integration commit. Prisoma inspected its three changed production Rust files and replayed four predecessor-radius fixtures plus the structured overflow fixture. Head `7473e62` is a custody-only child whose full CI run `31724449805` failed two jobs. Current public head `bc3aa80` repairs that custody wiring and also changes no crate or Cargo input. Its full CI run `31773937366` passed 45 jobs, and CodeQL run `31773937102` passed four jobs. Provider green does not establish consumer compatibility or application validity. Upstream still marks broader revision-4 KSG repository integration NO-GO. Retain the reviewed pin until consumer-owned scientific-value and adoption checks pass. The fixtures do not establish VLA application validity [R72–R73] |
 | `NCP` | Optional `ncp-observer`, excluded from the default workspace, pinned to immutable NCP `v0.8.0` at `2f5bd586` (wire 0.8). Verified upstream main `1a04294c90c1b50eba06ae1c6afe9c951319250d` is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0; compact proto contract hash `163acc57d8a62b66`). Full-key visible-receipt integrity and receipt-last bundles are local-only. Receipt schema 1 binds the exact legacy identity. The bounded 18-case observatory replays one complete hand-authored trace twice through the shared route/raw decoder. It separates native response from its manifest oracle. | E2 dependency edge with a reproducibility-bound local fixture execution for the exact fixture and consumer; not producer-consumer E3 | optional source of versioned observations from neural or robotic systems; deterministic decoder, join, finalization, and replay fault checks | Retain the wire-0.8 read-only pin. Do not infer wire-1.0 compatibility. NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and **NOT RUN**. B01 remains `IN_PROGRESS`; its refined low-overhead architecture and prepared-stream-monitor gap record are coordination-only and have no passing receipt. Require a separate consumer, conforming live producer, migration corpus, own-stream/timing/QoS/reconnect/authentication evidence, interventions/outcomes, and an E4 report. Whole-tick omission remains a native blind spot. No PID population support is inferred [R72, R74]. |
 | `galadriel` | Public revision `80506dd2ce52b33c3334c7d1760a8155c7631241` freezes 0.9.0 candidate inputs and adds a strict two-route consumer, lifecycle adapter, and bounded operational receiver. No direct Prisoma dependency or adapter exists | E0 between projects; E2 only to shared dependencies | external diagnostic comparator for cross-sensor consistency, NIS/CUSUM, signed correlation, and optional PID evidence | require a reciprocal pin, direct consumer-owned adapter, producer-consumer golden fixture, and receiver-verified deployment. Shared `pid-rs` results remain one correlated method family, not replication [R75–R76] |
 | `crebain` | Public revision `7f6b3bdf4d20aba1b351b3ceacb259bd123c93a6` adds a restricted read-only Engram view to the 0.9.0 research prerelease. Embedded mode disables native, external telemetry, artifact exchange, NCP, and plant paths. NCP action/control commands stay unregistered, and no direct Prisoma reference exists | E0 between Crebain and Prisoma; the read-only Engram view does not create a direct edge | candidate non-manipulation embodiment, multimodal tracking/fusion testbed, timing/fault-injection or advisory-evidence producer | host messages do not attest a process or build. A local `put` does not prove receiver receipt. No live NCP control loop or direct Prisoma adapter exists [R76] |
@@ -2314,7 +2353,7 @@ application. Mixed-dimensional continuous three-source analysis remains explorat
 eligibility is decided by Section 7, not by a passing unit test or the fact that an API returns a
 number [R73].
 
-Public main at `7473e62acef6077c2c1147e09d5d1297f2a2874b` adds unadopted method catalogs,
+Public main at `bc3aa80fb6025e709c2906a08bce25a4fac40578` adds unadopted method catalogs,
 software identity, support-change and concentration records, formal/categorical assurance work,
 Lean 4.33 formal replay hardening, source-errata and evidence-boundary registries, outcome
 contracts, and exact-certifier surfaces. These additions do not open the high-dimensional or
@@ -2322,10 +2361,11 @@ application gates. An isolated exact-revision all-feature Prisoma check, test-ta
 run passed against `722d3abe`. Head `bbdfda40` changes only assurance surfaces relative to that
 tested revision. Estimator-code anchor `cb3f58f0` adds one bounded KSG integration commit. Prisoma inspected
 its three changed production Rust files and replayed its four predecessor-radius fixtures plus the
-structured overflow fixture. Current head `7473e62` changes custody and assurance surfaces only.
-Its full CI run `31724449805` failed two jobs; its narrower push receipt passed. A later pin requires
-consumer-owned compatibility, exact-reference, and regression evidence against the frozen Prisoma
-contract. Upstream still marks broader revision-4 KSG repository
+structured overflow fixture. Head `7473e62` changes custody and assurance surfaces only. Its full
+CI run `31724449805` failed two jobs. Current head `bc3aa80` repairs that custody wiring and also
+changes no crate or Cargo input. Its full CI run `31773937366` passed 45 jobs, and CodeQL run
+`31773937102` passed four jobs. A later pin requires consumer-owned compatibility, exact-reference,
+and regression evidence against the frozen Prisoma contract. Upstream still marks broader revision-4 KSG repository
 integration NO-GO. These provider results do not close the consumer review.
 
 ### 8.9.7 Ecosystem opportunity without thesis capture
@@ -2669,10 +2709,17 @@ The flow bridge is an optional measurement design, not proof of embodiment indep
 
 PID is a family of measure-relative decompositions originating with Williams and Beer and expanded through unique-information, common-change-in-surprisal, shared-exclusions, and continuous formulations [R01–R08]. The 2026 field review emphasizes the absence of a universally accepted measure [R08]. Recent inconsistency and structural-impossibility results further caution against treating high-order lattice atoms as uniquely determined natural objects [R09–R10]. Shannon invariants provide scalable measure-agnostic summaries but remain dependent on valid MI estimates [R11].
 
-Closed-form Gaussian multi-source estimators add a computationally attractive alternative under a
-Gaussian covariance model [R126]. They use conditional-independence-based information measures.
-They do not certify shared-exclusions atoms or unrestricted VLA embedding laws. Treat them as a
-separately named sensitivity or comparator regime only after model and measure review.
+Closed-form conditional-independence Gaussian hierarchy evaluators and sample-covariance plug-in
+estimators add a computationally attractive alternative under a jointly Gaussian covariance model
+[R126]. For two sources the construction defines redundancy; for three or more it deliberately
+does not, so its unique-information, narrow-synergy, total-synergy, and order-\(K\) synergistic-effect
+outputs are named hierarchy quantities rather than a complete antichain PID. They do not certify
+shared-exclusions atoms, BROJA/\(\sim\), the distinct Gaussian-restricted \(\sim_G\)-PID,
+deficiency \(\delta\), Gaussian-channel-restricted \(\delta_G\), the convex-surrogate
+\(\widehat{\delta}_G\)-PID, \(\delta^\lambda\), or I-PID [R183–R185], or unrestricted VLA
+embedding laws.
+Treat each exact quantity and route as a separately named sensitivity or comparator only after law,
+measure, and estimator review.
 
 Multimodal interaction decomposition was already developed for multimodal machine learning before this project, using measure choices that are not interchangeable with shared-exclusions PID [R20]. The closest recent precedents include the study of 26 large vision–language models whose official ICLR 2026 record was verified on 2026-08-12, and Sensory PID's conditional audio–video analysis [R18, R113]. BrainFIBRE additionally uses a self-supervised PID-guided multimodal objective with counterfactual modality dropping/swapping in neuroimaging [R100]. Prisoma must distinguish itself by sequential policies, policy/execution/outcome separation, paired and randomized interventions, prospective failure prediction, and estimator abstention—not by the generic use of PID or counterfactual modality perturbations.
 
@@ -3008,7 +3055,10 @@ signals.
 
 **Required evidence:** the scientific-object firewall; a project-owned exact categorical fixture;
 measure-specific continuous validation where attempted; all four gates; strong non-PID baselines;
-negative results; and a second model or task-family replication.
+negative results; a second model or task-family replication; and one content-bound process packet.
+That packet must preserve the method decision, mathematics, applicability, route, execution,
+review, and publication stages. Its canonical Markdown and deterministic PDF view must have an
+exact build and page-review receipt.
 
 If Paper C cannot support a meaningful PID estimand, replace it with a dedicated availability–
 tested-response–closed-loop-effect or estimator-abstention paper. This preserves thesis coherence
@@ -3094,7 +3144,7 @@ effect-specific endpoint and hierarchy, positive-margin one-sided success rule, 
 effect-validation stack, ITT and design checks, uncertainty, and directional replication.
 Factual-outcome loss remains a secondary descriptive diagnostic. The draft also types H2
 target/censoring/one-primary-scoring-contract/success obligations,
-H3 full-target-ledger exact-\(M_1\)-fallback and warning-disposition rules, H3/H4 claim selection,
+H3 full-target-ledger exact same-fold \(M_1\)-substitution and warning-disposition rules, H3/H4 claim selection,
 and H4 target/sampling/transport/tuple/inference/power obligations. EC1 detection acceptance is
 pairwise: every registered fault–adapter pair must
 have its own absolute sensitivity floor and pass independently, with no distribution-average
@@ -3250,7 +3300,8 @@ between lenses does not let one favorable result rescue another failed requireme
 
 **Failure condition:** atom labels are treated as universal, deterministic continuous MI is assumed finite, or a different PID measure is substituted without changing the claim.
 
-**Design consequence:** name the measure; validate the exact functional; make PID conditional.
+**Design consequence:** name the functional, exact output coordinate, and route; validate each at
+its applicable level; make PID conditional.
 
 ## Lens 2 — causal inference
 
@@ -3577,7 +3628,7 @@ baselines, and require revalidation after material change.
 **Failure condition:** a score rank or synthetic calibration curve is treated as calibrated probability or safe abstention.
 
 **Design consequence:** predeclare calibration metrics, coverage targets, subgroup checks, and the
-fallback behavior for every abstained case.
+same-fold substitution behavior for every abstained case.
 
 ## Lens 40 — formal specification and model checking
 
@@ -3690,7 +3741,7 @@ near-boundary cases before accepting the preferred explanation.
 | Renderer substrate changes policy input rather than only measurement | medium | high | camera/state mismatch or policy response changes under nominally matched frames | content-bind state/camera trajectories; separate immediate and downstream panels | stop W3 decomposition |
 | Prior work already contains the claimed protocol contribution | medium–high | high | collision with CoWAM, WorldSimProbe, or related controls | claim only the linked cross-substrate integration and measured residual | remove priority or novelty language |
 | No meaningful finite PID estimand for chosen tensors | high | low | deterministic or near-deterministic path; oracle mismatch | use a non-PID diagnostic or stop H3 | kill H3; continue W1/W2 |
-| Continuous estimator fails planned regime | high | low | bias, coverage, or abstention failure | use a separately justified categorical object or an MI-free diagnostic | continue W1/W2 and any eligible H1/H2/H4 work |
+| Continuous estimator fails planned regime | high | low | bias, coverage, or abstention failure | stop that route; never auto-route the result; only start a separately preregistered categorical estimand on explicitly transformed variables, or use an MI-free diagnostic | continue W1/W2 and any eligible H1/H2/H4 work |
 | Intervention is OOD or nonspecific | high | high | activation/input divergence; broad probe changes | conditional replacements, naturalistic counterfactuals, dose/sham checks | reject treatment |
 | Language source is degenerate | medium | high | low entropy/occupancy | redesign task/instruction population | V–L ineligible |
 | Too few independent task families | high | high | design analysis shows cluster-limited power | narrow population claim; collect families, not frames | do not claim transfer |
@@ -3757,6 +3808,8 @@ Each reported result must include:
 - estimator support verdicts, warnings, abstentions, and full candidate denominator;
 - analysis command/configuration, nested split manifests, and randomization probabilities;
 - generated tables/figures with source hashes and claim–evidence rows;
+- for each PID result, the method-stage ledger, complete object graph, mathematics and
+  applicability decisions, and the paired canonical Markdown plus deterministic PDF receipt;
 - known nondeterminism, counterfactual-coupling limits, and replay tolerances;
 - adapter evidence level and E3/E4 conformance report where claimed;
 - a machine-readable license/provenance manifest and disclosure of inaccessible/unpublished dependencies.
@@ -3772,6 +3825,12 @@ The archive must reproduce the reported result without access to a private sibli
 - Report calibration and prevalence for prediction.
 - Report independent cluster counts.
 - Report estimator abstentions and excluded regimes.
+- For PID, report the exact functional or hierarchy, output coordinate, route, law, transform,
+  source count, component, aggregation, and achieved `PID-P*` level.
+- Publish the method-selection process, rejected routes, theorem locators, negative controls, and
+  unresolved objections. Do not publish only the selected numeric result.
+- Treat the Markdown as authority and the PDF as a derived view. Record source, renderer, and PDF
+  hashes plus extracted-text and page-by-page visual checks.
 - Include a limitations table mapping each claim to its unsupported extrapolations.
 - Follow TRIPOD+AI/PROBAST+AI for prediction components [R59–R60].
 - Provide model/data cards and a datasheet-style description for released artifacts [R63–R65].
@@ -3787,6 +3846,8 @@ CI should fail when:
 - policy proposal, controller output, executed action, and physical outcome are conflated;
 - an analysis treats repeated frames as independent randomized units;
 - a PID result is emitted after a support/eligibility gate failed or without the abstention denominator;
+- a PID publication packet conflates two scientific objects, omits a rejected route, or carries a
+  stale Markdown-to-PDF build receipt;
 - an analysis uses a nonlocked endpoint as “primary” or changes the target population silently;
 - the world-model claim ledger changes W1/W2/W3 roles, status, blockers, artifacts, or permitted
   language without an exact reviewed registry update;
@@ -3940,7 +4001,7 @@ References are version-pinned where the revision materially affects the claim. F
 ## Repository ecosystem and causal/predictive design additions
 
 - **[R72]** Prisoma repository, snapshot `64bd881248463e7142d022bb95a5850bcf8fced2` (12 July 2026). Root workspace, `.gitmodules`, `.ncp-consumer`, README, and `crates/ncp-observer`; `pid-rs` submodule shown at `8a5a9dda601556443f956a2fba164cccc913ed2e`. https://github.com/sepahead/prisoma/tree/64bd881248463e7142d022bb95a5850bcf8fced2
-- **[R73]** `sepahead/pid-rs`. *Shared-exclusions partial information decomposition and mutual-information estimators in Rust*. Reviewed Prisoma pin `8a5a9dda601556443f956a2fba164cccc913ed2e`, contract-hardening revision `70b45f7b75fac06777ea215a73df01209490311a`, immutable `v0.9.0` review-tag commit `a9a275157237999c8da6ab813130d74f6113dec9`, current Prisoma pin `796c11e70f009634b853dc4ada6f565563d82f51`, estimator-code anchor `cb3f58f0b190454cb3f1090de8798261ec78f194`, and unadopted public main `7473e62acef6077c2c1147e09d5d1297f2a2874b`, rechecked 13 August 2026. The current pin includes the public-`csxpid` fixture, agreement within `1e-12` nats after recorded conversion, fail-closed population-support contracts, default-off research features, and bounded report-first APIs. Public main adds method catalogs, software identity, outcome/run-log contracts, formal/categorical assurance work, support-change and concentration records, Lean 4.33 formal replay hardening, source-errata and evidence-boundary registries, and exact-certifier surfaces. Its ecosystem file states that Prisoma integration is not claimed. An isolated all-feature Prisoma check, test-target build, and 531-test run passed at `722d3abe`. Prisoma inspected the one-commit `bbdfda40..cb3f58f0` estimator delta and replayed four predecessor-radius fixtures plus one structured overflow fixture. Current public head `7473e62` changes custody and assurance surfaces only. Full CI run `31724449805` failed two jobs, while narrower push run `31724449083` passed. Upstream still marks broader revision-4 KSG repository integration NO-GO. The 0.9 review source makes no 1.x compatibility, registry, or published-wheel promise. Neither revision establishes high-dimensional VLA application validity or independent corroboration. https://github.com/sepahead/pid-rs/tree/796c11e70f009634b853dc4ada6f565563d82f51 ; https://github.com/sepahead/pid-rs/tree/7473e62acef6077c2c1147e09d5d1297f2a2874b
+- **[R73]** `sepahead/pid-rs`. *Shared-exclusions partial information decomposition and mutual-information estimators in Rust*. Reviewed Prisoma pin `8a5a9dda601556443f956a2fba164cccc913ed2e`, contract-hardening revision `70b45f7b75fac06777ea215a73df01209490311a`, immutable `v0.9.0` review-tag commit `a9a275157237999c8da6ab813130d74f6113dec9`, current Prisoma pin `796c11e70f009634b853dc4ada6f565563d82f51`, estimator-code anchor `cb3f58f0b190454cb3f1090de8798261ec78f194`, and unadopted public main `bc3aa80fb6025e709c2906a08bce25a4fac40578`, rechecked 14 August 2026. The current pin includes the public-`csxpid` fixture, agreement within `1e-12` nats after recorded conversion, fail-closed population-support contracts, default-off research features, and bounded report-first APIs. Public main adds method catalogs, software identity, outcome/run-log contracts, formal/categorical assurance work, support-change and concentration records, Lean 4.33 formal replay hardening, source-errata and evidence-boundary registries, and exact-certifier surfaces. Its ecosystem file states that Prisoma integration is not claimed. An isolated all-feature Prisoma check, test-target build, and 531-test run passed at `722d3abe`. Prisoma inspected the one-commit `bbdfda40..cb3f58f0` estimator delta and replayed four predecessor-radius fixtures plus one structured overflow fixture. Head `7473e62` changes custody and assurance surfaces only, and its full CI run `31724449805` failed two jobs. Current head `bc3aa80` is one custody-repair child later and also changes no crate or Cargo input. Full CI run `31773937366` passed all 45 jobs, and CodeQL run `31773937102` passed all four jobs. Upstream still marks broader revision-4 KSG repository integration NO-GO. The 0.9 review source makes no 1.x compatibility, registry, or published-wheel promise. Neither revision establishes high-dimensional VLA application validity or independent corroboration. https://github.com/sepahead/pid-rs/tree/796c11e70f009634b853dc4ada6f565563d82f51 ; https://github.com/sepahead/pid-rs/tree/bc3aa80fb6025e709c2906a08bce25a4fac40578
 - **[R74]** `sepahead/NCP`. *Neuro-Cybernetic Protocol*. The latest immutable release is `v0.8.0` at peeled commit `2f5bd586d4bb20c90362bb6f5698b7f64057ba4e`, wire 0.8. The provider boundary was verified through the official ref on 13 August 2026. Prisoma deliberately retains the immutable consumer pin. Verified upstream main `1a04294c90c1b50eba06ae1c6afe9c951319250d` is the unreleased, release-blocked `1.0.0-rc.1` candidate. It uses wire 1.0 and compact proto contract hash `163acc57d8a62b66`. It is incompatible with the pinned observer. NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and **NOT RUN**. B01 remains `IN_PROGRESS`; its refined low-overhead architecture and prepared-stream-monitor gap record are coordination-only and have no passing receipt. Prisoma remains a read-only observer with documented transport and security limits. https://github.com/sepahead/NCP/tree/v0.8.0 ; https://github.com/sepahead/NCP/tree/1a04294c90c1b50eba06ae1c6afe9c951319250d ; https://github.com/sepahead/NCP/blob/1a04294c90c1b50eba06ae1c6afe9c951319250d/evidence/implementation/task-ledger.v1.json
 - **[R75]** `sepahead/galadriel`. *Fail-closed cross-sensor statistical-consistency monitoring in safe Rust*, public revision `80506dd2ce52b33c3334c7d1760a8155c7631241`, inspected 24 July 2026. The tree freezes 0.9.0 candidate inputs and includes a strict two-route consumer, lifecycle adapter, and bounded operational receiver. No reciprocal Prisoma pin, direct adapter, producer-consumer golden fixture, or deployed receiver-verified Crebain qualification exists. https://github.com/sepahead/galadriel/tree/80506dd2ce52b33c3334c7d1760a8155c7631241
 - **[R76]** `sepahead/crebain`. *Multi-UAV simulation and airspace-awareness research testbed*, public revision `7f6b3bdf4d20aba1b351b3ceacb259bd123c93a6`, inspected 26 July 2026. The restricted read-only Engram view adds continued host challenges and a native-IPC accessibility probe. Embedded mode disables native, external telemetry, artifact exchange, NCP, and plant paths. The host must relock a stale frame. Host messages correlate a document but do not attest a process or build. NCP action/control commands remain unregistered. No live NCP control loop or direct Prisoma adapter exists. https://github.com/sepahead/crebain/tree/7f6b3bdf4d20aba1b351b3ceacb259bd123c93a6
@@ -3993,7 +4054,7 @@ References are version-pinned where the revision materially affects the claim. F
 - **[R123]** Alberge, J.; Maladiere, V.; Grisel, O.; Abécassis, J.; Varoquaux, G. (2025). *Survival Models: Proper Scoring Rule and Stochastic Optimization with Competing Risks*. AISTATS 2025, PMLR 258:3619–3627. https://proceedings.mlr.press/v258/alberge25a.html
 - **[R124]** Adebayo, J.; Gilmer, J.; Muelly, M.; Goodfellow, I.; Hardt, M.; Kim, B. (2018). *Sanity Checks for Saliency Maps*. NeurIPS 2018. https://proceedings.neurips.cc/paper/2018/hash/294a8ed24b1ad22ec2e7efea049b8737-Abstract.html
 - **[R125]** Geiger, A.; Lu, H.; Icard, T.; Potts, C. (2021). *Causal Abstractions of Neural Networks*. arXiv:2106.02997. https://arxiv.org/abs/2106.02997
-- **[R126]** Lyu, A.; Clark, A.; Raviv, N. (2026). *Closed-Form Gaussian Estimators for Multi-Source Partial Information Decomposition*. arXiv:2605.09919, 11 May 2026. https://arxiv.org/abs/2605.09919
+- **[R126]** Lyu, A.; Clark, A.; Raviv, N. (2026). *Closed-Form Gaussian Estimators for Multi-Source Partial Information Decomposition*. arXiv:2605.09919, 11 May 2026. The paper's conditional-independence hierarchy defines two-source redundancy and multi-source unique/synergy quantities; for \(N\geq3\) it deliberately assigns no redundancy and is not a complete antichain decomposition. https://arxiv.org/abs/2605.09919
 - **[R127]** Li, R.; Zhang, H.; Jin, J.; Zeng, Q.; Zhuang, Z.; Tang, Y.; Lyu, S.; Wang, D. (2026). *World-Value-Action Model: Implicit Planning for Vision-Language-Action Systems*. arXiv:2604.14732v2, 19 April 2026. https://arxiv.org/abs/2604.14732
 - **[R128]** Yan, G.; Liu, J.; Fan, Y.; Cai, L.; Liao, M.; Zhang, J.; Fox, D. (2026). *Flex-\(\pi\): A Multi-Stream World-Action Model with Compute Flexibility*. arXiv:2608.10860v1, 11 August 2026. https://arxiv.org/abs/2608.10860 ; https://flex-pi.github.io/
 - **[R129]** Wang, J. et al. (2026). *SLIM-0.5B: Learning Action-Grounded Predictive Latents for Robot Manipulation*. arXiv:2608.09771v1, 10 August 2026. https://arxiv.org/abs/2608.09771 ; https://github.com/kzz1031/SLIM
@@ -4036,7 +4097,7 @@ References are version-pinned where the revision materially affects the claim. F
 - **[R166]** Zhang, C.; Tong, J.; Li, X.; Wang, Y.; Li, H. (2026). *Keep the Future, Drop the Rollout: RIFT for World Action Models*. arXiv:2608.11521v1, 12 August 2026. Rift writes an action-independent future-position K/V cache in one prefill. The paper also reports paired closed-loop cache interventions. These tests support bounded use of the tested cache path, not physical correctness or causal-transition identification. No official runnable code or checkpoint was verified at the cutoff. https://arxiv.org/abs/2608.11521
 - **[R167]** Zhang, X.; Du, Y. (2026). *World Action Planner: Generalizable Decision-Making with Action-Conditioned World Models*. arXiv:2607.27599v1, 30 July 2026. Its algorithm proposes actions, predicts a grid of candidate outcomes, ranks them, and executes the selected candidate. This satisfies the operational class-E planning definition. Its reported results are simulation evidence, and no official runnable artifact was verified in this review. https://arxiv.org/abs/2607.27599 ; https://worldactionplanner.github.io/
 - **[R168]** Liu, Y. et al. (2026). *CheckVLA: Execution-Time Verification with Action-Conditioned World Model for Long-Horizon Mobile Manipulation*. arXiv:2607.26789v1, 29 July 2026. It predicts expected execution under committed actions, compares predictions with later observations, and triggers a latency-aware suffix rewrite. Its action-shuffle and observation-only controls make it a strong monitor comparator. This does not establish causal-transition validity or external transport. https://arxiv.org/abs/2607.26789
-- **[R169]** Wibral, M.; Priesemann, V.; Kay, J. W.; Lizier, J. T.; Phillips, W. A. (2017). *Partial Information Decomposition as a Unified Approach to the Specification of Neural Goal Functions*. **Brain and Cognition** 112:25–38. The paper was first published online in 2015. It develops a generic PID coordinate language for neural goal functions. It does not define the later MGW shared-exclusions functional. https://doi.org/10.1016/j.bandc.2015.09.004
+- **[R169]** Wibral, M.; Priesemann, V.; Kay, J. W.; Lizier, J. T.; Phillips, W. A. (2017). *Partial Information Decomposition as a Unified Approach to the Specification of Neural Goal Functions*. **Brain and Cognition** 112:25–38. The paper was first published online in 2015. It develops a coordinate language for neural goal functions. It does not define one universal PID functional or the later MGW shared-exclusions functional. https://doi.org/10.1016/j.bandc.2015.09.004
 - **[R170]** Gutknecht, A. J.; Wibral, M.; Makkeh, A. (2021). *Bits and Pieces: Understanding Information Decomposition from Part-Whole Relationships and Formal Logic*. **Proceedings of the Royal Society A** 477:20210110. https://doi.org/10.1098/rspa.2021.0110
 - **[R171]** Gutknecht, A. J.; Makkeh, A.; Wibral, M. (2025). *From Babel to Boole: The Logical Organization of Information Decompositions*. **Proceedings of the Royal Society A** 481:20240174. https://doi.org/10.1098/rspa.2024.0174
 - **[R172]** Schneider, A. C.; Neuhaus, V.; Ehrlich, D. A.; Makkeh, A.; Ecker, A. S.; Priesemann, V.; Wibral, M. (2025). *What Should a Neuron Aim For? Designing Local Objective Functions Based on Information Theory*. ICLR 2025. The work composes PID quantities into three-input local learning objectives. It is not a PID functional or finite-sample certifier. https://proceedings.iclr.cc/paper_files/paper/2025/hash/87d8ed41d250c401a68f05100e0a4ef0-Abstract-Conference.html
@@ -4050,6 +4111,9 @@ References are version-pinned where the revision materially affects the claim. F
 - **[R180]** Zhang, S. et al. (2026). *RoboSnap: One-Shot Real-to-Sim Scene Generation for Generalizable Robot Learning and Evaluation*. arXiv:2607.06699. It separates collision-aware foreground assets from a Gaussian-splat visual layer and evaluates reusable real-to-sim scenes. https://arxiv.org/abs/2607.06699
 - **[R181]** Maes, L.; Le Lidec, Q.; Scieur, D.; LeCun, Y.; Balestriero, R. (2026). *LeWorldModel: Stable End-to-End Joint-Embedding Predictive Architecture from Pixels*. arXiv:2603.19312v3. Reviewed code `Mengarr/lewm@8a2c595813d0eee85b2dbffa6f58ff0842f9e673`; its exact lock selects `stable-worldmodel==0.1.1` (source tag `15a5538d492ae524c64cb18cc56a2d70611e877e`) and `stable-pretraining==0.1.7`; reviewed PushT model revision `quentinll/lewm-pusht@22b330c28c27ead4bfd1888615af1340e3fe9052`. The released predictor is action-conditioned and the evaluator uses CEM. Project source and model-card terms declare MIT. The `stable-worldmodel` wheel metadata declares MIT, but the wheel and reviewed source tag contain no license file. The upstream evaluator hard-codes CUDA and its documented model conversion uses pickle-enabled loading. A local synthetic tensor/CEM probe ran on MPS, but no end-to-end MPS qualification was verified. Current platform main `9a66d7d020043c8efb507f45373e808714f0842d` has an incompatible planner constructor and is a separate migration target. https://arxiv.org/abs/2603.19312 ; https://github.com/Mengarr/lewm/tree/8a2c595813d0eee85b2dbffa6f58ff0842f9e673 ; https://github.com/galilai-group/stable-worldmodel/tree/15a5538d492ae524c64cb18cc56a2d70611e877e ; https://huggingface.co/quentinll/lewm-pusht/tree/22b330c28c27ead4bfd1888615af1340e3fe9052
 - **[R182]** Singh, J. (2026). *The Evaluation Protocol Determines the Result: An Independent Reproduction of LeWorldModel on TwoRoom*. arXiv:2608.10145v1. This one-seed, TwoRoom-only study reproduces the representation probe and one published planning reading. It reports four consequential pipeline conventions absent from configuration files, conflicts between appendix and configuration evaluation settings, and strong goal-construction sensitivity on identical episodes. Across three checkpoints, one-step prediction error did not order long-horizon planning performance. It does not test PushT, MPS, other environments, or seed variance. Reviewed public reproduction source at the cutoff: `joyjeet-singh/tinylab@f2f665411d79cd626096ec8d4271b355a2c0f550`. https://arxiv.org/abs/2608.10145 ; https://github.com/joyjeet-singh/tinylab/tree/f2f665411d79cd626096ec8d4271b355a2c0f550
+- **[R183]** Venkatesh, P.; Schamberg, G. (2021/2022). *Partial Information Decomposition via Deficiency for Multivariate Gaussians*. The work starts from the bivariate deficiency-based \(\delta\)-PID, defines Gaussian-channel-restricted deficiency \(\delta_G\), and then defines the further convex-surrogate \(\widehat{\delta}_G\)-PID with proved bounds and extremal agreements. These are not BROJA/\(\sim\), \(\sim_G\), or shared exclusions. https://arxiv.org/abs/2105.00769
+- **[R184]** Venkatesh, P.; Gurushankar, K.; Schamberg, G. (2023). *Capturing and Interpreting Unique Information*. The paper identifies the \(\sim\)-PID as BROJA, analyzes its relationship to the distinct deficiency \(\delta\)-PID, introduces a parameterized \(\delta^\lambda\) family, and separately defines the information-deficiency I-PID. Its displayed small-\(\lambda\) raw objective tends to zero when exact copying is feasible, so the paper's stated BROJA endpoint still needs an explicit normalization or lexicographic limit theorem before becoming an equality edge. It proves I-PID Blackwellian for jointly Gaussian laws and leaves the general statement conjectural. https://arxiv.org/abs/2302.11873
+- **[R185]** Venkatesh, P.; Bennett, C.; Gale, S.; Ramirez, T. K.; Heller, G.; Durand, S.; Olsen, S.; Mihalas, S. (2023). *Gaussian Partial Information Decomposition: Bias Correction and Application to High-dimensional Data*. The paper defines \(\sim_G\) by restricting the BROJA/\(\sim\) coupling optimization to jointly Gaussian laws, so its atoms bound BROJA in general and equality for Gaussian input laws remains conjectural. It develops covariance-law computation, sample-covariance estimation, and a separate finite-sample bias-correction route for \(\sim_G\). https://arxiv.org/abs/2307.10515
 ---
 
 # Appendix A. Minimal canonical event envelope
@@ -4156,7 +4220,7 @@ If a preserved diagnostic study opens its own holdout, also require:
       success;
 - [ ] H3/H4 selection is frozen with no more than three scientific claims and no outcome-informed
       branch switch;
-- [ ] H3 warning codes have a frozen allowlist and exact fallback/block disposition;
+- [ ] H3 warning codes have a frozen allowlist and exact same-fold M1 substitution/block disposition;
 - [ ] H3 binds a target-specific prediction landmark before target realization or availability,
       source/target ancestry, producer and consumer implementations, and fail-closed per-row
       receipts that exclude post-landmark observations and target injection;
@@ -4278,11 +4342,18 @@ These are optional experiments, ordered by scientific value rather than visual a
 7. **Project-owned categorical shared-exclusions case study.** Specify canonical integer count laws
    on one fixed alphabet and MGW two-source lattice. Reuse exact source counts across conditions
    when testing informative-component invariance. Bind the defining paper, equations, log unit,
-   source order, target, and pinned `pid-rs` backend. Require atom reconstruction, nonnegative
+   source order, target, event map, positive support, antichain coordinates, and pinned `pid-rs`
+   backend. Require atom reconstruction, nonnegative
    informative/misinformative components, and the exact relationship between net and component
    contrasts. Keep this outside the world-model and `(V,L,D,A)` harnesses. It exercises one
    functional and implementation. It does not validate continuous PID, quantized hidden states,
-   causal meaning, or the Prisoma application.
+   causal meaning, or the Prisoma application. Treat the fixed-source-law relationship as a
+   paper-derived algebraic identity checked by a project-defined fixture unless an exact primary-
+   source theorem locator is pinned. The informative cumulative term depends on the matching
+   source union-event probability. Exact source-marginal equality and fixed Möbius inversion then
+   preserve the informative atom vector, so each net-atom contrast is the negative of its
+   misinformative contrast. Preserve empirical-count and specified-law roles as different result
+   types even when their normalized masses agree.
 8. **Neural-simulation producer trial.** After pinning a specific NEST-fork branch and documenting its delta from upstream, export a small neural-state fixture through a read-only NCP path. Evaluate clock/sequence semantics, provenance, replay, and noninterference before any neuroscience or embodiment claim.
 
 None of these experiments is required for a successful thesis. Their value is that the same event and estimand contract makes heterogeneous embodied-agent investigations comparable without pretending their representations, clocks, action spaces, or causal targets are identical.

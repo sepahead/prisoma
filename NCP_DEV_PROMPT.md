@@ -75,7 +75,7 @@ axis-provenance markers. Geometry diagnostics are descriptive and never gate val
 recipe already runs it alongside the three held-out gates.)
 
 …exiting 0. That establishes only the adapter-side prerequisites for H1/H2 baselines and the
-**conditional H3 PID-necessity audit** (does the full PID/abstention/exact-fallback policy add value
+**conditional H3 PID-necessity audit** (does the full PID/abstention/exact same-fold M1 policy add value
 beyond the frozen matched-access comparator registry; grandplan §3.8 PID kill rules, §6.5 baseline
 hierarchy). It does not clear the
 population, measure, estimator, or application gates. The current NCP artifact deliberately

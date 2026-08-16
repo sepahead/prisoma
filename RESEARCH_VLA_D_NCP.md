@@ -316,7 +316,7 @@ direct antecedents for Prisoma's layerwise `D_hidden[k]` screens. They do not va
 population, measure, estimator, or application regime. Complementary multimodal-interaction
 methods map the surrounding design space [32][33][34][35][36].
 
-### 2.5 PID estimator SOTA and its limits
+### 2.5 PID functional, evaluator, estimator, and objective frontier
 
 Prisoma pins several non-substitutable objects in `pid-rs`. MGW categorical shared exclusions is a
 paper-defined functional on categorical probability laws [127]. Prisoma's `categorical-sx` route
@@ -329,15 +329,34 @@ other terms, not another PID measure or estimator [128][129][130]. The current i
 does not certify general soft weighted laws, adaptive bins, stopped binning gradients, or optimizer
 guards.
 
-The 2026 estimator frontier matters for what NCP could ever clear. A closed-form **Gaussian
-multi-source PID** estimator gives explicit formulas without iterative optimization and extends
-beyond two sources [1]. Its authors prove plug-in consistency and report controlled numerical
-stability studies in finite-sample Gaussian regimes. Those results do not validate arbitrary VLA
-or spiking data. The theory is simultaneously getting harder. A comprehensive review catalogs PID
-properties and measures [37]. Multiple 2025–2026 results identify multivariate inconsistencies
-[38][65][66]. Related MI advances bear on Prisoma's small-n, high-dimensional, autocorrelated
-regimes [42][43][44][45]. Exp0 remains NO-GO on its synthetic high-dimensional controls. Any new D
-source inherits that fragile regime.
+The complete scientific-object and method-admission rules are in
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md).
+The bivariate BROJA/\(\sim\)-PID, Gaussian-restricted \(\sim_G\)-PID, deficiency \(\delta\)-PID,
+Gaussian-channel-restricted \(\delta_G\), convex-surrogate \(\widehat{\delta}_G\)-PID,
+\(\delta^\lambda\) family, information-deficiency I-PID, Lyu–Clark–Raviv Gaussian information
+hierarchy, categorical MGW, continuous Ehrlich, mixed-law, temporal, and future neuromorphic routes
+remain separate research objects. The \(\sim\)-PID is BROJA rather than a second functional, but
+\(\sim_G\) restricts its feasible couplings and only bounds it in general. Shared application data,
+Gaussian-looking marginals, covariance availability, or source labels do not supply the missing
+mapping theorem between the genuinely distinct objects.
+Within one functional, cumulative lattice values, Möbius-inverted atoms, antichain coordinates,
+pointwise and averaged quantities, and net, informative, and misinformative components also remain
+separate. A neuromorphic producer must negotiate that exact coordinate identity before any shared
+`pid-rs` result can be compared across projects.
+
+The 2026 estimator frontier matters for what NCP could ever clear. The Lyu–Clark–Raviv
+conditional-independence hierarchy gives explicit log-determinant formulas and sample-covariance
+plug-in estimators beyond two sources [1]. It defines two-source redundancy, per-source unique
+information, narrow and total synergy, and order-\(K\) synergistic effects. For \(N\geq3\), however,
+the authors deliberately assign no redundancy, so these outputs are not a complete multi-source
+antichain PID and must not be filled with atoms from another measure. The paper proves plug-in
+consistency and reports controlled numerical-stability studies under jointly Gaussian regimes.
+Those results do not validate arbitrary VLA embeddings, analog readouts, or atomic spike counts.
+The theory is simultaneously getting harder. A comprehensive review catalogs PID properties and
+measures [37]. Multiple 2025–2026 results identify multivariate inconsistencies [38][65][66].
+Related MI advances bear on Prisoma's small-n, high-dimensional, autocorrelated regimes
+[42][43][44][45]. Exp0 remains NO-GO on its synthetic high-dimensional controls. Any new D source
+inherits that fragile regime.
 
 ### 2.6 Failure diagnosis from internal state, and neuromorphic control
 
@@ -348,7 +367,7 @@ EC1/H diagnostic family. It is not the W1-W3 critical path. It can declare selec
 as D, actions as A, and success or failure labels with explicit provenance. That mapping does not
 establish dynamics, natural pathway use, or response to an intervention.
 
-Finally, the **neuromorphic/SNN** literature is where NCP would have to land as a *legitimate* D source. There now exist spiking world models with multicompartment neurons for model-based RL [55], SNNs for continuous control via end-to-end model-based learning [56], neuromodulation-based spiking controllers [57], analog spiking arm control [58], spike-driven decision transformers [59], spiking diffusion policy [60], HPC-scale embodied SNN simulation [61], and methods bridging discrete spikes to continuous control (Proxy Target, surrogate-gradient representation analysis) [62][63]. PID studies report measure- and regime-specific redundancy or synergy estimates in biological, spiking, and oscillator systems [64][68][69][70][67]. Gaussian-PID bias-correction work also targets high-dimensional neural data [71]. These results motivate a study of a spiking D, but they do not establish a mechanism, a unique decomposition, or validity for this SNN.
+Finally, the **neuromorphic/SNN** literature is where NCP would have to land as a *legitimate* D source. There now exist spiking world models with multicompartment neurons for model-based RL [55], SNNs for continuous control via end-to-end model-based learning [56], neuromodulation-based spiking controllers [57], analog spiking arm control [58], spike-driven decision transformers [59], spiking diffusion policy [60], HPC-scale embodied SNN simulation [61], and methods bridging discrete spikes to continuous control (Proxy Target, surrogate-gradient representation analysis) [62][63]. PID studies report measure- and regime-specific redundancy or synergy estimates in biological, spiking, and oscillator systems [64][68][69][70][67]. Finite-sample bias-correction work for the Gaussian-restricted \(\sim_G\)-PID also targets high-dimensional neural data [71]. These results motivate a study of a spiking D, but they do not establish joint Gaussianity, eligibility of atomic counts, a mechanism, a unique decomposition, unrestricted BROJA/\(\sim\), or validity for this SNN.
 
 ## 3. Where Prisoma sits
 
@@ -365,8 +384,8 @@ high-dimensional MI/coherence path is NO-GO. Continuous atoms on real embeddings
 application-blocked (repo-internal). EC1 and H1–H4 are unfrozen claim templates: finite registered
 capture–replay fidelity and fault detection; H1-A frozen-snapshot response prediction or H1-B
 randomized closed-loop effect modification; prospective H2 failure prediction; full-target H3 PID
-incremental value with exact non-PID fallback; and H4 divergence between availability and the
-cell-average response to one tested intervention. PID kill rules can retire H3 while H1 and H2
+incremental value with exact same-fold M1 substitution for abstentions; and H4 divergence between
+availability and the cell-average response to one tested intervention. PID kill rules can retire H3 while H1 and H2
 continue with PID disabled. Flow and attribution remain exploratory companions.
 
 ## 4. How NCP fits
@@ -414,7 +433,7 @@ What *is* scientifically sound is Prisoma's **handling** of the weak analogy. Mi
 
 No NCP data exists to test, so the question is answered structurally (repo-internal). As shaped today, an absent-L tick is excluded before artifact publication; a tick without an exact source-stamped D readout is excluded too. Missing `metadata.split`/`episode_id`/`success` means no leakage-resistant held-out evaluation and no majority, 1-NN, nearest-centroid, or logistic failure-label baseline can be computed under the strict modes. Even a structurally complete artifact would only make the baselines runnable: continuous KSG/shared-exclusions computation would still need declared support; fitted categorical MGW shared exclusions would remain a non-evidentiary diagnostic with population `NotEvaluated` and application `Blocked`; and interpretation would still require population, measure, estimator, and application gates. This is the honesty machinery working — the claim is not "NCP passes" but "NCP fails closed until its provenance and study structure are sufficient," which is the correct default.
 
-There is one genuine potential advantage: **low dimensionality**. Exp0's NO-GO is driven by high-dimensional estimator incoherence, with historical intrinsic-dimension and MI-collapse diagnostics documenting the regime. A NEST closed loop with a handful of V channels, a few D ports, and low-dimensional A is *plausibly* easier, but low dimensionality alone passes none of the four gates. Three risks remain: (i) spike-count D is categorical/atomic by construction, so the current pid-rs support contract correctly rejects it for a declared continuous KSG/`I^sx` estimand rather than treating ties as a repairable nuisance; (ii) a steady-state SNN can produce a degenerate near-constant axis; and (iii) temporal autocorrelation reduces independent information even with exact wire-0.8 source joins. The descriptive within-unit-step-run Pearson lag-1 screen does not quantify the effective sample size of a nonlinear PID estimator. The retired recency fallback is no longer implemented. `MAX_INFLIGHT=4096` remains an ingress bound, not a sample count. A Gaussian-PID path for a separately justified approximately Gaussian continuous readout is an adoption recommendation, not current capability. Verdict: INSUFFICIENT today; transport alignment is repaired, while population/measure/estimator/application validity remains unresolved.
+There is one genuine potential advantage: **low dimensionality**. Exp0's NO-GO is driven by high-dimensional estimator incoherence, with historical intrinsic-dimension and MI-collapse diagnostics documenting the regime. A NEST closed loop with a handful of V channels, a few D ports, and low-dimensional A is *plausibly* easier, but low dimensionality alone passes none of the four gates. Three risks remain: (i) spike-count D is categorical/atomic by construction, so the current pid-rs support contract correctly rejects it for a declared continuous KSG/`I^sx` estimand rather than treating ties as a repairable nuisance; (ii) a steady-state SNN can produce a degenerate near-constant axis; and (iii) temporal autocorrelation reduces independent information even with exact wire-0.8 source joins. The descriptive within-unit-step-run Pearson lag-1 screen does not quantify the effective sample size of a nonlinear PID estimator. The retired recency fallback is no longer implemented. `MAX_INFLIGHT=4096` remains an ingress bound, not a sample count. A predeclared \(\sim_G\), \(\delta_G\), \(\widehat{\delta}_G\), or conditional-independence Gaussian-hierarchy sensitivity route could be studied only for separately justified continuous analog readouts, with its exact population quantity, law diagnostics, covariance conditioning, estimator parameters, bias procedure, and dependence design bound in advance. None of these routes is unrestricted BROJA/\(\sim\) or \(\delta\) unless an applicable proved equality theorem supplies that identification for the declared law. That is an adoption recommendation, not current capability or a Gaussianity claim. Verdict: INSUFFICIENT today; transport alignment is repaired, while population/measure/estimator/application validity remains unresolved.
 
 ### 5.3 Engineering completeness — **INSUFFICIENT TODAY, FIXABLE**
 
@@ -443,7 +462,7 @@ the reference adapter for this diagnostic comparison. NCP remains complementary 
 1. **Do not call Engram's pre-motor readout a "world model" or "internal simulation" in any result** until grandplan §9.1–9.2 architecture mapping and external predictive evidence support that role. Use "pre-motor neural state (world-model status untested)."
 2. **Treat Engram as a neural-dynamics source, not a VLA analog.** Missing-L ticks are currently excluded. Drop the I(V,L;A) target for this source unless a genuine language channel is instrumented; do not accept a hash/zero proxy as L.
 3. **Apply explicit architecture evidence before calling any port "D":** map record ports, probe preregistered physical/task variables on held-out data, and use frozen interventions where possible [82][84]; otherwise document D as configured pre-motor ports, not a principled world-model state.
-4. **Resolve the estimator regime for spike data:** separate analog-rate ports from categorical spike-count ports and do not concatenate heterogeneous units into one continuous D. Preregister one measure, preprocessing, and estimator tuple. Never auto-route a failed continuous term to the fitted categorical MGW route or pool the two. Evaluate a Gaussian-PID path only for separately justified low-dimensional approximately Gaussian readouts [1][41][71], and use block/group resampling for autocorrelated sessions [44].
+4. **Resolve the estimator regime for spike data:** separate analog-rate ports from categorical spike-count ports and do not concatenate heterogeneous units into one continuous D. Preregister one functional or hierarchy quantity, preprocessing, and evaluator/estimator tuple. Never auto-route a failed continuous term to the fitted categorical MGW route or pool the two. Evaluate \(\sim_G\), \(\delta_G\), \(\widehat{\delta}_G\), and the Lyu–Clark–Raviv hierarchy only as separately named routes for separately justified low-dimensional continuous Gaussian-law sensitivity studies [1][71][131][132]; none admits atomic spike counts, none validates another object, and the restricted or surrogate routes cannot be relabeled unrestricted BROJA/\(\sim\) or \(\delta\). Keep \(\delta^\lambda\) and I-PID as separately defined research objects, not aliases or automatic additions to that sensitivity family. The raw \(\delta^\lambda\) small-parameter endpoint needs its normalization theorem before it can be identified with BROJA. Use an episode-aware dependence design rather than treating a generic group schedule as proof of valid KSG resampling [44].
 5. **Keep the honesty scaffolding load-bearing:** never let an Engram atom into a comparison table without its `l_source`/`d_source`, computation outcome, and population/measure/estimator/application verdicts attached; keep `--require-axis-provenance-honest` mandatory on Engram artifacts.
 6. **If the preserved EC1/H branch is activated, use SAFE as its first real-VLA adapter.** Complete
    real capture, diagnostic-noninterference preflight, and protocol-specific structure. NCP remains
@@ -641,5 +660,7 @@ but untested. No universal intrinsic-dimension cutoff establishes eligibility.
 [128] Wibral et al., Partial information decomposition as a unified approach to the specification of neural goal functions — https://pubmed.ncbi.nlm.nih.gov/26475739/
 [129] Makkeh et al., A generalized framework for infomorphic neural networks — https://pmc.ncbi.nlm.nih.gov/articles/PMC11912414/
 [130] Infomorphic neural networks: learning efficiently with modularity and explicit control over embodied information — https://proceedings.iclr.cc/paper_files/paper/2025/hash/87d8ed41d250c401a68f05100e0a4ef0-Abstract-Conference.html
+[131] Venkatesh and Schamberg, Partial Information Decomposition via Deficiency for Multivariate Gaussians — https://arxiv.org/abs/2105.00769
+[132] Venkatesh, Gurushankar, and Schamberg, Capturing and Interpreting Unique Information (\(\delta^\lambda\), I-PID, and interpretations of deficiency and BROJA/\(\sim\)) — https://arxiv.org/abs/2302.11873
 The complete architecture and M4 artifact audit is
 [`WORLD_ACTION_MODEL_FRONTIER.md`](docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md).

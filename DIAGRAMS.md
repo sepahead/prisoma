@@ -99,7 +99,7 @@ flowchart TD
     Contract --> PIDMode{"PID mode"}
 
     PIDMode -->|none| NoPid["no MI or PID requests"]
-    PIDMode -->|continuous| Continuous["KSG and shared-exclusions diagnostics"]
+    PIDMode -->|continuous| Continuous["Ehrlich functional through its named kNN estimator"]
     PIDMode -->|categorical-sx| Categorical["fitted categorical MGW SxPID"]
     PIDMode -->|categorical-sx-pls| Pls["same-row supervised PLS diagnostic; typed warning; no held-out scoring"]
 
@@ -117,7 +117,30 @@ flowchart TD
 
 The branches identify different scientific objects and estimands. A failed continuous path never
 falls through to a categorical route. MGW categorical shared exclusions and continuous Ehrlich
-shared exclusions require separate gates.
+shared exclusions require separate gates. The complete identity contract is
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md).
+
+```mermaid
+flowchart LR
+    Paper["primary paper"] --> Functional["paper-defined functional"]
+    Functional --> Quantity["named cumulative value or Möbius atom"]
+    Quantity --> Coordinate["antichain + aggregation + component"]
+    Coordinate --> Estimator["sample-estimator route"]
+    Coordinate --> Evaluator["declared-law evaluator route"]
+    Transform["fitted or fixed transform"] --> Estimator
+    Transform --> Evaluator
+    Certifier["bounded certifier"] -. evidence .-> Evaluator
+    Fixture["oracle or validation fixture"] -. evidence .-> Estimator
+    Coordinate --> Objective["downstream objective composition"]
+    Estimator --> Result["typed result identity"]
+    Evaluator --> Result
+    Objective --> ObjectiveResult["typed objective result"]
+```
+
+A certifier or fixture supplies evidence about a route. It does not define another PID. A
+cumulative lattice value is not its Möbius atom. Net, informative, and misinformative components
+are separate coordinates. An objective composes named coordinates. It does not become their
+functional or estimator.
 
 ## 5. Scientific interpretation gates
 

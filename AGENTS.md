@@ -18,11 +18,12 @@ being true as the code moves).
 > no numeric placeholder** (no zero, no NaN, no metric event). Exact ties reject a *sample*, never
 > the population law. Never auto-route a failed continuous term to a categorical route: different
 > object, measure, estimator, and estimand, never pooled.
-> Public `pid-rs` main was observed at `7473e62` on 2026-08-13. Its latest estimator-code anchor
-> is parent `cb3f58f0`; the child changes custody and assurance surfaces only. Its newer method catalogs,
-> formal/categorical assurance work, source-errata registry, and exact-certifier surfaces remain
-> unadopted. Full exact-head CI is red in two jobs, while a narrower push receipt passed. A consumer-owned review
-> must prove compatibility and added value before a pin change.
+> Public `pid-rs` main was observed at `bc3aa80` on 2026-08-14. Its latest estimator-code anchor
+> remains grandparent `cb3f58f0`; the two later commits change custody and assurance surfaces only.
+> Its newer method catalogs, formal/categorical assurance work, source-errata registry, and exact-
+> certifier surfaces remain unadopted. Full exact-head CI passed 45 jobs, and CodeQL passed four
+> jobs. Provider green does not prove consumer compatibility, estimator validity, or application
+> value. A consumer-owned review must prove those properties before a pin change.
 
 > **Single source of truth for the Rust PID estimators: [`pid-rs`](https://github.com/sepahead/pid-rs).**
 > `pid-core`, `pid-python`, and `pid-runlog` are **not** vendored here — do **not** re-add copies.
@@ -88,11 +89,28 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
    validation as `blocked`. `--strict-gate` gates the curated low-d analytic-MI band while only
    reporting atoms.
    Geometry diagnostics are not a substitute; sampled-mean δ is descriptive only. See
-   `findings.md` and `grandplan.md` §7.2, §7.9. One (PID measure, preprocessing, estimator
-   config) tuple = one pre-outcome frozen regime. The `categorical-sx` route fits equal-width
+   `findings.md` and `grandplan.md` §7.2, §7.9. One (functional, exact output coordinate,
+   preprocessing, evaluator-or-estimator route) tuple = one pre-outcome frozen regime. The
+   `categorical-sx` route fits equal-width
    quantizers and estimates averaged two-source MGW shared exclusions on empirical categorical
    laws. It is not Williams–Beer `I_min`, BROJA, the continuous Ehrlich functional, or an
    infomorphic objective. Never pool or auto-route these objects.
+   Apply [`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md)
+   before adding, selecting, comparing, or interpreting any PID-related route. Keep the
+   paper-defined functional, output quantity or lattice coordinate, declared-law evaluator, sample
+   estimator, transform, certifier, validation artifact, objective composition, and application
+   interpretation separate. Check the equations, law domain, source count, support or gauge,
+   dependence, and oracle before deciding that a method applies. Functional identity alone is not
+   enough. Also bind cumulative-versus-Möbius construction, antichain coordinate, pointwise-versus-
+   averaged scope, and net, informative, or misinformative component.
+   Preserve valid novel PID work as a typed research object with explicit origin and blockers.
+   Removing a route from an active claim does not authorize deleting or relabeling its mathematics,
+   software, fixtures, or negative evidence. No cross-functional transfer is permitted without a
+   mapping theorem whose assumptions hold.
+   Treat the PID decision process as evidence. Keep the canonical Markdown contract and its
+   deterministic PDF publication view paired through a build receipt. The receipt must bind the
+   source, renderer, and PDF hashes, exact command, extracted-text checks, page count, and visual
+   review of every page. The PDF is a derived view. Never edit it as an independent authority.
    Every H1 result must say H1-A or H1-B. Do not use “H1 passed” alone. H1 success requires a
    positive useful margin and a one-sided lower confidence bound above that margin. Noninferiority,
    equivalence, nonsignificance, or a secondary endpoint cannot rescue the primary endpoint. For
@@ -280,7 +298,8 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
   the execution receipt, it labels independent branches restored from the saved fork and verifies
   replay. Schema 2 has no neutral decision record. Forecast commitments and execution receipts use
   strictly named `label_observed` compatibility envelopes, but they are not outcome labels. This
-  is software conformance only, not W1 or W2 evidence.
+  is software conformance only, not W1 or W2 evidence. A requested future `pid-runlog` decision
+  event is not adopted until the submodule pin and consumer adapter are explicitly migrated.
   Report contract `prisoma.offline_vlda.report/5` keeps fitted-quantizer receipts,
   empirical-PMF occupancy diagnostics, and
   categorical informative, misinformative, and net MGW components separate. These diagnostics do

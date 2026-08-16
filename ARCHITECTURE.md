@@ -150,7 +150,7 @@ flowchart LR
     Admit --> Validate["shape, support, split, and provenance checks"]
     Validate --> Baselines["majority, 1-NN, centroid, logistic"]
     Validate --> Geometry["geometry diagnostics"]
-    Validate --> PID["conditional PID screens"]
+    Validate --> PID["named opt-in PID screens"]
     Baselines --> Report["typed report"]
     Geometry --> Report
     PID --> Report
@@ -194,6 +194,15 @@ diagnostics do not establish population support.
 These routes are not Williams–Beer `I_min`, BROJA, continuous Ehrlich shared exclusions, or an
 infomorphic objective. They never replace a failed continuous result.
 
+The architecture treats the PID scientific object and the software route as separate nodes. The
+normative identity and promotion rules are in
+[`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md).
+A report binds one functional, one cumulative or Möbius-inverted quantity, one exact lattice
+coordinate and component, and one tagged evaluator-or-estimator route. Transforms, exact
+certifiers, validation fixtures, and objective compositions remain separate records. Higher-source
+or novel PID work can remain available behind a research status without entering the active H3
+path or changing the meaning of an existing route.
+
 ### 4.3 World-model decision path
 
 The native reference starts from one exact simulator fork. It commits an ordered pool with at
@@ -210,6 +219,7 @@ truth, W1, W2, or planning benefit.
 Run-log schema 2 lacks a neutral inline decision-record event. The current reference uses strictly
 named `label_observed` envelopes for forecast commitments and execution receipts. These records are
 not outcome labels. The project has requested a versioned `pid-runlog` event for a future adapter.
+The request is not part of the pinned submodule until a later pin is reviewed and adopted.
 
 ### 4.4 Replay and publication path
 
