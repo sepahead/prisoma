@@ -167,3 +167,49 @@ new dated amendment that identifies what changed and why.
 The complete method process remains `PID-M0 preserve` through `PID-M8 publish`. A stopped route is
 still a preserved research object, but it cannot enter an application or publication claim above
 its achieved evidence level.
+
+## 10. Append-only replay amendment — 2026-08-18
+
+This amendment corrects current reproducibility metadata. It does not change the bound Markdown
+authority, renderer, font files, or PDF. Item 3 in Section 5 remains unchanged as historical evidence.
+
+The current replay does not reproduce its 75,183-character count. That line did not record the
+original counting command or locale. This amendment does not infer which earlier environment or
+counting rule produced that value.
+
+The current shell reported `LANG="C.UTF-8"` and `LC_ALL="C.UTF-8"`. Each command also pins
+`LC_ALL=C.UTF-8` for both pipeline processes. Poppler reported `pdftotext version 26.06.0`.
+
+```text
+LC_ALL=C.UTF-8 pdftotext -layout output/pdf/PID_Method_Selection_and_Publication_Contract.pdf - | LC_ALL=C.UTF-8 wc -m
+```
+
+This command returned 76,212 Unicode characters.
+
+```text
+LC_ALL=C.UTF-8 pdftotext -layout output/pdf/PID_Method_Selection_and_Publication_Contract.pdf - | LC_ALL=C.UTF-8 wc -c
+```
+
+This command returned 76,530 bytes. The current extraction again contained no Unicode replacement
+character.
+
+The following command exposed three unique bare repository-relative annotation targets:
+
+```text
+pdfinfo -url output/pdf/PID_Method_Selection_and_Publication_Contract.pdf
+```
+
+- `grandplan.md`
+- `output/pdf/PID_Method_Selection_and_Publication_Contract.pdf`
+- `docs/audits/2026-08-15-pid-method-contract/PID_PUBLICATION_PROCESS_AND_PDF_RECEIPT.md`
+
+These links are valid in the canonical root Markdown. The PDF keeps their literal relative targets.
+A viewer can resolve them from the PDF directory, where the recorded target paths do not exist.
+Therefore, this receipt does not claim that the PDF's local links are portable or navigable.
+Absolute literature URLs are not affected by this limitation.
+
+`pdfinfo` also reports `Tagged: no`. This receipt makes no tagged-PDF or PDF/UA conformance claim.
+
+Do not change this bound PDF in place. A future render can rewrite local annotations for the PDF
+directory or use immutable repository URLs. That render requires a new PDF hash and receipt under
+Section 9.

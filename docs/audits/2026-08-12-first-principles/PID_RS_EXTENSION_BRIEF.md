@@ -11,9 +11,10 @@ Latest reviewed estimator-code anchor: `cb3f58f0b190454cb3f1090de8798261ec78f194
 The later `7473e62..bc3aa80` interval repairs custody and assurance surfaces. It does not change
 crate or Cargo inputs and grants no new estimator or scientific credit.
 
-This brief is a request for upstream design work. It does not authorize a Prisoma pin change.
-It does not claim that a proposed method is implemented, validated, or fit for a hypothesis.
-The governing Prisoma method and publication rules are in
+This brief supports upstream design work. It does not authorize a Prisoma pin change or replace the
+sole copy-and-send body in [`PID_RS_HANDOFF.md`](PID_RS_HANDOFF.md), lines 424–529.
+It does not claim that a proposed method is implemented, validated, or fit for a hypothesis. The
+governing Prisoma method and publication rules are in
 [`PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md`](../../../PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md).
 
 ## Decision
@@ -979,12 +980,12 @@ Please answer these before implementation:
 11. Does the infomorphic specification belong in `pid-core`, a new crate, or only a schema?
 12. Which parts can ship stable, and which must remain behind an experimental feature?
 
-## Ready-to-send scientific and contract core
+## Companion implementation extract
 
-The body below is the only send-now PID request. The broad comparator registry in this brief is a
-consumer-side preservation programme, not current upstream implementation work. The adjacent
-`pid-runlog` decision-record proposal is a separate maintenance request and must be sent, scheduled,
-or declined independently.
+This extract condenses implementation work selected by the authoritative handoff. It is a
+companion, not a second copy-and-send request. Use it only to discuss implementation sequencing
+after sending the handoff body. The broad comparator registry and adjacent `pid-runlog` proposal
+remain separate and must be scheduled or declined independently.
 
 **Title: Prisoma request for a typed finite-law and resampling foundation**
 

@@ -10,12 +10,12 @@ Latest reviewed estimator-code anchor: `cb3f58f0b190454cb3f1090de8798261ec78f194
 
 Prisoma exact-revision consumer test: `722d3abeb922fc4119ecb9f92d7fedca096c9f77`.
 
-No submodule update was made. This file is both the internal adoption brief and a message that can
-be sent to the `pid-rs` repository.
+No submodule update was made. This file is the internal adoption brief and the sole authoritative
+copy-and-send message for the `pid-rs` repository.
 
 The separate [`PID_RS_EXTENSION_BRIEF.md`](PID_RS_EXTENSION_BRIEF.md) compares twelve upstream
-extension paths across twenty scientific and engineering lenses. It contains the selected work
-order and a shorter message for the upstream implementation agent.
+extension paths across twenty scientific and engineering lenses. Its final block is a companion
+implementation extract, not a second copy-and-send request.
 
 ## Executive decision
 
@@ -415,11 +415,11 @@ separate research objects. That registry work is useful consumer-side preservati
 **not part of the send-now `pid-rs` request**. It must not widen the bounded shared-exclusions,
 estimand, resource, row-relation, or resampling work below and must not create new runtime modes.
 
-## Ready-to-send scientific and contract core
+## Authoritative copy-and-send scientific and contract core
 
-The copyable body begins at the title below. It excludes the comparator-registry programme above.
-The `pid-runlog` BrokenPipe request later in the body is a separable maintenance annex, not PID
-science and not a prerequisite for the six-part shared-exclusions foundation.
+The copyable body is exactly lines 424–529, from the title through the final paragraph. It is the
+sole authoritative outbound body for this review cut. The `pid-runlog` BrokenPipe request is a
+separable maintenance annex, not PID science and not a prerequisite for the six-part foundation.
 
 **Title:** Prisoma consumer-delta request for `pid-rs@796c11e..bc3aa80`
 
