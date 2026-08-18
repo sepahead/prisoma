@@ -7600,10 +7600,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "cba2c2a588dcedb24cb7beb6f1ebf1375f09f486",
+        "git_blob_id": "02e781b67e20cd7536d3bae68694406cfbe47d32",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 1086,
+        "line_count": 1087,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "docs/audits/2026-08-12-first-principles/PID_RS_EXTENSION_BRIEF.md",
         "public_surface": false,
@@ -7611,20 +7611,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "d2cdc5f39a187022e49b3ce275eba18f08fc943a87bd5c1d437aa992ac1472e8",
+        "sha256": "d03d6b7527c1d8f7f8cf0c594e560e1708768fc259e1f298dd90a89f9f2612d1",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "cba2c2a588dcedb24cb7beb6f1ebf1375f09f486"
+        "oid": "02e781b67e20cd7536d3bae68694406cfbe47d32"
       },
       "index": {
-        "bytes": 66731,
-        "content_sha256": "d2cdc5f39a187022e49b3ce275eba18f08fc943a87bd5c1d437aa992ac1472e8",
+        "bytes": 66842,
+        "content_sha256": "d03d6b7527c1d8f7f8cf0c594e560e1708768fc259e1f298dd90a89f9f2612d1",
         "mode": "100644",
-        "oid": "cba2c2a588dcedb24cb7beb6f1ebf1375f09f486"
+        "oid": "02e781b67e20cd7536d3bae68694406cfbe47d32"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -7635,14 +7635,14 @@
       },
       "path": "docs/audits/2026-08-12-first-principles/PID_RS_EXTENSION_BRIEF.md",
       "working_tree": {
-        "bytes": 66731,
+        "bytes": 66842,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 1086,
+        "line_count": 1087,
         "link_target": null,
         "mode": "100644",
-        "sha256": "d2cdc5f39a187022e49b3ce275eba18f08fc943a87bd5c1d437aa992ac1472e8"
+        "sha256": "d03d6b7527c1d8f7f8cf0c594e560e1708768fc259e1f298dd90a89f9f2612d1"
       },
       "worktree_state": "unchanged"
     },
@@ -7655,7 +7655,7 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "43d66d31d1a51565a2fb2cc2694a3b1703d29149",
+        "git_blob_id": "27ce37c3950699c7d6f596a383f38516527805bf",
         "independent_reviewer": null,
         "language": "Markdown",
         "line_count": 536,
@@ -7666,20 +7666,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "13d97e8c83b481674d2d79086d06a9de8a1124c7dc01ab083facbe614f13d869",
+        "sha256": "0c61c6b0989b9a4f18b0df4863ec489f7e67fd00e26c9585ef89451aec2a01ee",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "43d66d31d1a51565a2fb2cc2694a3b1703d29149"
+        "oid": "27ce37c3950699c7d6f596a383f38516527805bf"
       },
       "index": {
-        "bytes": 35335,
-        "content_sha256": "13d97e8c83b481674d2d79086d06a9de8a1124c7dc01ab083facbe614f13d869",
+        "bytes": 35377,
+        "content_sha256": "0c61c6b0989b9a4f18b0df4863ec489f7e67fd00e26c9585ef89451aec2a01ee",
         "mode": "100644",
-        "oid": "43d66d31d1a51565a2fb2cc2694a3b1703d29149"
+        "oid": "27ce37c3950699c7d6f596a383f38516527805bf"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -7690,14 +7690,14 @@
       },
       "path": "docs/audits/2026-08-12-first-principles/PID_RS_HANDOFF.md",
       "working_tree": {
-        "bytes": 35335,
+        "bytes": 35377,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
         "line_count": 536,
         "link_target": null,
         "mode": "100644",
-        "sha256": "13d97e8c83b481674d2d79086d06a9de8a1124c7dc01ab083facbe614f13d869"
+        "sha256": "0c61c6b0989b9a4f18b0df4863ec489f7e67fd00e26c9585ef89451aec2a01ee"
       },
       "worktree_state": "unchanged"
     },
@@ -7765,10 +7765,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "fb207c96c21bf693b06d52af4b45bc224cd99a70",
+        "git_blob_id": "2d3d1d1590db8f89c66c0432f68a1098d00c2d3d",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 169,
+        "line_count": 215,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "docs/audits/2026-08-15-pid-method-contract/PID_PUBLICATION_PROCESS_AND_PDF_RECEIPT.md",
         "public_surface": false,
@@ -7776,20 +7776,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "ae5322304af9b865fa8f75476043e86ec3b6ff25e09764b398e93399e8a77b53",
+        "sha256": "bf2b9917cd73ab3c017fe2ac7f06fd8d255e02da86595c89c20757619f01c20f",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "fb207c96c21bf693b06d52af4b45bc224cd99a70"
+        "oid": "2d3d1d1590db8f89c66c0432f68a1098d00c2d3d"
       },
       "index": {
-        "bytes": 11622,
-        "content_sha256": "ae5322304af9b865fa8f75476043e86ec3b6ff25e09764b398e93399e8a77b53",
+        "bytes": 13717,
+        "content_sha256": "bf2b9917cd73ab3c017fe2ac7f06fd8d255e02da86595c89c20757619f01c20f",
         "mode": "100644",
-        "oid": "fb207c96c21bf693b06d52af4b45bc224cd99a70"
+        "oid": "2d3d1d1590db8f89c66c0432f68a1098d00c2d3d"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -7800,14 +7800,14 @@
       },
       "path": "docs/audits/2026-08-15-pid-method-contract/PID_PUBLICATION_PROCESS_AND_PDF_RECEIPT.md",
       "working_tree": {
-        "bytes": 11622,
+        "bytes": 13717,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 169,
+        "line_count": 215,
         "link_target": null,
         "mode": "100644",
-        "sha256": "ae5322304af9b865fa8f75476043e86ec3b6ff25e09764b398e93399e8a77b53"
+        "sha256": "bf2b9917cd73ab3c017fe2ac7f06fd8d255e02da86595c89c20757619f01c20f"
       },
       "worktree_state": "unchanged"
     },
@@ -25888,12 +25888,12 @@
   "repository": "https://github.com/sepahead/prisoma",
   "schema_version": "prisoma.release-candidate/0.1.0",
   "source": {
-    "candidate_state_sha256": "996d9379f3b8d8c997dc4138d977984c71a4b7ec3e70a58382e95f60788068b4",
+    "candidate_state_sha256": "f890c2260e83a2445bf33ef406b54c970e95c567cacb8d88aa3958cd0292b430",
     "clean": true,
     "explicit_source_arguments_required": true,
-    "head_commit": "fbc6a3babca0d5207ec96db7df54c4c0df73ba24",
-    "head_tree": "9aabd0fd5f8640b8e0cec8c218b1840ea2e21165",
-    "index_entries_sha256": "7bbcfc5acaafec8ffcf85b7df78c504e014df28cb705b7e9aea1662a17337019",
+    "head_commit": "4d602f557b1c9da0c0e5cf7708dc4cc648f86990",
+    "head_tree": "7ec157d5f4c1b5232eca0b91b16c1372ecac90a3",
+    "index_entries_sha256": "4da44be496ed86e233d5eb261be8b34c583bb1426ebf4ffc14a56200292629fc",
     "recursive_gitlinks": [
       {
         "commit": "796c11e70f009634b853dc4ada6f565563d82f51",
@@ -25904,7 +25904,7 @@
       }
     ],
     "state": "clean_source_snapshot",
-    "worktree_entries_sha256": "af4e3910872fb756bb6f6870b20cd5f60c681742e8c31a1da02e7db928c5e6bd"
+    "worktree_entries_sha256": "4f65118cbe622c0a0650b76bd5f185247cee2a7564d83ece447074703d3b23e8"
   },
   "summary": {
     "clean": true,
