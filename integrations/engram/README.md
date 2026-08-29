@@ -49,8 +49,8 @@ This join does not attest Python bytecode, interpreter state, or dependency byte
 Each run has a distinct runtime source closure and one common stable source roster.
 It verifies each exact eight-row V5 receipt-store roster.
 It rederives terminal, evidence, store metadata, and lock bytes.
-It validates four sidecar paths and their opaque captured identities.
-Capture v2 does not embed those four sidecar bodies.
+It validates four sidecar paths and their exact captured identities.
+Capture v2 embeds its store metadata and four sidecar bodies.
 It also rejoins V2 launch, preparation, capabilities, and step-attempt receipts.
 It also joins 6N topology and guardian lifecycle.
 Historical evidence-index v1 remains audit-only.
@@ -66,8 +66,9 @@ It preserves every deterministic semantic receipt.
 
 A historical v1 receipt records one temporary-store launch and clean reap.
 Its source state was a working-tree candidate.
-The current v2 operational gate remains `NOT RUN`.
+The Engram reviewed-development v2 launch gate remains `NOT RUN`.
 The v2 contract requires verified staging and guardian process-group closure.
+The separate tracked CREBAIN matrix closes one read-only 1/2/3-drone evidence review.
 No evidence grants production manager, publisher, NCP, physical, or scientific authority.
 Read [the managed observer guide](managed-observer/README.md) before packaging.
 

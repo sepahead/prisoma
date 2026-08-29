@@ -474,6 +474,31 @@ def test_candidate_inventory_covers_the_clean_source_and_pinned_gitlink() -> Non
             assert working["bytes"] == len(raw)
 
 
+def test_candidate_inventory_bound_admits_current_source_and_rejects_one_over() -> None:
+    generator = _load_generator()
+    auditor = _load_auditor()
+    inventory = generator["_capture_once"](ROOT)
+    limit = generator["MAX_INVENTORY_ENTRIES"]
+    assert limit == 1024
+    assert 512 < len(inventory["entries"]) <= limit
+
+    oversized = copy.deepcopy(inventory)
+    template = oversized["entries"][0]
+    additions = []
+    for ordinal in range(limit + 1 - len(oversized["entries"])):
+        row = copy.deepcopy(template)
+        row["path"] = f"zz-inventory-bound-control-{ordinal:04d}"
+        row["file_review"]["path"] = row["path"]
+        additions.append(row)
+    oversized["entries"] = sorted(
+        [*oversized["entries"], *additions], key=lambda row: row["path"]
+    )
+
+    with pytest.raises(auditor["CandidateError"]) as caught:
+        auditor["_validate_inventory_internal"](ROOT, oversized)
+    assert caught.value.code == "INVENTORY_BUDGET"
+
+
 def test_recursive_gitlink_omission_is_rejected_against_pinned_objects() -> None:
     generator = _load_generator()
     auditor = _load_auditor()

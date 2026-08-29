@@ -576,8 +576,11 @@ Never infer release provenance from the target path or executable mode.
 Do not alter the Host API 1.1 manifest or lock through this package.
 Do not claim a sealed installation or production manager execution without its exact receipt.
 Regenerate source fixtures with Engram's builder after any source receipt change.
-The tracked v1 receipt is historical audit data only.
-The current v2 operational gate remains `NOT RUN`.
+The tracked Engram-store v1 receipt is historical audit data only.
+The Engram reviewed-development v2 launch gate remains `NOT RUN`.
+`evidence/crebain-real-nest-observer-matrix.json` records a separate completed read-only review.
+It binds one-, two-, and three-drone captures to exact CREBAIN, Engram, and Prisoma revisions.
+It grants no production manager, publisher, NCP, physical, plant, or scientific authority.
 
 ### Specified but not built
 

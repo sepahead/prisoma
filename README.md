@@ -330,8 +330,9 @@ Its success vector declares NEST bundle-v2 while every child response reports ve
 The child has no NCP, PID, Agent Bridge command, artifact, network, or physical authority.
 A historical v1 receipt records one Engram store launch and clean child reap.
 Its source state was a working-tree candidate, so it grants no current runtime claim.
-The stricter v2 operational gate remains `NOT RUN`.
-Neither state establishes production manager execution or publisher identity.
+The Engram reviewed-development v2 launch gate remains `NOT RUN`.
+The separate CREBAIN matrix records a completed read-only review of three real-NEST captures.
+No state establishes production manager execution or publisher identity.
 
 ## Release and evidence status
 

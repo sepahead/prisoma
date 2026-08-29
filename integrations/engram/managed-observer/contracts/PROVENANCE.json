@@ -195,6 +195,33 @@
     "physical_authority": false,
     "scientific_authority": false
   },
+  "crebain_real_nest_observer_matrix": {
+    "status": "observed-read-only-review-v1",
+    "path": "integrations/engram/managed-observer/evidence/crebain-real-nest-observer-matrix.json",
+    "sha256": "42cb39335118d94a74bda4a5d2fc3c7d0b107c1c58ba3067a94ad458e75979dd",
+    "schema_id": "prisoma.observer.crebain-real-nest-matrix.v1",
+    "schema_path": "integrations/engram/managed-observer/evidence/crebain-real-nest-observer-matrix.schema.json",
+    "schema_sha256": "a5f8ad5e9c0e4c1ef440af42635e75e816c87ecad7b7bb09001d1d5bc427f7a5",
+    "receipt_sha256": "13d49a449bb7d2c39e3793b34519bf98a5ebfb05b647327624428cf52e0f1e01",
+    "review_scope": "crebain-real-nest-captures-through-prisoma-read-only-observer",
+    "prisoma_revision": "0780bc48a01bec17be3c196bd3534e564bc2490f",
+    "crebain_source_revision": "a41514a5bf021704c3997e14acaa84db815f6917",
+    "crebain_publication_revision": "1de80241ce938b3b8e492ea337c1bbd8e4fd1096",
+    "crebain_index_sha256": "88336c0b72eec03ee8c9e7e5c54bc2c9ebe8488a1d5f9006d566d4a962d32838",
+    "engram_revision": "b6dcbd1ae853e23ce99309198050b8bd06e40829",
+    "capture_count": 3,
+    "reviewed_development_only": true,
+    "production_manager_execution": false,
+    "publisher_authenticated": false,
+    "observer_source_durable_evidence_verified": false,
+    "external_validator_source_durable_evidence_verified": true,
+    "filesystem_isolation_enforced": false,
+    "agent_bridge_command": false,
+    "music_authority": false,
+    "ncp_authority": false,
+    "physical_authority": false,
+    "scientific_authority": false
+  },
   "operation_roster_sha256": "845ddcddbd3ad6c9854281088cfee86909aa5af6be6e1ed6d6664f0cc3c5d79c",
   "authority": "compatibility-and-test-evidence-only"
 }

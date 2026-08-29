@@ -1513,6 +1513,190 @@ def check_operational_evidence(
         fail("reviewed-development observer lifecycle differs")
 
 
+def check_crebain_matrix_evidence(
+    receipt: dict[str, Any],
+    schema: dict[str, Any],
+    provenance: dict[str, Any],
+) -> None:
+    evidence_path = EVIDENCE / "crebain-real-nest-observer-matrix.json"
+    schema_path = EVIDENCE / "crebain-real-nest-observer-matrix.schema.json"
+    evidence_provenance = provenance.get("crebain_real_nest_observer_matrix")
+    expected_provenance_keys = {
+        "status",
+        "path",
+        "sha256",
+        "schema_id",
+        "schema_path",
+        "schema_sha256",
+        "receipt_sha256",
+        "review_scope",
+        "prisoma_revision",
+        "crebain_source_revision",
+        "crebain_publication_revision",
+        "crebain_index_sha256",
+        "engram_revision",
+        "capture_count",
+        "reviewed_development_only",
+        "production_manager_execution",
+        "publisher_authenticated",
+        "observer_source_durable_evidence_verified",
+        "external_validator_source_durable_evidence_verified",
+        "filesystem_isolation_enforced",
+        "agent_bridge_command",
+        "music_authority",
+        "ncp_authority",
+        "physical_authority",
+        "scientific_authority",
+    }
+    if (
+        not isinstance(evidence_provenance, dict)
+        or set(evidence_provenance) != expected_provenance_keys
+        or evidence_provenance["status"] != "observed-read-only-review-v1"
+        or evidence_provenance["path"] != str(evidence_path.relative_to(ROOT))
+        or evidence_provenance["sha256"] != digest_file(evidence_path)
+        or evidence_provenance["schema_id"] != CREBAIN_MATRIX_SCHEMA_ID
+        or evidence_provenance["schema_path"] != str(schema_path.relative_to(ROOT))
+        or evidence_provenance["schema_sha256"] != digest_file(schema_path)
+        or evidence_provenance["receipt_sha256"] != receipt.get("receipt_sha256")
+        or evidence_provenance["review_scope"] != receipt.get("review_scope")
+        or evidence_provenance["capture_count"] != 3
+        or evidence_provenance["reviewed_development_only"] is not True
+        or evidence_provenance["external_validator_source_durable_evidence_verified"]
+        is not True
+        or any(
+            evidence_provenance[field]
+            for field in (
+                "production_manager_execution",
+                "publisher_authenticated",
+                "observer_source_durable_evidence_verified",
+                "filesystem_isolation_enforced",
+                "agent_bridge_command",
+                "music_authority",
+                "ncp_authority",
+                "physical_authority",
+                "scientific_authority",
+            )
+        )
+        or not schema_accepts(receipt, schema)
+        or receipt.get("receipt_sha256") != digest_without(receipt, "receipt_sha256")
+    ):
+        fail("tracked CREBAIN observer matrix or provenance differs")
+
+    sources = receipt.get("sources")
+    captures = receipt.get("captures")
+    assertions = receipt.get("assertions")
+    authority = receipt.get("authority")
+    if not all(
+        isinstance(value, expected_type)
+        for value, expected_type in (
+            (sources, dict),
+            (captures, list),
+            (assertions, dict),
+            (authority, dict),
+        )
+    ):
+        fail("tracked CREBAIN observer matrix shape differs")
+
+    prisoma_source = sources.get("prisoma_repository")
+    crebain_source = sources.get("crebain_source_repository")
+    publication = sources.get("crebain_evidence_publication")
+    engram_source = sources.get("engram_repository")
+    if not all(
+        isinstance(value, dict)
+        for value in (prisoma_source, crebain_source, publication, engram_source)
+    ):
+        fail("tracked CREBAIN observer matrix source closure differs")
+    if (
+        prisoma_source.get("commit") != evidence_provenance["prisoma_revision"]
+        or crebain_source.get("commit")
+        != evidence_provenance["crebain_source_revision"]
+        or publication.get("commit")
+        != evidence_provenance["crebain_publication_revision"]
+        or publication.get("parent_commit")
+        != evidence_provenance["crebain_source_revision"]
+        or sources.get("index_exact_sha256")
+        != evidence_provenance["crebain_index_sha256"]
+        or engram_source.get("commit") != evidence_provenance["engram_revision"]
+        or receipt.get("reviewed_development_only") is not True
+        or receipt.get("production_manager_execution") is not False
+        or not assertions
+        or any(value is not True for value in assertions.values())
+    ):
+        fail("tracked CREBAIN observer matrix immutable pins differ")
+
+    if len(captures) != 3 or [row.get("drone_count") for row in captures] != [1, 2, 3]:
+        fail("tracked CREBAIN observer matrix drone roster differs")
+    source_rosters = {row["source"]["engram_source_roster_sha256"] for row in captures}
+    source_closures = {
+        row["source"]["engram_source_closure_sha256"] for row in captures
+    }
+    receipt_stores = {row["capture"]["receipt_store_id"] for row in captures}
+    terminal_receipts = {row["capture"]["terminal_receipt_sha256"] for row in captures}
+    if (
+        len(source_rosters) != 1
+        or len(source_closures) != 3
+        or len(receipt_stores) != 3
+        or len(terminal_receipts) != 3
+    ):
+        fail("tracked CREBAIN observer matrix run closure differs")
+    for drone_count, row in enumerate(captures, start=1):
+        nest = row["nest"]
+        observer = row["observer"]
+        lifecycle = row["lifecycle"]
+        row_authority = row["authority"]
+        if (
+            row["capture"]["receipt_store_file_count"] != 8
+            or nest["population_count"] != drone_count * 6
+            or nest["signed_population_count"] != nest["population_count"]
+            or nest["source_durable_evidence_verified"] is not True
+            or observer["source_durable_evidence_verified"] is not False
+            or observer["state_cleared"] is not True
+            or lifecycle["filesystem_isolation_enforced"] is not False
+            or row_authority["descriptive_only"] is not True
+            or row_authority["simulator_only"] is not True
+            or any(
+                row_authority[field]
+                for field in (
+                    "agent_bridge_command",
+                    "calibrated_posterior",
+                    "execution_authority",
+                    "is_paper_local_evidence",
+                    "music_used",
+                    "ncp_qualified",
+                    "ncp_used",
+                    "physical_actuation",
+                    "plant_control",
+                    "scientific_authority",
+                )
+            )
+        ):
+            fail("tracked CREBAIN observer matrix authority boundary differs")
+    if (
+        authority["observer_role"] != "read-only-observer"
+        or authority["descriptive_only"] is not True
+        or any(
+            authority[field]
+            for field in (
+                "agent_bridge_command",
+                "calibrated_posterior",
+                "durable_process_launch_authority",
+                "execution_authority",
+                "is_paper_local_evidence",
+                "music_authority",
+                "ncp_authority",
+                "observer_source_durable_evidence_verified",
+                "physical_authority",
+                "plant_control",
+                "publisher_authenticated",
+                "replayable_live_launch_authority",
+                "scientific_authority",
+                "store_installation_authority",
+            )
+        )
+    ):
+        fail("tracked CREBAIN observer matrix top-level authority differs")
+
+
 def main() -> None:
     for path, expected in LEGACY_FILES.items():
         if digest_file(path) != expected:
@@ -1538,6 +1722,8 @@ def main() -> None:
         EVIDENCE / "crebain-real-nest-observer-matrix.schema.json"
     )
     validate_safe_project_schema(CREBAIN_MATRIX_SCHEMA_ID, matrix_schema)
+    matrix_receipt = load_json(EVIDENCE / "crebain-real-nest-observer-matrix.json")
+    check_crebain_matrix_evidence(matrix_receipt, matrix_schema, provenance)
     build_receipt_schema = load_json(
         EVIDENCE / "observer-release-build-receipt.schema.json"
     )
@@ -1716,7 +1902,9 @@ def main() -> None:
             operational_receipt,
             provenance,
         )
-        operational_status = "historical v1 audit is closed; current v2 is NOT RUN"
+        operational_status = (
+            "historical v1 audit is closed; reviewed-development v2 launch is NOT RUN"
+        )
     else:
         check_operational_evidence(
             operational_receipt,
@@ -1731,7 +1919,7 @@ def main() -> None:
         fail("sample transcript size is invalid")
     print(
         "OK: managed observer contracts, source receipts, and transcript are closed; "
-        f"{operational_status}"
+        f"{operational_status}; tracked CREBAIN read-only matrix is closed"
     )
 
 

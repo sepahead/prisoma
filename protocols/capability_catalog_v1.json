@@ -575,12 +575,13 @@
       "evidence_artifacts": [
         "crates/engram-managed-observer/src/observer.rs",
         "integrations/engram/managed-observer/README.md",
-        "integrations/engram/managed-observer/evidence/crebain-real-nest-observer-matrix.schema.json"
+        "integrations/engram/managed-observer/evidence/crebain-real-nest-observer-matrix.schema.json",
+        "integrations/engram/managed-observer/evidence/crebain-real-nest-observer-matrix.json"
       ],
-      "known_limitations": "Local checks grant no production-manager, authenticated-roster, filesystem-isolation, NCP, physical, simulator-action, scientific, or external evidence authority.",
+      "known_limitations": "The completed read-only matrix grants no production-manager, authenticated-roster, filesystem-isolation, NCP, physical, simulator-action, scientific, or external evidence authority.",
       "evidence_level": "E0",
       "evidence_basis": "intention_or_local_only",
-      "evidence_scope": "workspace-excluded read-only observer code, closed contracts, local fixtures, and hostile controls only",
+      "evidence_scope": "workspace-excluded read-only observer code, closed contracts, local fixtures, hostile controls, and one exact pinned CREBAIN and Engram operational evidence review",
       "thesis_dependency": "optional",
       "claim_ids": [
         "EC1"

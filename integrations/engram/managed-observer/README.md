@@ -260,7 +260,7 @@ Its old schema bytes are not retained as a current contract.
 The gate binds its exact bytes and keeps it audit-only.
 It does not satisfy the adjacent v2 schema.
 
-The current v2 operational gate is `NOT RUN`.
+The Engram reviewed-development v2 launch gate is `NOT RUN`.
 The v2 schema and harness are bootstrap surfaces only.
 A future v2 receipt must close every imported Engram source against one commit.
 It must bind the input bundle, source fixture, and sample transcript.
@@ -344,6 +344,19 @@ It does not generate or replace CREBAIN evidence.
 It accepts capture v2 and evidence-index v2 only.
 Evidence-index v1 remains historical and audit-only.
 Unknown versions and unknown fields fail closed.
+
+`evidence/crebain-real-nest-observer-matrix.json` records the completed read-only review.
+The receipt binds Prisoma revision `0780bc48a01bec17be3c196bd3534e564bc2490f`.
+It binds CREBAIN source revision `a41514a5bf021704c3997e14acaa84db815f6917`.
+It binds CREBAIN publication revision `1de80241ce938b3b8e492ea337c1bbd8e4fd1096`.
+It binds Engram revision `b6dcbd1ae853e23ce99309198050b8bd06e40829`.
+The CREBAIN index SHA-256 is
+`88336c0b72eec03ee8c9e7e5c54bc2c9ebe8488a1d5f9006d566d4a962d32838`.
+The full receipt SHA-256 is
+`42cb39335118d94a74bda4a5d2fc3c7d0b107c1c58ba3067a94ad458e75979dd`.
+The receipt self-digest is
+`13d49a449bb7d2c39e3793b34519bf98a5ebfb05b647327624428cf52e0f1e01`.
+This review does not complete the separate Engram reviewed-development v2 launch gate.
 
 The harness joins each indexed capture to its exact bytes.
 It accepts CREBAIN evidence-index v2 and installed proof v3 only.
