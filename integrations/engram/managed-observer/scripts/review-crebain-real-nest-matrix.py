@@ -157,6 +157,21 @@ EXPECTED_CREBAIN_EXTENSION_VERSION = "0.1.0"
 EXPECTED_CREBAIN_TARGET_ID = "macos-aarch64-darwin"
 EXPECTED_REVIEWED_PROFILE = "engram.reviewed-native-development.v1"
 EXPECTED_ENGRAM_PACK_TOOL_PATH = "scripts/engram_extension.py"
+EXPECTED_ENGRAM_EXEC_GATE_PATH = "backend/integrations/contained_exec_gate.py"
+EXPECTED_EXEC_GATE_ARGUMENT_SHAPE = [
+    "python",
+    "-I",
+    "-S",
+    "-c",
+    "frozen-exec-gate-source",
+    "--gate-fd",
+    "descriptor",
+    "--ready-fd",
+    "descriptor",
+    "--expected-session-id",
+    "supervisor-session-id",
+    "target-command",
+]
 EXPECTED_CREBAIN_TARGET = {
     "target_id": "macos-aarch64-darwin",
     "operating_system": "macos",
@@ -799,9 +814,18 @@ WORKER_GUARDIAN_CLOSURE_FIELDS = {
 REVIEWED_NATIVE_RUNTIME_FIELDS = {
     "handshake_receipt",
     "termination_receipt",
+    "exec_gate_command_binding",
     "lifecycle_binding_sha256",
     "guardian_closure_verified",
     "package_store_lineage_verified",
+}
+REVIEWED_EXEC_GATE_COMMAND_FIELDS = {
+    "schema_version",
+    "python_executable_sha256",
+    "exec_gate_source_sha256",
+    "argument_shape",
+    "target_command_sha256",
+    "exec_gate_command_sha256",
 }
 SOURCE_CLOSURE_FIELDS = {
     "schema_version",
@@ -812,6 +836,8 @@ SOURCE_CLOSURE_FIELDS = {
     "worker_project_source_roster_sha256",
     "reviewed_runtime_handshake_receipt_sha256",
     "reviewed_runtime_guardian_source_sha256",
+    "reviewed_runtime_exec_gate_source_sha256",
+    "reviewed_runtime_exec_gate_command_sha256",
     "exercised_entrypoints",
     "sources",
     "source_roster_sha256",
@@ -2294,6 +2320,69 @@ def validate_source_file(
         raise MatrixError(f"Engram source blob differs: {relative}")
 
 
+def validate_reviewed_exec_gate_binding(
+    binding_value: Any,
+    handshake_value: Any,
+    *,
+    closure_source_sha256: Any,
+    closure_command_sha256: Any,
+    source_row_sha256: Any,
+    runtime_files_value: Any,
+) -> dict[str, Any]:
+    """Close one reviewed contained-command preimage across its source evidence."""
+
+    binding = require_keys(
+        binding_value,
+        REVIEWED_EXEC_GATE_COMMAND_FIELDS,
+        "CREBAIN reviewed contained-exec command",
+    )
+    if not isinstance(handshake_value, dict):
+        raise MatrixError("CREBAIN reviewed runtime handshake differs")
+    runtime_files = require_list(
+        runtime_files_value,
+        "CREBAIN reviewed runtime file roster",
+        minimum=1,
+        maximum=256,
+    )
+    python_rows = [
+        row
+        for row in runtime_files
+        if isinstance(row, dict) and row.get("role") == "python-executable"
+    ]
+    if len(python_rows) != 1:
+        raise MatrixError("CREBAIN reviewed Python executable identity differs")
+    python_row = require_keys(
+        python_rows[0],
+        {"role", "absolute_path", "sha256", "size_bytes"},
+        "CREBAIN reviewed Python executable",
+    )
+    if (
+        binding["schema_version"] != "engram.contained-exec-command.v1"
+        or binding["argument_shape"] != EXPECTED_EXEC_GATE_ARGUMENT_SHAPE
+        or any(
+            not valid_sha256(binding[field])
+            for field in (
+                "python_executable_sha256",
+                "exec_gate_source_sha256",
+                "target_command_sha256",
+                "exec_gate_command_sha256",
+            )
+        )
+        or binding["exec_gate_command_sha256"]
+        != digest_without(binding, "exec_gate_command_sha256")
+        or not valid_sha256(closure_source_sha256)
+        or not valid_sha256(closure_command_sha256)
+        or binding["exec_gate_source_sha256"] != closure_source_sha256
+        or binding["exec_gate_source_sha256"] != source_row_sha256
+        or binding["exec_gate_command_sha256"] != closure_command_sha256
+        or handshake_value.get("exec_gate_source_sha256") != closure_source_sha256
+        or handshake_value.get("exec_gate_command_sha256") != closure_command_sha256
+        or python_row["sha256"] != binding["python_executable_sha256"]
+    ):
+        raise MatrixError("CREBAIN reviewed contained-exec command closure differs")
+    return binding
+
+
 def validate_source_closure(
     capture: dict[str, Any],
     expected_engram: dict[str, Any],
@@ -2498,11 +2587,16 @@ def validate_source_closure(
             "backend/integrations/reviewed_native_process_guardian.py",
         ),
     ]
+    exec_gate_source = source_by_path.get(EXPECTED_ENGRAM_EXEC_GATE_PATH)
     if (
         guardian_path is None
         or exercised_pairs != expected_exercised_pairs
         or closure["reviewed_runtime_guardian_source_sha256"]
         != (source_by_path[guardian_path]["sha256"])
+        or exec_gate_source is None
+        or closure["reviewed_runtime_exec_gate_source_sha256"]
+        != exec_gate_source["sha256"]
+        or not valid_sha256(closure["reviewed_runtime_exec_gate_command_sha256"])
         or set(source_by_path) != declared_source_paths
     ):
         raise MatrixError("CREBAIN declared source lineage differs")
@@ -2596,6 +2690,14 @@ def validate_source_closure(
         "reviewed_runtime_handshake_receipt_sha256"
     ] != handshake.get("receipt_sha256"):
         raise MatrixError("CREBAIN source closure and reviewed handshake differ")
+    validate_reviewed_exec_gate_binding(
+        reviewed["exec_gate_command_binding"],
+        handshake,
+        closure_source_sha256=closure["reviewed_runtime_exec_gate_source_sha256"],
+        closure_command_sha256=closure["reviewed_runtime_exec_gate_command_sha256"],
+        source_row_sha256=exec_gate_source["sha256"],
+        runtime_files_value=identity_files,
+    )
     return {
         "engram_revision": git["commit"],
         "engram_tree": git["tree"],
@@ -4328,7 +4430,10 @@ def validate_lifecycle(capture: dict[str, Any]) -> dict[str, Any]:
     process_pid = handshake["process_pid"]
     process_group_id = handshake["process_group_id"]
     session_id = handshake["session_id"]
-    source_rows = capture.get("engram_source_closure", {}).get("sources")
+    source_closure = capture.get("engram_source_closure")
+    source_rows = (
+        source_closure.get("sources") if isinstance(source_closure, dict) else None
+    )
     exec_gate_rows = (
         [
             row
@@ -4339,6 +4444,32 @@ def validate_lifecycle(capture: dict[str, Any]) -> dict[str, Any]:
         ]
         if isinstance(source_rows, list)
         else []
+    )
+    nest_evidence = capture.get("nest_evidence_bundle")
+    worker_identity = (
+        nest_evidence.get("worker_runtime_identity")
+        if isinstance(nest_evidence, dict)
+        else None
+    )
+    validate_reviewed_exec_gate_binding(
+        reviewed["exec_gate_command_binding"],
+        handshake,
+        closure_source_sha256=(
+            source_closure.get("reviewed_runtime_exec_gate_source_sha256")
+            if isinstance(source_closure, dict)
+            else None
+        ),
+        closure_command_sha256=(
+            source_closure.get("reviewed_runtime_exec_gate_command_sha256")
+            if isinstance(source_closure, dict)
+            else None
+        ),
+        source_row_sha256=(
+            exec_gate_rows[0].get("sha256") if len(exec_gate_rows) == 1 else None
+        ),
+        runtime_files_value=(
+            worker_identity.get("files") if isinstance(worker_identity, dict) else None
+        ),
     )
     expected_lifecycle = {
         "schema_version": "engram.closed-loop-runtime-lifecycle-binding.v1",
@@ -8026,7 +8157,7 @@ def source_closure_fixture() -> tuple[dict[str, Any], dict[str, Any], dict[str, 
         "git_mode": "100755",
         "git_blob": "e" * 40,
     }
-    worker_files = [
+    worker_project_files = [
         {
             "role": (
                 "project-module:backend.integrations.reviewed_native_process_guardian"
@@ -8036,7 +8167,27 @@ def source_closure_fixture() -> tuple[dict[str, Any], dict[str, Any], dict[str, 
             "size_bytes": 1,
         }
     ]
-    worker_roster_sha256 = digest_bytes(canonical(worker_files))
+    python_executable_sha256 = "6" * 64
+    worker_runtime_files = [
+        {
+            "role": "python-executable",
+            "absolute_path": "/fixture/python",
+            "sha256": python_executable_sha256,
+            "size_bytes": 1,
+        },
+        *worker_project_files,
+    ]
+    worker_roster_sha256 = digest_bytes(canonical(worker_project_files))
+    exec_gate_command_binding: dict[str, Any] = {
+        "schema_version": "engram.contained-exec-command.v1",
+        "python_executable_sha256": python_executable_sha256,
+        "exec_gate_source_sha256": exec_gate_sha256,
+        "argument_shape": EXPECTED_EXEC_GATE_ARGUMENT_SHAPE,
+        "target_command_sha256": "d" * 64,
+    }
+    exec_gate_command_binding["exec_gate_command_sha256"] = digest_bytes(
+        canonical(exec_gate_command_binding)
+    )
     handshake_sha256 = "c" * 64
     closure: dict[str, Any] = {
         "schema_version": "crebain.engram-python-source-closure.v1",
@@ -8078,6 +8229,10 @@ def source_closure_fixture() -> tuple[dict[str, Any], dict[str, Any], dict[str, 
         "worker_project_source_roster_sha256": worker_roster_sha256,
         "reviewed_runtime_handshake_receipt_sha256": handshake_sha256,
         "reviewed_runtime_guardian_source_sha256": source_sha256,
+        "reviewed_runtime_exec_gate_source_sha256": exec_gate_sha256,
+        "reviewed_runtime_exec_gate_command_sha256": exec_gate_command_binding[
+            "exec_gate_command_sha256"
+        ],
         "exercised_entrypoints": [
             {"role": "nest-guardian", "relative_path": nest_guardian_path},
             {"role": "nest-worker", "relative_path": nest_worker_path},
@@ -8132,8 +8287,13 @@ def source_closure_fixture() -> tuple[dict[str, Any], dict[str, Any], dict[str, 
             "handshake_receipt": {
                 "receipt_sha256": handshake_sha256,
                 "guardian_source_sha256": source_sha256,
+                "exec_gate_source_sha256": exec_gate_sha256,
+                "exec_gate_command_sha256": exec_gate_command_binding[
+                    "exec_gate_command_sha256"
+                ],
             },
             "termination_receipt": {"receipt_sha256": "e" * 64},
+            "exec_gate_command_binding": exec_gate_command_binding,
             "lifecycle_binding_sha256": "f" * 64,
             "guardian_closure_verified": True,
             "package_store_lineage_verified": True,
@@ -8142,8 +8302,8 @@ def source_closure_fixture() -> tuple[dict[str, Any], dict[str, Any], dict[str, 
             "worker_runtime_identity": {
                 "project_source_closure_verified": True,
                 "project_source_roster_sha256": worker_roster_sha256,
-                "file_roster_sha256": digest_bytes(canonical(worker_files)),
-                "files": worker_files,
+                "file_roster_sha256": digest_bytes(canonical(worker_runtime_files)),
+                "files": worker_runtime_files,
             },
             "worker_session_binding": {
                 "worker_project_source_roster_sha256": worker_roster_sha256,
@@ -8180,6 +8340,9 @@ def lifecycle_fixture(source_capture: dict[str, Any]) -> dict[str, Any]:
     source_sha256 = capture["engram_source_closure"][
         "reviewed_runtime_guardian_source_sha256"
     ]
+    exec_gate_command_binding = capture["reviewed_native_runtime"][
+        "exec_gate_command_binding"
+    ]
     handshake: dict[str, Any] = {
         "schema_version": "engram.reviewed-native-development-handshake.v1",
         "installation_id": "inst_" + "3" * 64,
@@ -8206,10 +8369,10 @@ def lifecycle_fixture(source_capture: dict[str, Any]) -> dict[str, Any]:
         "host_local_admission": True,
         "process_launch_performed": True,
         "explicit_absolute_path_spawn": True,
-        "exec_gate_command_sha256": "d" * 64,
-        "exec_gate_source_sha256": capture["engram_source_sha256"][
-            "backend/integrations/contained_exec_gate.py"
+        "exec_gate_command_sha256": exec_gate_command_binding[
+            "exec_gate_command_sha256"
         ],
+        "exec_gate_source_sha256": exec_gate_command_binding["exec_gate_source_sha256"],
         "path_lookup_at_spawn": True,
         "package_path_reopened_for_spawn": False,
         "verified_executable_staged": True,
@@ -8343,6 +8506,7 @@ def lifecycle_fixture(source_capture: dict[str, Any]) -> dict[str, Any]:
     capture["reviewed_native_runtime"] = {
         "handshake_receipt": handshake,
         "termination_receipt": termination,
+        "exec_gate_command_binding": exec_gate_command_binding,
         "lifecycle_binding_sha256": lifecycle["binding_sha256"],
         "guardian_closure_verified": True,
         "package_store_lineage_verified": True,
@@ -10782,6 +10946,128 @@ def self_test(binary: Path) -> int:
             "coherently resealed stable source roster digest drift",
             lambda changed_source=changed_source: validate_source_closure(
                 changed_source,
+                expected_engram,
+                pack_receipt,
+                verify_source_bytes=False,
+            ),
+        )
+    )
+    missing_exec_gate_field = copy.deepcopy(source_capture)
+    del missing_exec_gate_field["engram_source_closure"][
+        "reviewed_runtime_exec_gate_command_sha256"
+    ]
+    missing_exec_gate_field["engram_source_closure"]["closure_sha256"] = digest_without(
+        missing_exec_gate_field["engram_source_closure"],
+        "closure_sha256",
+    )
+    controls.append(
+        (
+            "coherently resealed source closure missing exec-gate command",
+            lambda capture=missing_exec_gate_field: validate_source_closure(
+                capture,
+                expected_engram,
+                pack_receipt,
+                verify_source_bytes=False,
+            ),
+        )
+    )
+    open_exec_gate_closure = copy.deepcopy(source_capture)
+    open_exec_gate_closure["engram_source_closure"]["unreviewed_exec_gate"] = True
+    open_exec_gate_closure["engram_source_closure"]["closure_sha256"] = digest_without(
+        open_exec_gate_closure["engram_source_closure"],
+        "closure_sha256",
+    )
+    controls.append(
+        (
+            "coherently resealed source closure with extra exec-gate field",
+            lambda capture=open_exec_gate_closure: validate_source_closure(
+                capture,
+                expected_engram,
+                pack_receipt,
+                verify_source_bytes=False,
+            ),
+        )
+    )
+    swapped_exec_gate_fields = copy.deepcopy(source_capture)
+    swapped_exec_gate_closure = swapped_exec_gate_fields["engram_source_closure"]
+    (
+        swapped_exec_gate_closure["reviewed_runtime_exec_gate_source_sha256"],
+        swapped_exec_gate_closure["reviewed_runtime_exec_gate_command_sha256"],
+    ) = (
+        swapped_exec_gate_closure["reviewed_runtime_exec_gate_command_sha256"],
+        swapped_exec_gate_closure["reviewed_runtime_exec_gate_source_sha256"],
+    )
+    swapped_exec_gate_closure["closure_sha256"] = digest_without(
+        swapped_exec_gate_closure,
+        "closure_sha256",
+    )
+    controls.append(
+        (
+            "coherently resealed swapped exec-gate source and command",
+            lambda capture=swapped_exec_gate_fields: validate_source_closure(
+                capture,
+                expected_engram,
+                pack_receipt,
+                verify_source_bytes=False,
+            ),
+        )
+    )
+    drifted_exec_gate_command = copy.deepcopy(source_capture)
+    drifted_exec_gate_command["engram_source_closure"][
+        "reviewed_runtime_exec_gate_command_sha256"
+    ] = "0" * 64
+    drifted_exec_gate_command["engram_source_closure"]["closure_sha256"] = (
+        digest_without(
+            drifted_exec_gate_command["engram_source_closure"],
+            "closure_sha256",
+        )
+    )
+    controls.append(
+        (
+            "coherently resealed one-sided exec-gate command drift",
+            lambda capture=drifted_exec_gate_command: validate_source_closure(
+                capture,
+                expected_engram,
+                pack_receipt,
+                verify_source_bytes=False,
+            ),
+        )
+    )
+    resealed_exec_gate_shape = copy.deepcopy(source_capture)
+    resealed_binding = resealed_exec_gate_shape["reviewed_native_runtime"][
+        "exec_gate_command_binding"
+    ]
+    resealed_binding["argument_shape"][0] = "launcher"
+    resealed_binding["exec_gate_command_sha256"] = digest_without(
+        resealed_binding,
+        "exec_gate_command_sha256",
+    )
+    resealed_handshake = resealed_exec_gate_shape["reviewed_native_runtime"][
+        "handshake_receipt"
+    ]
+    resealed_handshake["exec_gate_command_sha256"] = resealed_binding[
+        "exec_gate_command_sha256"
+    ]
+    resealed_handshake["receipt_sha256"] = digest_without(
+        resealed_handshake,
+        "receipt_sha256",
+    )
+    resealed_exec_gate_closure = resealed_exec_gate_shape["engram_source_closure"]
+    resealed_exec_gate_closure["reviewed_runtime_exec_gate_command_sha256"] = (
+        resealed_binding["exec_gate_command_sha256"]
+    )
+    resealed_exec_gate_closure["reviewed_runtime_handshake_receipt_sha256"] = (
+        resealed_handshake["receipt_sha256"]
+    )
+    resealed_exec_gate_closure["closure_sha256"] = digest_without(
+        resealed_exec_gate_closure,
+        "closure_sha256",
+    )
+    controls.append(
+        (
+            "coherently resealed contained-exec argument-shape drift",
+            lambda capture=resealed_exec_gate_shape: validate_source_closure(
+                capture,
                 expected_engram,
                 pack_receipt,
                 verify_source_bytes=False,
