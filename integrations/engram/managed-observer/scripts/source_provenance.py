@@ -1166,7 +1166,7 @@ def verify_committed_source_roster(
     path_field: str = "relative_path",
     size_field: str = "size_bytes",
     sha256_field: str = "sha256",
-    mode_field: str = "git_mode",
+    mode_field: str | None = "git_mode",
     blob_field: str = "git_blob",
     max_files: int = 256,
     max_file_bytes: int = MAX_IMPORTED_SOURCE_BYTES,
@@ -1174,9 +1174,16 @@ def verify_committed_source_roster(
     allow_empty: bool = False,
     checkout_revision: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Reopen and verify a generic committed source roster."""
+    """Reopen and verify a generic committed source roster.
+
+    A ``None`` mode field reopens the raw Git tree entry and accepts only a
+    regular non-symlink blob mode. The bound commit and tree retain mode
+    identity when a projection intentionally omits that field.
+    """
 
     repository = _resolved_repository(repository)
+    if mode_field is not None and (not isinstance(mode_field, str) or not mode_field):
+        raise ValueError("committed source mode field differs")
     current_revision = checkout_revision or expected_revision
     identity = capture_repository_identity(repository, current_revision)
     if not valid_git_object(expected_revision, identity["object_format"]):
@@ -1218,7 +1225,10 @@ def verify_committed_source_roster(
             or not isinstance(size, int)
             or size < (0 if allow_empty else 1)
             or size > max_file_bytes
-            or row.get(mode_field) not in {"100644", "100755"}
+            or (
+                mode_field is not None
+                and row.get(mode_field) not in {"100644", "100755"}
+            )
             or not isinstance(row.get(sha256_field), str)
             or re.fullmatch(r"[0-9a-f]{64}", row[sha256_field]) is None
             or not valid_git_object(row.get(blob_field), identity["object_format"])
@@ -1236,9 +1246,13 @@ def verify_committed_source_roster(
             repository,
             ["ls-tree", "-z", expected_revision, "--", path_value],
         )
-        expected_tree_row = (
-            f"{row[mode_field]} blob {row[blob_field]}\t{path_value}\0".encode()
+        expected_modes = (
+            (row[mode_field],) if mode_field is not None else ("100644", "100755")
         )
+        expected_tree_rows = {
+            f"{mode} blob {row[blob_field]}\t{path_value}\0".encode()
+            for mode in expected_modes
+        }
         current_blob = _git_text(
             repository,
             ["hash-object", "--no-filters", "--", path_value],
@@ -1247,7 +1261,7 @@ def verify_committed_source_roster(
         if (
             len(payload) != size
             or digest_bytes(payload) != row[sha256_field]
-            or tree_row != expected_tree_row
+            or tree_row not in expected_tree_rows
             or current_blob != row[blob_field]
         ):
             raise ValueError(f"committed source bytes differ: {path_value}")

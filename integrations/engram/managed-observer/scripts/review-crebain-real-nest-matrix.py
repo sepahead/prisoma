@@ -4829,6 +4829,7 @@ def validate_external_summary(
                 imported_sources,
                 path_field="path",
                 size_field="byte_count",
+                mode_field=None,
                 max_files=256,
                 max_file_bytes=MAX_SOURCE_BYTES,
                 max_total_bytes=64 * 1024 * 1024,

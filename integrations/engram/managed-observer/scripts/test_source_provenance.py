@@ -633,6 +633,25 @@ def main() -> int:
             for path in ("src/alpha.py", "src/beta.py", "src/empty.py")
         ]
         verify_committed_source_roster(root, revision, rows, allow_empty=True)
+        mode_less_rows = [
+            {
+                "path": row["relative_path"],
+                "byte_count": row["size_bytes"],
+                "sha256": row["sha256"],
+                "git_blob": row["git_blob"],
+                "module_names": [f"fixture.{Path(str(row['relative_path'])).stem}"],
+            }
+            for row in rows
+        ]
+        verify_committed_source_roster(
+            root,
+            revision,
+            mode_less_rows,
+            path_field="path",
+            size_field="byte_count",
+            mode_field=None,
+            allow_empty=True,
+        )
         if (
             identity["commit"] != revision
             or identity["origin_main"] != revision
@@ -640,8 +659,40 @@ def main() -> int:
             or [row["path"] for row in captured]
             != ["src/alpha.py", "src/beta.py", "src/empty.py"]
             or captured[2]["byte_count"] != 0
+            or mode_less_rows[2]["sha256"] != hashlib.sha256(b"").hexdigest()
+            or mode_less_rows[2]["git_blob"]
+            != "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
         ):
             raise AssertionError("positive repository identity differs")
+
+        missing_mode_less = copy.deepcopy(mode_less_rows)
+        missing_mode_less[2]["path"] = "src/missing.py"
+        expect_rejected(
+            "mode-less roster missing committed source",
+            lambda: verify_committed_source_roster(
+                root,
+                revision,
+                missing_mode_less,
+                path_field="path",
+                size_field="byte_count",
+                mode_field=None,
+                allow_empty=True,
+            ),
+        )
+        nonempty_mode_less = copy.deepcopy(mode_less_rows)
+        nonempty_mode_less[2]["byte_count"] = 1
+        expect_rejected(
+            "mode-less zero-byte source reported as nonempty",
+            lambda: verify_committed_source_roster(
+                root,
+                revision,
+                nonempty_mode_less,
+                path_field="path",
+                size_field="byte_count",
+                mode_field=None,
+                allow_empty=True,
+            ),
+        )
 
         forged = copy.deepcopy(rows)
         forged[0]["sha256"] = "f" * 64
