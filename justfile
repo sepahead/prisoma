@@ -195,7 +195,8 @@ engram-managed-observer-observed-release expected_revision:
 engram-managed-observer-stage-check expected_revision:
     #!/usr/bin/env bash
     set -euo pipefail
-    stage_root="$(mktemp -d "${TMPDIR:-/tmp}/prisoma-managed-observer.XXXXXX")"
+    stage_parent="$(python3 -c 'import os; print(os.path.realpath(os.environ.get("TMPDIR", "/tmp")))')"
+    stage_root="$(mktemp -d "$stage_parent/prisoma-managed-observer.XXXXXX")"
     trap 'rm -rf "$stage_root"' EXIT
     recipe="integrations/engram/managed-observer/authoring.macos-aarch64-darwin.json"
     configuration="integrations/engram/managed-observer/configuration.json"
