@@ -7083,6 +7083,7 @@ def validate_matrix_document(document: dict[str, Any]) -> None:
                 )
             )
             or nest["signed_population_count"] != drone_count * 6
+            or nest["population_count"] != nest["signed_population_count"]
             or nest["population_neuron_count"] < nest["signed_population_count"]
             or nest["device_node_count"] != drone_count * 12
             or row["source"]["engram_revision"]
@@ -7902,6 +7903,7 @@ def matrix_fixture_capture(
             "connection_readback_sha256": digest,
             "neural_provider_identity_sha256": digest,
             "signed_population_count": drone_count * 6,
+            "population_count": drone_count * 6,
             "population_neuron_count": drone_count * 48,
             "device_node_count": drone_count * 12,
             "connection_count": drone_count * 96,
@@ -10487,6 +10489,18 @@ def self_test(binary: Path) -> int:
         (
             "matrix missing V5 sidecar digest",
             lambda changed=missing_sidecar_digest: validate_matrix_document(changed),
+        )
+    )
+    missing_population_count = copy.deepcopy(document)
+    del missing_population_count["captures"][0]["nest"]["population_count"]
+    missing_population_count["receipt_sha256"] = digest_without(
+        missing_population_count,
+        "receipt_sha256",
+    )
+    controls.append(
+        (
+            "matrix missing topology population count",
+            lambda changed=missing_population_count: validate_matrix_document(changed),
         )
     )
     hostile_index_shape = copy.deepcopy(index_shape)

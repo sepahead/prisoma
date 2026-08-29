@@ -1205,6 +1205,7 @@
         "connection_readback_sha256",
         "neural_provider_identity_sha256",
         "signed_population_count",
+        "population_count",
         "population_neuron_count",
         "device_node_count",
         "connection_count",
@@ -1233,6 +1234,11 @@
         "connection_readback_sha256": { "$ref": "#/$defs/sha256" },
         "neural_provider_identity_sha256": { "$ref": "#/$defs/sha256" },
         "signed_population_count": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 384
+        },
+        "population_count": {
           "type": "integer",
           "minimum": 2,
           "maximum": 384
