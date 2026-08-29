@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engram.local/extension-contracts/prisoma.observer.configuration.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "max_channels",
+    "max_steps",
+    "max_cleanup_receipts",
+    "max_reason_bytes"
+  ],
+  "properties": {
+    "schema_version": { "const": "prisoma.observer.configuration.v1" },
+    "max_channels": { "const": 64 },
+    "max_steps": { "const": 1024 },
+    "max_cleanup_receipts": { "const": 2 },
+    "max_reason_bytes": { "const": 256 }
+  }
+}

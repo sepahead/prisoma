@@ -562,6 +562,31 @@
       ]
     },
     {
+      "feature_id": "observer.engram_managed_read_only",
+      "feature": "Read-only Engram Host API 2 managed observer",
+      "status": "tested",
+      "revision_inputs": [
+        "crates/engram-managed-observer",
+        "integrations/engram/managed-observer",
+        "justfile"
+      ],
+      "external_revision": null,
+      "test_command": "just engram-managed-observer-check",
+      "evidence_artifacts": [
+        "crates/engram-managed-observer/src/observer.rs",
+        "integrations/engram/managed-observer/README.md",
+        "integrations/engram/managed-observer/evidence/crebain-real-nest-observer-matrix.schema.json"
+      ],
+      "known_limitations": "Local checks grant no production-manager, authenticated-roster, filesystem-isolation, NCP, physical, simulator-action, scientific, or external evidence authority.",
+      "evidence_level": "E0",
+      "evidence_basis": "intention_or_local_only",
+      "evidence_scope": "workspace-excluded read-only observer code, closed contracts, local fixtures, and hostile controls only",
+      "thesis_dependency": "optional",
+      "claim_ids": [
+        "EC1"
+      ]
+    },
+    {
       "feature_id": "observer.ncp_fault_observatory",
       "feature": "Deterministic NCP wire-0.8 protocol-fault observatory",
       "status": "tested",

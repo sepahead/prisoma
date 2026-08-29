@@ -40,6 +40,8 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Check formatting (ncp-observer)
         run: cargo fmt --manifest-path crates/ncp-observer/Cargo.toml --all -- --check
+      - name: Check formatting (Engram managed observer)
+        run: cargo fmt --manifest-path crates/engram-managed-observer/Cargo.toml --all -- --check
       - name: Check lean default surface
         run: |
           cargo check --locked -p pid-bridge -p pid-sim --all-targets --no-default-features
@@ -52,6 +54,8 @@ jobs:
       # frozen NCP v0.8.0 tag. A different wire requires a separate consumer surface.
       - name: Clippy (ncp-observer, NCP consumer — excluded from the workspace)
         run: cargo clippy --locked --manifest-path crates/ncp-observer/Cargo.toml --all-targets -- -D warnings
+      - name: Clippy (Engram managed observer — excluded from the workspace)
+        run: cargo clippy --locked --manifest-path crates/engram-managed-observer/Cargo.toml --all-targets --all-features -- -D warnings
       - name: Tests
         run: cargo test --locked --workspace --all-targets --all-features
       - name: Rapier manipulation harness smoke
@@ -65,6 +69,14 @@ jobs:
         run: RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --all-features --no-deps
       - name: Rustdoc (ncp-observer)
         run: RUSTDOCFLAGS="-D warnings" cargo doc --locked --manifest-path crates/ncp-observer/Cargo.toml --no-deps
+      - name: Engram managed observer bootstrap gate
+        run: |
+          cargo test --locked --manifest-path crates/engram-managed-observer/Cargo.toml --all-targets --all-features
+          RUSTDOCFLAGS="-D warnings" cargo doc --locked --manifest-path crates/engram-managed-observer/Cargo.toml --all-features --no-deps
+          cargo build --locked --release --manifest-path crates/engram-managed-observer/Cargo.toml --bin prisoma-engram-managed-observer
+          python3 integrations/engram/managed-observer/scripts/check-contract.py
+          python3 integrations/engram/managed-observer/scripts/generate-transcript.py --binary crates/engram-managed-observer/target/release/prisoma-engram-managed-observer --verify integrations/engram/managed-observer/sample-transcript.json
+          python3 integrations/engram/managed-observer/scripts/review-crebain-real-nest-matrix.py --binary crates/engram-managed-observer/target/release/prisoma-engram-managed-observer --self-test
       - name: Tests + deterministic protocol-fault observatory (ncp-observer)
         run: |
           cargo test --locked --manifest-path crates/ncp-observer/Cargo.toml
@@ -467,6 +479,56 @@ jobs:
           "$PID_RUNLOG_REPLAY" /tmp/prisoma_bridge_ws.jsonl | grep -F 'artifacts=1' >/dev/null
           cargo run --locked -p pid-sim --bin pid-sim-verify -- /tmp/prisoma_bridge_ws.jsonl
 
+  engram-observer-observed-release:
+    name: Engram observer clean-source arm64 release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install Rust 1.93.0
+        run: |
+          rustup toolchain install 1.93.0 --profile minimal --no-self-update
+          rustup default 1.93.0
+          rustc --version | grep -F 'rustc 1.93.0 '
+          test "$(rustc -vV | sed -n 's/^host: //p')" = "aarch64-apple-darwin"
+          test "$(uname -m)" = "arm64"
+      - name: Fetch the locked observer dependency closure
+        run: cargo fetch --locked --manifest-path crates/engram-managed-observer/Cargo.toml
+      - name: Build and verify the observed arm64 release
+        run: |
+          revision="$(git rev-parse HEAD)"
+          receipt="crates/engram-managed-observer/target/release/prisoma-engram-managed-observer.observed-build.json"
+          python3 integrations/engram/managed-observer/scripts/check-contract.py
+          python3 integrations/engram/managed-observer/scripts/build-release-observer.py \
+            --expected-prisoma-revision "$revision" \
+            --output-receipt "$receipt"
+          python3 integrations/engram/managed-observer/scripts/build-release-observer.py \
+            --expected-prisoma-revision "$revision" \
+            --output-receipt "$receipt" --verify
+          python3 integrations/engram/managed-observer/scripts/generate-transcript.py \
+            --binary crates/engram-managed-observer/target/release/prisoma-engram-managed-observer \
+            --verify integrations/engram/managed-observer/sample-transcript.json
+          python3 integrations/engram/managed-observer/scripts/review-crebain-real-nest-matrix.py \
+            --binary crates/engram-managed-observer/target/release/prisoma-engram-managed-observer \
+            --self-test
+          stage_root="$(mktemp -d "$RUNNER_TEMP/prisoma-managed-observer.XXXXXX")"
+          trap 'rm -rf "$stage_root"' EXIT
+          python3 integrations/engram/managed-observer/scripts/stage-package.py \
+            --binary-build-receipt "$receipt" \
+            --expected-prisoma-revision "$revision" \
+            --output "$stage_root/package" \
+            --stage-receipt "$stage_root/package-stage-receipt.json"
+          cmp -s \
+            crates/engram-managed-observer/target/release/prisoma-engram-managed-observer \
+            "$stage_root/package/bin/prisoma-engram-managed-observer"
+          test "$(find "$stage_root/package" -type f | wc -l | tr -d ' ')" = 9
+          test "$(stat -f '%Lp' "$stage_root/package-stage-receipt.json")" = 600
+          test "$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["schema_version"])' "$stage_root/package-stage-receipt.json")" = "prisoma.observer.package-stage-receipt.v1"
+
   supply-chain:
     name: Supply chain (cargo-deny)
     runs-on: ubuntu-24.04
@@ -513,6 +575,8 @@ jobs:
       # critical path) so it needs an explicit pass via --manifest-path. Same deny.toml.
       - name: cargo-deny (ncp-observer)
         run: cargo-deny --log-level warn --manifest-path crates/ncp-observer/Cargo.toml --locked check
+      - name: cargo-deny (Engram managed observer)
+        run: cargo-deny --log-level warn --manifest-path crates/engram-managed-observer/Cargo.toml --locked check
       - name: Reject the vulnerable Zenoh compression feature
         run: |
           # Scan the complete resolved feature graph so a second Zenoh transport

@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engram.local/extension-contracts/prisoma.observer.finish-request.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "digest_canonicalization",
+    "study_run_id",
+    "timebase_values",
+    "runtime_deadline_enforcement",
+    "neural_deadline_enforcement",
+    "neural_preparation_sha256",
+    "neural_session_receipt_sha256",
+    "neural_durable_evidence_profile",
+    "initial_snapshot_sha256",
+    "last_verified_simulation_time_tics",
+    "runtime_progress_disposition",
+    "planned_step_count",
+    "step_count",
+    "neural_tail_values",
+    "runtime_finish_sha256",
+    "runtime_lifecycle_values",
+    "runtime_cleanup_values",
+    "neural_cleanup_values",
+    "source_status",
+    "primary_reason_code",
+    "terminal_reason_code",
+    "cleanup_complete",
+    "source_transcript_sha256",
+    "source_run_receipt_sha256",
+    "simulator_only",
+    "physical_actuation",
+    "ncp_qualified",
+    "scientific_authority",
+    "is_paper_local_evidence",
+    "calibrated_posterior"
+  ],
+  "properties": {
+    "schema_version": { "const": "prisoma.observer.finish-request.v1" },
+    "digest_canonicalization": { "const": "engram.managed-runtime-json.v1" },
+    "study_run_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "timebase_values": { "$ref": "#/$defs/timebase_values" },
+    "runtime_deadline_enforcement": {
+      "enum": ["host-generation-kill", "cooperative-observed", "deterministic-test"]
+    },
+    "neural_deadline_enforcement": {
+      "enum": ["host-generation-kill", "cooperative-observed", "deterministic-test"]
+    },
+    "neural_preparation_sha256": { "$ref": "#/$defs/nullable_sha256" },
+    "neural_session_receipt_sha256": { "$ref": "#/$defs/nullable_sha256" },
+    "neural_durable_evidence_profile": {
+      "enum": ["none", "engram.nest-closed-loop-evidence-bundle.v2"]
+    },
+    "initial_snapshot_sha256": { "$ref": "#/$defs/nullable_sha256" },
+    "last_verified_simulation_time_tics": {
+      "anyOf": [
+        { "type": "integer", "minimum": 0, "maximum": 10240000000 },
+        { "type": "null" }
+      ]
+    },
+    "runtime_progress_disposition": {
+      "enum": [
+        "not-started",
+        "last-host-verified",
+        "finished-and-host-verified",
+        "unknown-after-dispatch",
+        "unknown-after-operation-attempt"
+      ]
+    },
+    "planned_step_count": { "type": "integer", "minimum": 1, "maximum": 1024 },
+    "step_count": { "type": "integer", "minimum": 0, "maximum": 1024 },
+    "neural_tail_values": {
+      "anyOf": [
+        { "$ref": "#/$defs/absent_neural_tail_values" },
+        { "$ref": "#/$defs/present_neural_tail_values" }
+      ]
+    },
+    "runtime_finish_sha256": { "$ref": "#/$defs/nullable_sha256" },
+    "runtime_lifecycle_values": {
+      "anyOf": [
+        { "$ref": "#/$defs/absent_runtime_lifecycle_values" },
+        { "$ref": "#/$defs/present_runtime_lifecycle_values" }
+      ]
+    },
+    "runtime_cleanup_values": { "$ref": "#/$defs/runtime_cleanup_values" },
+    "neural_cleanup_values": { "$ref": "#/$defs/neural_cleanup_values" },
+    "source_status": { "enum": ["completed", "cancelled", "overloaded", "failed"] },
+    "primary_reason_code": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "terminal_reason_code": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "cleanup_complete": { "type": "boolean" },
+    "source_transcript_sha256": { "$ref": "#/$defs/sha256" },
+    "source_run_receipt_sha256": { "$ref": "#/$defs/sha256" },
+    "simulator_only": { "const": true },
+    "physical_actuation": { "const": false },
+    "ncp_qualified": { "const": false },
+    "scientific_authority": { "const": false },
+    "is_paper_local_evidence": { "const": false },
+    "calibrated_posterior": { "const": false }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "minLength": 64, "maxLength": 64 },
+    "nullable_sha256": {
+      "anyOf": [
+        { "$ref": "#/$defs/sha256" },
+        { "type": "null" }
+      ]
+    },
+    "timebase_values": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "prefixItems": [
+        { "const": "engram.extension-closed-loop-timebase.v1" },
+        { "const": "microsecond" },
+        { "type": "integer", "minimum": 1, "maximum": 10000000 },
+        { "type": "integer", "minimum": 1, "maximum": 10000000 },
+        { "const": "independent-controller-and-runtime-logical-clocks" },
+        { "const": "one-controller-epoch-per-runtime-interval" },
+        { "const": "sample-runtime-run-controller-apply-zoh-v1" },
+        { "const": "observe-controller-action-runtime" },
+        { "const": "runtime-interval-start" },
+        { "const": "after-controller-completion-zoh-over-runtime-interval" }
+      ],
+      "items": false
+    },
+    "absent_neural_tail_values": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": { "type": "null" }
+    },
+    "present_neural_tail_values": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "prefixItems": [
+        { "type": "integer", "minimum": 1, "maximum": 1024 },
+        { "type": "string", "minLength": 37, "maxLength": 37 },
+        { "$ref": "#/$defs/sha256" },
+        { "$ref": "#/$defs/sha256" },
+        { "enum": ["decoded-proposal-only", "nest-exact-step-readback"] },
+        { "$ref": "#/$defs/sha256" }
+      ],
+      "items": false
+    },
+    "runtime_cleanup_values": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "prefixItems": [
+        { "const": "engram.closed-loop-cleanup.v2" },
+        { "const": "runtime" },
+        { "$ref": "#/$defs/sha256" },
+        { "enum": ["finish", "generation-kill"] },
+        { "const": true },
+        { "type": "boolean" },
+        { "type": "boolean" },
+        { "type": "string", "minLength": 1, "maxLength": 256 },
+        { "$ref": "#/$defs/nullable_sha256" },
+        { "$ref": "#/$defs/nullable_sha256" },
+        { "$ref": "#/$defs/nullable_sha256" },
+        { "$ref": "#/$defs/sha256" }
+      ],
+      "items": false
+    },
+    "neural_cleanup_values": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "prefixItems": [
+        { "const": "engram.closed-loop-cleanup.v2" },
+        { "const": "neural" },
+        { "$ref": "#/$defs/sha256" },
+        { "const": "close" },
+        { "const": true },
+        { "type": "boolean" },
+        { "type": "boolean" },
+        { "type": "string", "minLength": 1, "maxLength": 256 },
+        { "type": "null" },
+        { "$ref": "#/$defs/nullable_sha256" },
+        { "$ref": "#/$defs/nullable_sha256" },
+        { "$ref": "#/$defs/sha256" }
+      ],
+      "items": false
+    },
+    "absent_runtime_lifecycle_values": {
+      "type": "array",
+      "minItems": 22,
+      "maxItems": 22,
+      "items": { "type": "null" }
+    },
+    "present_runtime_lifecycle_values": {
+      "type": "array",
+      "minItems": 22,
+      "maxItems": 22,
+      "prefixItems": [
+        { "const": "engram.closed-loop-runtime-lifecycle-binding.v1" },
+        { "const": "engram.reviewed-native-development.v1" },
+        { "type": "string", "minLength": 68, "maxLength": 68 },
+        { "enum": ["packed-bundle-path", "package-store-lease"] },
+        {
+          "anyOf": [
+            { "type": "string", "minLength": 73, "maxLength": 73 },
+            { "type": "null" }
+          ]
+        },
+        { "type": "string", "minLength": 71, "maxLength": 71 },
+        { "$ref": "#/$defs/nullable_sha256" },
+        { "type": "boolean" },
+        { "type": "boolean" },
+        { "$ref": "#/$defs/sha256" },
+        { "$ref": "#/$defs/sha256" },
+        { "enum": ["clean-exit", "terminated", "killed", "unconfirmed"] },
+        { "type": "boolean" },
+        { "type": "boolean" },
+        { "type": "boolean" },
+        { "type": "boolean" },
+        { "const": false },
+        { "const": false },
+        { "const": false },
+        { "const": false },
+        { "const": false },
+        { "$ref": "#/$defs/sha256" }
+      ],
+      "items": false
+    }
+  }
+}

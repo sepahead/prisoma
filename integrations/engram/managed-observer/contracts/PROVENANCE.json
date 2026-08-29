@@ -1,0 +1,200 @@
+{
+  "schema_version": "prisoma.observer.contract-provenance.v1",
+  "copied_contract": {
+    "schema_id": "engram.managed-runtime-ipc.v1",
+    "destination_path": "integrations/engram/managed-observer/contracts/managed-runtime-ipc.schema.json",
+    "sha256": "e6950a2b3d1913ebacb82823afe648538ec789fe845ed3894b2122dd9864cfc1"
+  },
+  "ipc_source": {
+    "repository": "git@github.com:sepahead/Paper2Brain.git",
+    "revision": "b918bd0416c8056262232d6d24e4cff30501278a",
+    "path": "integrations/contracts/engram.managed-runtime-ipc.v1.schema.json",
+    "git_blob": "4e6d657cb302ef16c7725f5b0599c97771b5a4c8",
+    "source_state": "contained-in-recorded-revision"
+  },
+  "finite_float_corpus": {
+    "schema_version": "engram.managed-runtime-finite-float.v1",
+    "destination_path": "integrations/engram/managed-observer/contracts/engram.managed-runtime-finite-float.v1.json",
+    "sha256": "245274905d9ac3cf8567bfdde5e2e8e3bd59be474c228b0cd7146d17feaa8a9b",
+    "source_path": "integrations/contracts/engram.managed-runtime-finite-float.v1.json",
+    "source_git_blob": "9698d5b5da8d408933322f8c77f37a8cfeb57e21",
+    "source_state": "contained-in-recorded-revision",
+    "revision": "b918bd0416c8056262232d6d24e4cff30501278a",
+    "case_count": 25,
+    "randomized_sample_count": 4096,
+    "randomized_accepted_count": 4030,
+    "randomized_transcript_sha256": "4199b76e20a650518c52c7ead69bfc28c7333c73be0a607bc3a39d1a7994599c"
+  },
+  "closed_loop_source": {
+    "repository": "git@github.com:sepahead/Paper2Brain.git",
+    "revision": "b918bd0416c8056262232d6d24e4cff30501278a",
+    "path": "backend/optimization/extension_closed_loop.py",
+    "sha256": "d60c6faa561b5497115c04789623481c22e795cdc3304a0e3fb87d06250c57eb",
+    "git_blob": "77465a3b294871ce1fb7f44217667351a9f0ad77",
+    "source_state": "contained-in-recorded-revision",
+    "imported_source_roster_sha256": "04f07334fdac6c4c7d7efd27794a5567edb4cd43f4e30cebca02803bd82e62b2",
+    "imported_source_roster": [
+      {
+        "byte_count": 1454,
+        "git_blob": "882390de681105404ba9a3e91b7c25acd4c7100a",
+        "module_names": ["backend.core"],
+        "path": "backend/core/__init__.py",
+        "sha256": "067fc19f2de53968c3d9bd720deb3fb1304b40459acfd310e3ee3765b86c54bf"
+      },
+      {
+        "byte_count": 17614,
+        "git_blob": "056317babc698caa207d5e642a7f7399d089f633",
+        "module_names": ["backend.core.errors"],
+        "path": "backend/core/errors.py",
+        "sha256": "2acb44cfd1ed85fbae6b68810ba5d6afc6aa10558fbed93811a95c289cfd162e"
+      },
+      {
+        "byte_count": 9063,
+        "git_blob": "5babc1303f731c3187cc53c874ec8f8b41c24695",
+        "module_names": ["backend.core.units"],
+        "path": "backend/core/units.py",
+        "sha256": "5fe986132620b74a315d791a046a99a986ade9599af9d05a80e7962d8543b4d5"
+      },
+      {
+        "byte_count": 78,
+        "git_blob": "ebee273dafb353f281733e00ec38030ad6d5cd39",
+        "module_names": ["backend.integrations"],
+        "path": "backend/integrations/__init__.py",
+        "sha256": "d25e3a94cb9d780027510f65173f1a5ea9f12e47a9d15cdd08a12d5c5dab4209"
+      },
+      {
+        "byte_count": 87923,
+        "git_blob": "0a9dd62011a6f73b655ab9f39b60b7d18e1ee794",
+        "module_names": ["backend.integrations.managed_runtime_contract"],
+        "path": "backend/integrations/managed_runtime_contract.py",
+        "sha256": "c49275579492e0a1cf0ee0fcae05ecc11d5320a069a51d7c4ce47da36b970ca8"
+      },
+      {
+        "byte_count": 7545,
+        "git_blob": "35f36d828eb86ce0286d84e1e9ade5f4fa05caae",
+        "module_names": ["backend.integrations.managed_runtime_json"],
+        "path": "backend/integrations/managed_runtime_json.py",
+        "sha256": "ea8215914c29c5603975d2483ab27fa28356a6ff692047e2ba7e856cc156a9f6"
+      },
+      {
+        "byte_count": 145723,
+        "git_blob": "062fc7cf65527ad5044d66e99d1277e6ac693c82",
+        "module_names": ["backend.integrations.managed_runtime_manager_contract"],
+        "path": "backend/integrations/managed_runtime_manager_contract.py",
+        "sha256": "9157fb0051b5b6a3f5a78feca87c4dde2df61192d2544322d96868044a37f483"
+      },
+      {
+        "byte_count": 2170,
+        "git_blob": "38f3b2377e9f7256f34467c35f6d5cf086748199",
+        "module_names": ["backend.optimization"],
+        "path": "backend/optimization/__init__.py",
+        "sha256": "51be99d25b9fb0fe93874fe39ac25c3c46c9aec60a0744c2d92e4b330ae63f53"
+      },
+      {
+        "byte_count": 128956,
+        "git_blob": "77465a3b294871ce1fb7f44217667351a9f0ad77",
+        "module_names": ["backend.optimization.extension_closed_loop"],
+        "path": "backend/optimization/extension_closed_loop.py",
+        "sha256": "d60c6faa561b5497115c04789623481c22e795cdc3304a0e3fb87d06250c57eb"
+      },
+      {
+        "byte_count": 1004,
+        "git_blob": "10a785c94fd39b3593d9a1fd638ce23c4abce7bf",
+        "module_names": ["backend.optimization.extension_closed_loop_limits"],
+        "path": "backend/optimization/extension_closed_loop_limits.py",
+        "sha256": "edef731a2a2ae40225db9ee417df18f1ba71799abd8cafa51b07aa223d0ae989"
+      },
+      {
+        "byte_count": 123933,
+        "git_blob": "67cc48f5e5eeecd8c143b73cab2191dbf1b68dc8",
+        "module_names": ["backend.optimization.simulator_study_ledger"],
+        "path": "backend/optimization/simulator_study_ledger.py",
+        "sha256": "e2f3903921e8f17188e09293c0e469ee1e239219d6c05053b02f5cca16de3794"
+      },
+      {
+        "byte_count": 0,
+        "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "module_names": ["backend.schemas"],
+        "path": "backend/schemas/__init__.py",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "byte_count": 63768,
+        "git_blob": "f0e0df4dc158b3d75e15180efc987e65f28d576c",
+        "module_names": ["backend.schemas.evidence"],
+        "path": "backend/schemas/evidence.py",
+        "sha256": "3f61346f45969c9d7944aa993912c47fd98dd7115a096dd56c9cdeb611492d76"
+      },
+      {
+        "byte_count": 87349,
+        "git_blob": "974b5fbcf4c974749be6bd321fa95998f662a66f",
+        "module_names": ["backend.schemas.runtime"],
+        "path": "backend/schemas/runtime.py",
+        "sha256": "fb567538a77b06d2ad35be3e6175fedc24a701c4dfc2789a0a458b775cc707b1"
+      },
+      {
+        "byte_count": 47764,
+        "git_blob": "5fe6dc99c3c5872fd8b4b76e02b006d346510889",
+        "module_names": ["backend.schemas.simulator_study"],
+        "path": "backend/schemas/simulator_study.py",
+        "sha256": "c172fc31d327ddadbf87bd00380b7cf04cd584688f12f0e4cdc1b46456325ed5"
+      }
+    ],
+    "generator_source_sha256": "f8e247906062a797eeaf9e35c5d3c503054ac84804daa7e6c7dd717d6add0b1b"
+  },
+  "generated_receipts": [
+    {
+      "path": "integrations/engram/managed-observer/fixtures/engram-run-receipt.generated.json",
+      "sha256": "646f4f7eae06276d2a0da624b41b380db6a46f6438c9aa620caca0556edf7259",
+      "generator": "backend.optimization.extension_closed_loop.build_run_receipt",
+      "step_count": 2
+    },
+    {
+      "path": "integrations/engram/managed-observer/fixtures/engram-runtime-finished-neural-cleanup-failed.generated.json",
+      "sha256": "b8745fe31973c310bf9bc718a0d77f56360e177196ee93229da0dd060988660f",
+      "generator": "backend.optimization.extension_closed_loop.build_run_receipt",
+      "step_count": 2
+    },
+    {
+      "path": "integrations/engram/managed-observer/fixtures/engram-zero-step-run-receipt.generated.json",
+      "sha256": "d288288db346a5de418e57f6cc5bb239c67a0351dc485c62e45feb469f689104",
+      "generator": "backend.optimization.extension_closed_loop.build_run_receipt",
+      "step_count": 0
+    }
+  ],
+  "historical_operational_evidence": {
+    "status": "historical-audit-only-v1",
+    "path": "integrations/engram/managed-observer/evidence/engram-reviewed-development-e2e.json",
+    "sha256": "03640c8fee0e4b212e22cd746926031e860575b764a6b778971af426a4b5e432",
+    "schema_id": "prisoma.observer.engram-reviewed-development-e2e.v1",
+    "historical_schema_sha256": "a7b762d3447a99a0d0186a900cd6fdf1098e8347feeda6dfa3c93e6aef6c0bfe",
+    "receipt_sha256": "4ba963ef787f8a7bc53e548eadc14c4e772deae7c5f3766beaacb5e8c4ea7298",
+    "profile": "engram.reviewed-native-development.v1",
+    "engram_revision": "70e2ece35c7b02d43b528c893ba01ac0deade3e1",
+    "closed_loop_source_sha256": "c38c5af3ef9ec61688fc0387aa5eb0b3137048f8e4bde274898f56a302d311cc",
+    "development_launcher_source_sha256": "d6e054613aaf17707c95dd03cb40d099b812a729c52f050cc45e2050176bcd60",
+    "package_store_source_sha256": "a19e4d4f5c8756a6452ff0ae201399bfaa5a321d06e62a708b2e2259be61c1ed",
+    "sample_transcript_exact_sha256": "2610342b6d8d4a7a896296275a58f851c4f7510e3f41cf6f55bd6ea61d2f4027",
+    "source_fixture_exact_sha256": "7edf7f9f3fa4441923dde1ea6368a477c39ef7799ca608eb554c3db843eed4e0",
+    "reviewed_development_only": true,
+    "production_manager_execution": false,
+    "publisher_authenticated": false,
+    "ncp_authority": false,
+    "physical_authority": false,
+    "scientific_authority": false
+  },
+  "current_operational_evidence": {
+    "status": "NOT RUN",
+    "schema_id": "prisoma.observer.engram-reviewed-development-e2e.v2",
+    "schema_path": "integrations/engram/managed-observer/evidence/engram-reviewed-development-e2e.schema.json",
+    "schema_sha256": "32dc624ea77147e52b329ab041565092d2196b8df8d220c4364417b87d1dfe5f",
+    "production_manager_execution": false,
+    "publisher_authenticated": false,
+    "source_durable_evidence_verified": false,
+    "ncp_authority": false,
+    "physical_authority": false,
+    "scientific_authority": false
+  },
+  "operation_roster_sha256": "845ddcddbd3ad6c9854281088cfee86909aa5af6be6e1ed6d6664f0cc3c5d79c",
+  "authority": "compatibility-and-test-evidence-only"
+}

@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engram.local/extension-contracts/prisoma.observer.package-stage-receipt.v1.json",
+  "title": "Prisoma managed observer package-stage receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "observation_scope",
+    "repository",
+    "observed_build_receipt_exact_sha256",
+    "observed_build_receipt_sha256",
+    "stage_source_roster",
+    "stage_source_roster_sha256",
+    "stage_input_identity_sha256",
+    "source_executable",
+    "staged_executable",
+    "package_inventory",
+    "package_inventory_sha256",
+    "authority",
+    "disclosure",
+    "receipt_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "prisoma.observer.package-stage-receipt.v1"
+    },
+    "observation_scope": {
+      "const": "one-clean-source-package-stage-observation-v1"
+    },
+    "repository": { "$ref": "#/$defs/repository" },
+    "observed_build_receipt_exact_sha256": { "$ref": "#/$defs/sha256" },
+    "observed_build_receipt_sha256": { "$ref": "#/$defs/sha256" },
+    "stage_source_roster": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/source_file" }
+    },
+    "stage_source_roster_sha256": { "$ref": "#/$defs/sha256" },
+    "stage_input_identity_sha256": { "$ref": "#/$defs/sha256" },
+    "source_executable": { "$ref": "#/$defs/executable" },
+    "staged_executable": { "$ref": "#/$defs/executable" },
+    "package_inventory": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": { "$ref": "#/$defs/inventory_row" }
+    },
+    "package_inventory_sha256": { "$ref": "#/$defs/sha256" },
+    "authority": {
+      "const": {
+        "observed_stage_only": true,
+        "installation": false,
+        "execution": false,
+        "agent_bridge_command": false,
+        "ncp": false,
+        "music": false,
+        "physical": false,
+        "plant": false,
+        "scientific": false
+      }
+    },
+    "disclosure": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "receipt_sha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "minLength": 64, "maxLength": 64 },
+    "git_object": {
+      "anyOf": [
+        { "type": "string", "minLength": 40, "maxLength": 40 },
+        { "type": "string", "minLength": 64, "maxLength": 64 }
+      ]
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "commit",
+        "tree",
+        "origin_main",
+        "object_format",
+        "clean"
+      ],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "commit": { "$ref": "#/$defs/git_object" },
+        "tree": { "$ref": "#/$defs/git_object" },
+        "origin_main": { "$ref": "#/$defs/git_object" },
+        "object_format": { "enum": ["sha1", "sha256"] },
+        "clean": { "const": true }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "object_format": { "const": "sha1" } },
+            "required": ["object_format"]
+          },
+          "then": {
+            "properties": {
+              "commit": { "type": "string", "minLength": 40, "maxLength": 40 },
+              "tree": { "type": "string", "minLength": 40, "maxLength": 40 },
+              "origin_main": { "type": "string", "minLength": 40, "maxLength": 40 }
+            }
+          },
+          "else": {
+            "properties": {
+              "commit": { "type": "string", "minLength": 64, "maxLength": 64 },
+              "tree": { "type": "string", "minLength": 64, "maxLength": 64 },
+              "origin_main": { "type": "string", "minLength": 64, "maxLength": 64 }
+            }
+          }
+        }
+      ]
+    },
+    "source_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "git_blob", "byte_count"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "git_blob": { "$ref": "#/$defs/git_object" },
+        "byte_count": { "type": "integer", "minimum": 1, "maximum": 16777216 }
+      }
+    },
+    "executable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["size_bytes", "sha256", "mode"],
+      "properties": {
+        "size_bytes": { "type": "integer", "minimum": 1, "maximum": 67108864 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "mode": { "const": "0700" }
+      }
+    },
+    "inventory_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "size_bytes", "sha256", "mode", "role"],
+      "properties": {
+        "relative_path": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "size_bytes": { "type": "integer", "minimum": 1, "maximum": 67108864 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "mode": { "enum": ["0600", "0700"] },
+        "role": { "enum": ["contract", "executable"] }
+      }
+    }
+  }
+}

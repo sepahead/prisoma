@@ -112,6 +112,8 @@ See [findings.md](findings.md) for current estimator evidence. See
 - Canonical schema-2 run-log validation, replay, manifests, and sidecars.
 - A mutation-disabled-by-default local Agent Bridge over in-process, stdio, TCP, and WebSocket transports.
 - A finite, paired, read-only Engram-host TCP profile with secret-possession proofs.
+- A bounded Host API 2 observer for exact Engram closed-loop receipt lineage.
+- A clean-source arm64 build receipt for that observer's release staging path.
 - Deterministic object and Rapier-backed manipulation fixtures.
 - A zero-model-download exact-fork world-model decision reference with a fixed candidate pool,
   pre-label forecast publication, bridge-only selected execution, post-receipt independent branch
@@ -319,6 +321,17 @@ This is not an NCP producer, wire translator, artifact validator, or authority p
 
 The local Engram-host profile proves possession of one startup secret. It does not attest a
 process, binary, build, producer, or remote host.
+
+The separate Host API 2 child verifies closed-loop step and terminal receipts.
+Its three operations use observation class and no compute grant.
+The checked fixture records a host-declared projection of three drone subjects.
+Engram source receipts do not authenticate those subject identifiers.
+Its success vector declares NEST bundle-v2 while every child response reports verification as false.
+The child has no NCP, PID, Agent Bridge command, artifact, network, or physical authority.
+A historical v1 receipt records one Engram store launch and clean child reap.
+Its source state was a working-tree candidate, so it grants no current runtime claim.
+The stricter v2 operational gate remains `NOT RUN`.
+Neither state establishes production manager execution or publisher identity.
 
 ## Release and evidence status
 

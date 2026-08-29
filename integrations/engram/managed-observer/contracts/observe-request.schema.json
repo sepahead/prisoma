@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engram.local/extension-contracts/prisoma.observer.observe-request.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "study_run_id",
+    "step_index",
+    "step_id",
+    "input_snapshot_sha256",
+    "neural_request_sha256",
+    "neural_result_sha256",
+    "provider_execution_scope",
+    "provider_execution_sha256",
+    "admitted_action_sha256",
+    "runtime_request_sha256",
+    "output_snapshot_sha256",
+    "fault_codes",
+    "source_receipt_sha256"
+  ],
+  "properties": {
+    "schema_version": { "const": "prisoma.observer.observe-request.v1" },
+    "study_run_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "step_index": { "type": "integer", "minimum": 1, "maximum": 1024 },
+    "step_id": { "type": "string", "minLength": 37, "maxLength": 37 },
+    "input_snapshot_sha256": { "$ref": "#/$defs/sha256" },
+    "neural_request_sha256": { "$ref": "#/$defs/sha256" },
+    "neural_result_sha256": { "$ref": "#/$defs/sha256" },
+    "provider_execution_scope": {
+      "enum": ["decoded-proposal-only", "nest-exact-step-readback"]
+    },
+    "provider_execution_sha256": { "$ref": "#/$defs/sha256" },
+    "admitted_action_sha256": { "$ref": "#/$defs/sha256" },
+    "runtime_request_sha256": { "$ref": "#/$defs/sha256" },
+    "output_snapshot_sha256": { "$ref": "#/$defs/sha256" },
+    "fault_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+    },
+    "source_receipt_sha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "minLength": 64, "maxLength": 64 }
+  }
+}

@@ -1,0 +1,30 @@
+[package]
+name = "prisoma-engram-managed-observer"
+version = "0.1.0"
+description = "Bounded read-only Prisoma observer for Engram managed closed-loop receipts"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/sepahead/prisoma"
+edition = "2021"
+rust-version = "1.93"
+publish = false
+
+[lib]
+name = "prisoma_engram_managed_observer"
+path = "src/lib.rs"
+
+[[bin]]
+name = "prisoma-engram-managed-observer"
+path = "src/main.rs"
+
+[dependencies]
+getrandom = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.11"
+thiserror = "2.0"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "warn"

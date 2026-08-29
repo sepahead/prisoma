@@ -319,6 +319,65 @@ The Engram-host profile is read-only and admits exactly three methods. Mutual HM
 startup secret, request identifier, profile, connection, and fresh nonces. Pairing proves secret
 possession only. It does not prove process or build identity.
 
+### 6.1.1 Managed receipt observer
+
+The workspace-excluded managed observer is separate from the TCP profile.
+It uses inherited private pipes and Engram Host API 2 framing.
+
+The child verifies complete closed-loop source receipts in `prepare`, `observe`, and `finish` order.
+It records one to 64 host-declared channels and a matching subject roster.
+It can record three CREBAIN drone names without controlling them.
+Current source receipts do not authenticate that roster.
+
+All operations use observation class, effect `none`, and compute grant `none`.
+The child has no Agent Bridge, NCP, PID, artifact, filesystem operation, network operation, or actuation path.
+The reviewed sandbox does not enforce filesystem isolation.
+Engram retains lifecycle, readiness, deadline, cancellation, and termination authority.
+
+The runtime clears retained state after terminal success, clean EOF, and `Drop`.
+Its receipts describe verified bytes.
+They do not establish upstream completeness, safety, attestation, or scientific evidence.
+The child mirrors Engram's durable-evidence profile but always reports bundle verification as false.
+Full NEST bundle rejoin stays in an external bounded validator.
+The checked success vector exercises that non-conflation with the NEST bundle-v2 profile.
+
+Release staging requires an adjacent clean-source build receipt.
+The receipt binds exact Git sources, toolchain bytes, build arguments, and arm64 Mach-O bytes.
+Its source roster includes the build generator and validation code.
+It records one local build observation and does not attest reproducibility.
+Changing permissions on arbitrary target bytes cannot satisfy this join.
+
+Package staging writes a separate owner-private receipt.
+That receipt binds the exact build receipt and committed stage sources.
+It also binds the staged executable and eight contract files.
+It grants no installation, execution, Agent Bridge, NCP, MUSIC, physical, plant, or scientific authority.
+
+The external matrix validator requires clean pushed revisions for three repositories.
+It binds each origin, commit, tree, object format, and `origin/main` commit.
+It accepts CREBAIN evidence-index v2 and installed proof v3 only.
+It reads v2 operational evidence while retaining the v1 operational input suite.
+It treats CREBAIN's source commit, C0, and publication commit, C1, separately.
+C1 must have only C0 as its parent.
+C1 may add only the index and three capture blobs.
+The validator reopens build and tool sources from C0.
+It reads published evidence bytes from C1.
+It independently validates tool, build, stage, pack, package, and imported-source lineage.
+The pack receipt binds committed `scripts/engram_extension.py` bytes and Git identity.
+The imported-source closure must contain the same tool row and loaded host module.
+This closure does not attest Python bytecode, interpreter state, or dependency bytes.
+Each run keeps its distinct path-sensitive source closure.
+All runs share one stable source-roster digest over committed source rows.
+Receipt-store joins require exact V5 content-addressed artifact paths.
+Stored receipt and evidence JSON omit their self-digest fields and final newlines.
+Each complete store roster includes `store.json` and `writer.lock`.
+
+A historical v1 audit records one packed child in Engram's reviewed-development store.
+Its source state was a working-tree candidate, so it grants no current runtime claim.
+The current v2 operational gate is `NOT RUN`.
+The v2 contract requires immutable staging and guardian process-group closure.
+It also requires exact imported-source closure without numeric process identities.
+Neither version grants production, publisher, NCP, physical, or scientific authority.
+
 ### 6.2 Filesystem operations
 
 Input readers reject observed symlinks and non-regular files. Unix descriptor readers request

@@ -2285,6 +2285,28 @@ project can mature without raising its **relationship to Prisoma**.
 | `mahmoudian-2020-rescience` | No software edge to Prisoma; published ReScience C replication and archived code | E0 edge; publication/reproducibility lineage | evidence of prior reproducibility practice and a source of controlled transfer-function fixtures | does not validate `pid-rs`, continuous shared-exclusions, VLA hypotheses, or present infrastructure [R98] |
 | `nest-simulator` | Public fork advertises PID/information-theoretic work on feature branches; no direct Prisoma root reference or pinned adapter was verified | E0 | candidate neural-state producer through a future read-only NCP adapter | pin the exact branch/commit, separate fork changes from upstream NEST, publish a fixture, and pass E4 semantics/security tests [R99] |
 
+The local tree also contains a workspace-excluded Host API 2 managed observer candidate.
+It copies Engram's exact generic IPC schema and finite-binary64 corpus.
+The float gate checks 25 boundary cases and 4,096 deterministic SplitMix64 samples.
+It build-tests a real binary against three Engram-generated V2 terminal receipt vectors.
+One vector records three host-declared drone subjects and two ordered steps.
+The source receipt authenticates neither channel names nor subject names.
+One vector retains runtime finish after an unconfirmed neural close.
+The third vector proves an honest zero-step failure path.
+The vectors bind the V5 terminal transcript, durable-evidence profile, both logical clocks, and neural execution receipts.
+
+This supplies E2 contract evidence for the copied generic IPC surface.
+An operational fixture installs and launches the packed child through Engram's reviewed-development store.
+It matches exact prepare, observe, observe, and finish responses.
+It confirms clean child reap, lease release, and post-reap package removal.
+It does not supply E3 producer-consumer scientific evidence.
+Fixture and operational provenance require every imported Engram Python source to match one immutable revision.
+The reviewed-development launch uses observation class and compute grant `none`.
+No production manager execution, publisher identity, NCP path, authority path, or scientific fixture exists.
+Every child response reports `source_durable_evidence_verified=false`.
+An external tool can call Engram's exact NEST bundle-to-run validator and emit a bounded descriptive summary.
+The synthetic success vector declares bundle-v2 only to prove that profile acceptance grants no verification authority.
+
 “No direct reference found” is a bounded statement about the reviewed public material, not proof that no private branch or unpublished adapter exists. Anonymous GitHub search is incomplete; therefore the evidence ledger records both positive evidence and search limitations.
 
 ### 8.9.2 Current implementation boundary
@@ -2293,7 +2315,8 @@ At current Prisoma HEAD, unchanged in kind from snapshot `64bd881…`, the only 
 code/dependency relationships inside Prisoma are:
 
 1. `pid-rs` as the pinned canonical estimator/run-log submodule; and
-2. NCP as an optional pinned dependency of the excluded read-only observer crate.
+2. NCP as an optional pinned dependency of the excluded read-only observer crate; and
+3. the copied Host API 2 contract used by the excluded managed receipt observer.
 
 Paper2Brain's external consumer manifest is a direct declared relationship at its exact reviewed
 revision, but it is not a Prisoma dependency or a producer-consumer scientific integration.
@@ -2976,6 +2999,8 @@ Current work studies safety benchmarks, safety-aware planning, correction, and r
 Prisoma exists within a public ecosystem of estimator, protocol, robotics, perception, asset, and visualization projects [R72–R86]. This can reduce engineering cost and create transport settings, but it must not inflate novelty or validation claims.
 
 The direct audited dependencies are the pinned `pid-rs` submodule and the optional NCP observer.
+The managed receipt observer adds a copied Host API 2 contract dependency.
+It does not add a production Engram runtime dependency or scientific producer path.
 Galadriel and Crebain share dependencies or protocol context but have no direct Prisoma edge.
 Manwe documents that adaptation is required. The named `sepahead/engram` repository remains a
 placeholder. The executable Engram Neural Labs host is `sepahead/Paper2Brain`. Its byte-locked

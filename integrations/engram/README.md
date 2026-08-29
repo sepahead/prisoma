@@ -4,6 +4,73 @@ Prisoma remains a standalone system. Engram host API 1.1 adds one optional,
 externally owned, read-only session profile. That profile requires
 operator-paste pairing on every connection.
 
+Host API 2 adds a separate managed observer candidate.
+It verifies closed-loop receipt lineage through inherited private pipes.
+It does not replace or modify the Host API 1.1 status bridge.
+
+## Host API 2 managed observer
+
+The observer implements `prepare`, `observe`, and `finish` operations.
+All three operations use class `observation` and compute grant `none`.
+
+`prepare` records one to 64 host-declared channels and an equal subject roster.
+The checked fixture declares three channels and three drone identifiers.
+Engram source receipts do not authenticate those identifiers.
+`observe` verifies each complete Engram V2 step receipt in order.
+It rejects a later input that differs from the prior accepted output.
+`finish` verifies the V2 terminal receipt and V5 transcript, then clears retained state.
+It joins the first input to the initial snapshot and rechecks the full chain.
+It also checks logical clocks, neural execution bindings, and cleanup provider digests.
+It mirrors the durable-evidence profile without validating a NEST evidence bundle.
+The checked success vector declares the NEST bundle-v2 profile.
+Every response still reports bundle verification as false.
+
+A failed source run can finish with zero observed steps.
+The prepared maximum remains between one and 1,024 steps.
+
+The runtime has no Agent Bridge command, action, intervention, PID, NCP, or network operation.
+It has no filesystem operation, artifact route, embodiment, plant, or actuation capability.
+The reviewed sandbox does not enforce filesystem isolation.
+Its receipts are descriptive local observations, not scientific evidence.
+Every child response reports `source_durable_evidence_verified=false`.
+An external tool can call Engram's exact bundle-to-run validator and emit a bounded summary.
+The matrix harness accepts CREBAIN capture v2 and evidence-index v2 only.
+It accepts installed-package proof v3 only.
+It reviews one-, two-, and three-drone captures in fixed order.
+It reopens exact Prisoma, CREBAIN, and Engram sources from clean pushed commits.
+It reads the `real-nest-3.9-v2` evidence roster and retains the v1 input suite.
+It separates the CREBAIN source commit, C0, from publication commit C1.
+C1 must be C0's direct single-parent child.
+C1 may add only the index and three capture blobs.
+It validates CREBAIN tool, build, stage, pack, package, and installed-proof lineage.
+The pack receipt binds committed `scripts/engram_extension.py` bytes and Git identity.
+Each capture joins that tool row to its loaded host-module source closure.
+This join does not attest Python bytecode, interpreter state, or dependency bytes.
+Each run has a distinct runtime source closure and one common stable source roster.
+It verifies each exact eight-row V5 receipt-store roster.
+It rederives terminal, evidence, store metadata, and lock bytes.
+It validates four sidecar paths and their opaque captured identities.
+Capture v2 does not embed those four sidecar bodies.
+It also rejoins V2 launch, preparation, capabilities, and step-attempt receipts.
+It also joins 6N topology and guardian lifecycle.
+Historical evidence-index v1 remains audit-only.
+It runs the release observer and the external Engram validator for each capture.
+
+The package template and authoring recipe are in `managed-observer/`.
+Package staging requires the adjacent clean-source arm64 build receipt.
+The receipt binds exact source, toolchain, and Mach-O bytes without granting runtime authority.
+Staging emits a separate receipt for the exact build and package bytes.
+The stage receipt grants no installation, execution, NCP, or MUSIC authority.
+The real-binary fixture normalizes only runtime nonces and envelope message identifiers.
+It preserves every deterministic semantic receipt.
+
+A historical v1 receipt records one temporary-store launch and clean reap.
+Its source state was a working-tree candidate.
+The current v2 operational gate remains `NOT RUN`.
+The v2 contract requires verified staging and guardian process-group closure.
+No evidence grants production manager, publisher, NCP, physical, or scientific authority.
+Read [the managed observer guide](managed-observer/README.md) before packaging.
+
 ## Start the hosted profile
 
 Run this command from the Prisoma repository:

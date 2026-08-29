@@ -42,6 +42,7 @@ check:
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --all-features --no-deps
     just python-lint
     just python-test
+    just engram-managed-observer-check
     just firebreak
     just docs-audit
     just notices-check
@@ -152,6 +153,66 @@ ncp-fault-observatory out="outputs/ncp_fault_observatory":
 # Complete tests for the workspace-excluded read-only NCP observer crate.
 ncp-observer-test:
     cargo test --locked --manifest-path crates/ncp-observer/Cargo.toml
+
+# Complete Host API 2 gate for the workspace-excluded, read-only Engram observer.
+engram-managed-observer-check:
+    cargo fmt --manifest-path crates/engram-managed-observer/Cargo.toml -- --check
+    cargo check --locked --manifest-path crates/engram-managed-observer/Cargo.toml --all-targets --all-features
+    cargo test --locked --manifest-path crates/engram-managed-observer/Cargo.toml --all-targets --all-features
+    cargo clippy --locked --manifest-path crates/engram-managed-observer/Cargo.toml --all-targets --all-features -- -D warnings
+    RUSTDOCFLAGS="-D warnings" cargo doc --locked --manifest-path crates/engram-managed-observer/Cargo.toml --all-features --no-deps
+    cargo build --locked --release --manifest-path crates/engram-managed-observer/Cargo.toml --bin prisoma-engram-managed-observer
+    uv run --no-sync ruff check integrations/engram/managed-observer/scripts
+    uv run --no-sync ruff format --check integrations/engram/managed-observer/scripts
+    python3 integrations/engram/managed-observer/scripts/test_source_provenance.py
+    python3 integrations/engram/managed-observer/scripts/test_stage_receipt.py
+    python3 integrations/engram/managed-observer/scripts/check-contract.py
+    python3 integrations/engram/managed-observer/scripts/generate-transcript.py --binary crates/engram-managed-observer/target/release/prisoma-engram-managed-observer --verify integrations/engram/managed-observer/sample-transcript.json
+    python3 integrations/engram/managed-observer/scripts/review-crebain-real-nest-matrix.py --binary crates/engram-managed-observer/target/release/prisoma-engram-managed-observer --self-test
+
+# Clean-source arm64 release gate. The receipt grants no production or scientific authority.
+engram-managed-observer-observed-release expected_revision:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test "$(uname -s)" = "Darwin"
+    test "$(uname -m)" = "arm64"
+    cargo fetch --locked --manifest-path crates/engram-managed-observer/Cargo.toml
+    receipt="crates/engram-managed-observer/target/release/prisoma-engram-managed-observer.observed-build.json"
+    python3 integrations/engram/managed-observer/scripts/build-release-observer.py \
+      --expected-prisoma-revision {{ quote(expected_revision) }} \
+      --output-receipt "$receipt"
+    python3 integrations/engram/managed-observer/scripts/build-release-observer.py \
+      --expected-prisoma-revision {{ quote(expected_revision) }} \
+      --output-receipt "$receipt" --verify
+    python3 integrations/engram/managed-observer/scripts/generate-transcript.py \
+      --binary crates/engram-managed-observer/target/release/prisoma-engram-managed-observer \
+      --verify integrations/engram/managed-observer/sample-transcript.json
+    python3 integrations/engram/managed-observer/scripts/review-crebain-real-nest-matrix.py \
+      --binary crates/engram-managed-observer/target/release/prisoma-engram-managed-observer \
+      --self-test
+    just engram-managed-observer-stage-check {{ quote(expected_revision) }}
+
+engram-managed-observer-stage-check expected_revision:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    stage_root="$(mktemp -d "${TMPDIR:-/tmp}/prisoma-managed-observer.XXXXXX")"
+    trap 'rm -rf "$stage_root"' EXIT
+    recipe="integrations/engram/managed-observer/authoring.macos-aarch64-darwin.json"
+    configuration="integrations/engram/managed-observer/configuration.json"
+    recipe_mode="$(python3 -c 'import os, sys; print(os.stat(sys.argv[1], follow_symlinks=False).st_mode)' "$recipe")"
+    configuration_mode="$(python3 -c 'import os, sys; print(os.stat(sys.argv[1], follow_symlinks=False).st_mode)' "$configuration")"
+    receipt="crates/engram-managed-observer/target/release/prisoma-engram-managed-observer.observed-build.json"
+    python3 integrations/engram/managed-observer/scripts/stage-package.py \
+      --binary-build-receipt "$receipt" \
+      --expected-prisoma-revision {{ quote(expected_revision) }} \
+      --output "$stage_root/package" \
+      --stage-receipt "$stage_root/package-stage-receipt.json"
+    test -x "$stage_root/package/bin/prisoma-engram-managed-observer"
+    test "$(find "$stage_root/package" -type f | wc -l | tr -d ' ')" = 9
+    test "$(python3 -c 'import os, stat, sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1], follow_symlinks=False).st_mode)))' "$stage_root/package-stage-receipt.json")" = "0o600"
+    test "$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["schema_version"])' "$stage_root/package-stage-receipt.json")" = "prisoma.observer.package-stage-receipt.v1"
+    test "$recipe_mode" = "$(python3 -c 'import os, sys; print(os.stat(sys.argv[1], follow_symlinks=False).st_mode)' "$recipe")"
+    test "$configuration_mode" = "$(python3 -c 'import os, sys; print(os.stat(sys.argv[1], follow_symlinks=False).st_mode)' "$configuration")"
 
 # Experiment 0 gate (Rust-side smoke subset).
 # Full Experiment 0 will later be orchestrated via python/experiments/.

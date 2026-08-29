@@ -113,6 +113,7 @@ REQUIRED_FEATURE_IDS = frozenset(
         "governance.world_model_claim_ledger",
         "integration.standard_format_adapters",
         "integration.structurally_different_adapter",
+        "observer.engram_managed_read_only",
         "observer.ncp_fault_observatory",
         "observer.ncp_read_only",
         "pid.estimator_core",

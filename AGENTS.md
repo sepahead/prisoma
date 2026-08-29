@@ -45,6 +45,7 @@ being true as the code moves).
   - [Python experiments (`experiments/`, tracked packages)](#python-experiments-experiments-tracked-packages)
   - [Attribution / mechanistic-probe tooling (H4 / exploratory)](#attribution--mechanistic-probe-tooling-h4--exploratory)
   - [NCP observer (`crates/ncp-observer`, optional)](#ncp-observer-cratesncp-observer-optional)
+  - [Engram managed observer (`crates/engram-managed-observer`, optional)](#engram-managed-observer-cratesengram-managed-observer-optional)
   - [Specified but not built](#specified-but-not-built)
 - [Gates before any PR or commit](#gates-before-any-pr-or-commit)
 - [Useful commands](#useful-commands)
@@ -548,6 +549,35 @@ No live Paper2Brain-to-Prisoma producer, NCP bridge, wire translator, or authori
   `metadata.split`/`episode_id`/
   `success` structure lands. See `crates/ncp-observer/README.md` and the developer handoff
   `NCP_DEV_PROMPT.md`.
+
+### Engram managed observer (`crates/engram-managed-observer`, optional)
+
+This workspace-excluded crate implements a Host API 2 read-only child.
+It verifies exact Engram step, cleanup, transcript, and terminal receipt digests.
+
+The lifecycle is `prepare`, zero or more ordered `observe` calls, then `finish`.
+Preparation records one to 64 host-declared channels and an equal subject roster.
+Engram source receipts do not authenticate that roster.
+The maximum prepared step count is one to 1,024.
+A failed or cancelled source run can finish with zero observed steps.
+
+Every operation uses class `observation`, effect `none`, and compute grant `none`.
+The child has no Agent Bridge command, PID result, NCP, artifact, filesystem operation, network operation, or actuation path.
+The reviewed sandbox does not enforce filesystem isolation.
+Its receipts are descriptive local observations only.
+The child mirrors Engram's terminal durable-evidence profile.
+It always reports `source_durable_evidence_verified=false`.
+Validate a full NEST evidence bundle only in the external bounded summary tool.
+
+Run `just engram-managed-observer-check` after any related change.
+Run `just engram-managed-observer-observed-release <commit>` on Apple silicon before staging.
+The observed release requires a clean checkout at the exact `origin/main` commit.
+Never infer release provenance from the target path or executable mode.
+Do not alter the Host API 1.1 manifest or lock through this package.
+Do not claim a sealed installation or production manager execution without its exact receipt.
+Regenerate source fixtures with Engram's builder after any source receipt change.
+The tracked v1 receipt is historical audit data only.
+The current v2 operational gate remains `NOT RUN`.
 
 ### Specified but not built
 

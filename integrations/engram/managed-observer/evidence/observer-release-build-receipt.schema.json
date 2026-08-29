@@ -1,0 +1,367 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engram.local/extension-contracts/prisoma.observer.release-build-receipt.v1.json",
+  "title": "Prisoma Engram managed observer release build receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "observation_scope",
+    "repository",
+    "source",
+    "toolchain",
+    "build",
+    "artifact",
+    "authority",
+    "disclosure",
+    "receipt_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "prisoma.observer.release-build-receipt.v1"
+    },
+    "observation_scope": {
+      "const": "one-local-clean-source-build-observation-v1"
+    },
+    "repository": { "$ref": "#/$defs/repository" },
+    "source": { "$ref": "#/$defs/source" },
+    "toolchain": { "$ref": "#/$defs/toolchain" },
+    "build": { "$ref": "#/$defs/build" },
+    "artifact": { "$ref": "#/$defs/artifact" },
+    "authority": { "$ref": "#/$defs/authority" },
+    "disclosure": { "$ref": "#/$defs/text" },
+    "receipt_sha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "git_oid": {
+      "anyOf": [
+        { "type": "string", "minLength": 40, "maxLength": 40 },
+        { "type": "string", "minLength": 64, "maxLength": 64 }
+      ]
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "commit",
+        "tree",
+        "origin_main",
+        "object_format",
+        "clean"
+      ],
+      "properties": {
+        "repository": { "$ref": "#/$defs/text" },
+        "commit": { "$ref": "#/$defs/git_oid" },
+        "tree": { "$ref": "#/$defs/git_oid" },
+        "origin_main": { "$ref": "#/$defs/git_oid" },
+        "object_format": { "enum": ["sha1", "sha256"] },
+        "clean": { "const": true }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "object_format": { "const": "sha1" } },
+            "required": ["object_format"]
+          },
+          "then": {
+            "properties": {
+              "commit": { "type": "string", "minLength": 40, "maxLength": 40 },
+              "tree": { "type": "string", "minLength": 40, "maxLength": 40 },
+              "origin_main": { "type": "string", "minLength": 40, "maxLength": 40 }
+            }
+          },
+          "else": {
+            "properties": {
+              "commit": { "type": "string", "minLength": 64, "maxLength": 64 },
+              "tree": { "type": "string", "minLength": 64, "maxLength": 64 },
+              "origin_main": { "type": "string", "minLength": 64, "maxLength": 64 }
+            }
+          }
+        }
+      ]
+    },
+    "source_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "size_bytes",
+        "sha256",
+        "git_mode",
+        "git_blob"
+      ],
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16777216
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "git_mode": { "enum": ["100644", "100755"] },
+        "git_blob": { "$ref": "#/$defs/git_oid" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_path",
+        "lock_path",
+        "source_roster",
+        "source_roster_sha256",
+        "cargo_configuration_files"
+      ],
+      "properties": {
+        "manifest_path": {
+          "const": "crates/engram-managed-observer/Cargo.toml"
+        },
+        "lock_path": {
+          "const": "crates/engram-managed-observer/Cargo.lock"
+        },
+        "source_roster": {
+          "type": "array",
+          "minItems": 15,
+          "maxItems": 128,
+          "items": { "$ref": "#/$defs/source_row" }
+        },
+        "source_roster_sha256": { "$ref": "#/$defs/sha256" },
+        "cargo_configuration_files": {
+          "type": "array",
+          "maxItems": 0
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "resolved_path",
+        "size_bytes",
+        "sha256",
+        "version_verbose",
+        "version_verbose_sha256"
+      ],
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "resolved_path": { "$ref": "#/$defs/path" },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "version_verbose": { "$ref": "#/$defs/text" },
+        "version_verbose_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cargo",
+        "rustc",
+        "rustc_host",
+        "rustc_release",
+        "rustc_commit_hash",
+        "rustc_commit_date",
+        "llvm_version"
+      ],
+      "properties": {
+        "cargo": { "$ref": "#/$defs/tool" },
+        "rustc": { "$ref": "#/$defs/tool" },
+        "rustc_host": { "const": "aarch64-apple-darwin" },
+        "rustc_release": { "$ref": "#/$defs/text" },
+        "rustc_commit_hash": { "$ref": "#/$defs/git_oid" },
+        "rustc_commit_date": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10
+        },
+        "llvm_version": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 64
+        }
+      }
+    },
+    "stream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["size_bytes", "sha256"],
+      "properties": {
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16777216
+        },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "argv",
+        "profile",
+        "locked",
+        "offline",
+        "incremental",
+        "target_directory_isolated",
+        "environment",
+        "exit_code",
+        "stdout",
+        "stderr"
+      ],
+      "properties": {
+        "argv": {
+          "type": "array",
+          "minItems": 11,
+          "maxItems": 11,
+          "items": { "$ref": "#/$defs/text" }
+        },
+        "profile": { "const": "release" },
+        "locked": { "const": true },
+        "offline": { "const": true },
+        "incremental": { "const": false },
+        "target_directory_isolated": { "const": true },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "CARGO_INCREMENTAL",
+            "LC_ALL",
+            "RUST_BACKTRACE",
+            "SOURCE_DATE_EPOCH"
+          ],
+          "properties": {
+            "CARGO_INCREMENTAL": { "const": "0" },
+            "LC_ALL": { "const": "C" },
+            "RUST_BACKTRACE": { "const": "0" },
+            "SOURCE_DATE_EPOCH": { "const": "0" }
+          }
+        },
+        "exit_code": { "const": 0 },
+        "stdout": { "$ref": "#/$defs/stream" },
+        "stderr": { "$ref": "#/$defs/stream" }
+      }
+    },
+    "macho": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "magic",
+        "bits",
+        "endianness",
+        "cpu_type",
+        "cpu_subtype",
+        "file_type",
+        "load_command_count",
+        "load_command_bytes",
+        "flags",
+        "reserved",
+        "build_platform",
+        "minimum_os",
+        "sdk"
+      ],
+      "properties": {
+        "magic": { "const": "feedfacf" },
+        "bits": { "const": 64 },
+        "endianness": { "const": "little" },
+        "cpu_type": { "const": 16777228 },
+        "cpu_subtype": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "file_type": { "const": 2 },
+        "load_command_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "load_command_bytes": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 16777216
+        },
+        "flags": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "reserved": { "const": 0 },
+        "build_platform": { "const": "macos" },
+        "minimum_os": { "$ref": "#/$defs/text" },
+        "sdk": { "$ref": "#/$defs/text" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "size_bytes",
+        "sha256",
+        "mode",
+        "owner_private",
+        "executable",
+        "link_count",
+        "macho"
+      ],
+      "properties": {
+        "path": {
+          "const": "crates/engram-managed-observer/target/release/prisoma-engram-managed-observer"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "mode": { "const": "0700" },
+        "owner_private": { "const": true },
+        "executable": { "const": true },
+        "link_count": { "const": 1 },
+        "macho": { "$ref": "#/$defs/macho" }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observed_local_build_only",
+        "reproducible_build_attested",
+        "publisher_authenticated",
+        "loaded_bytes_attested",
+        "external_dependency_closure_attested",
+        "production_manager_execution",
+        "ncp_authority",
+        "music_authority",
+        "physical_authority",
+        "scientific_authority"
+      ],
+      "properties": {
+        "observed_local_build_only": { "const": true },
+        "reproducible_build_attested": { "const": false },
+        "publisher_authenticated": { "const": false },
+        "loaded_bytes_attested": { "const": false },
+        "external_dependency_closure_attested": { "const": false },
+        "production_manager_execution": { "const": false },
+        "ncp_authority": { "const": false },
+        "music_authority": { "const": false },
+        "physical_authority": { "const": false },
+        "scientific_authority": { "const": false }
+      }
+    }
+  }
+}

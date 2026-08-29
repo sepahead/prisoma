@@ -1,0 +1,165 @@
+{
+  "schema_version": "2.0",
+  "id": "sepahead.prisoma.observer",
+  "name": "Prisoma closed-loop receipt observer",
+  "version": "0.1.0",
+  "description": "A bounded read-only observer for content-bound Engram closed-loop receipts.",
+  "host_api": {
+    "minimum": "2.0",
+    "maximum": "2.0"
+  },
+  "presentation": {
+    "mode": "none"
+  },
+  "runtime": {
+    "mode": "managed-headless",
+    "profile": "engram.reviewed-native-development.v1",
+    "reviewed_package": {
+      "lock_schema": "engram.extension-package-lock.v1",
+      "target_id": "macos-aarch64-darwin",
+      "lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "package_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "executable_catalog_id": "sepahead.prisoma.observer.runtime.v1"
+    },
+    "configuration": {
+      "catalog_id": "sepahead.prisoma.observer.configuration.v1",
+      "schema": {
+        "schema_id": "prisoma.observer.configuration.v1",
+        "schema_sha256": "fbbaa194a425cf7cf86c1c993c6c2248c22e9556f1b591e47dea65d435c233a0"
+      },
+      "max_bytes": 4096
+    },
+    "transport": {
+      "kind": "inherited-private-pipes",
+      "framing": "uint32-be-length-prefixed-json",
+      "contract": {
+        "schema_id": "engram.managed-runtime-ipc.v1",
+        "schema_sha256": "e6950a2b3d1913ebacb82823afe648538ec789fe845ed3894b2122dd9864cfc1"
+      },
+      "host_to_runtime": "inherited-read-pipe",
+      "runtime_to_host": "inherited-write-pipe",
+      "diagnostics": "bounded-inherited-write-pipe",
+      "descriptor_inheritance": "explicit-private-only"
+    },
+    "lifecycle": {
+      "control_plane": "host-manager-only",
+      "readiness_authority": "host-manager-only",
+      "ipc_lifecycle_messages_enabled": false,
+      "startup_timeout_ms": 10000,
+      "handshake_timeout_ms": 5000,
+      "shutdown_timeout_ms": 3000,
+      "kill_timeout_ms": 1000,
+      "max_generation_lifetime_ms": 1800000
+    },
+    "restart_policy": {
+      "mode": "bounded",
+      "max_restarts": 0,
+      "window_ms": 60000,
+      "backoff_ms": 1000,
+      "healthy_reset_ms": 120000,
+      "on_exhaustion": "stop"
+    },
+    "resources": {
+      "max_frame_bytes": 65536,
+      "max_inflight_operations": 1,
+      "max_operations_per_generation": 1042,
+      "max_operation_timeout_ms": 1000,
+      "max_memory_bytes": 67108864,
+      "max_cpu_time_ms": 60000,
+      "max_diagnostic_bytes": 1048576,
+      "max_artifact_bytes": 0,
+      "max_processes": 1
+    },
+    "operations": [
+      {
+        "operation_id": "prisoma.observer.finish.v1",
+        "class": "observation",
+        "effect": "none",
+        "artifact_access": {
+          "read": "none",
+          "write": "none"
+        },
+        "request_schema": {
+          "schema_id": "prisoma.observer.finish-request.v1",
+          "schema_sha256": "937ee57489148a3bfd2cd1581909b7e8d33c48bf5b7fcc66ee115742234a2ada"
+        },
+        "response_schema": {
+          "schema_id": "prisoma.observer.finish-response.v1",
+          "schema_sha256": "7318b7f85c76a5e06939885cceee4be00a2411bd0a100273a58fcd03e4b9af23"
+        },
+        "compute_grant": "none",
+        "timeout_ms": 1000,
+        "max_cpu_time_ms": 0,
+        "max_request_bytes": 32768,
+        "max_response_bytes": 8192
+      },
+      {
+        "operation_id": "prisoma.observer.observe.v1",
+        "class": "observation",
+        "effect": "none",
+        "artifact_access": {
+          "read": "none",
+          "write": "none"
+        },
+        "request_schema": {
+          "schema_id": "prisoma.observer.observe-request.v1",
+          "schema_sha256": "6e1c29ca1125b06a68bafe064c2e8896bf078a951eda5fdc4b53c9e36bfd4315"
+        },
+        "response_schema": {
+          "schema_id": "prisoma.observer.observe-response.v1",
+          "schema_sha256": "2644548950d5b7c9a81717ffe12029e0c4b99ad19402b651187f6e8f9b6c8541"
+        },
+        "compute_grant": "none",
+        "timeout_ms": 1000,
+        "max_cpu_time_ms": 0,
+        "max_request_bytes": 49152,
+        "max_response_bytes": 8192
+      },
+      {
+        "operation_id": "prisoma.observer.prepare.v1",
+        "class": "observation",
+        "effect": "none",
+        "artifact_access": {
+          "read": "none",
+          "write": "none"
+        },
+        "request_schema": {
+          "schema_id": "prisoma.observer.prepare-request.v1",
+          "schema_sha256": "b130655ad352c537ecf13ebd66bf298102c04fab817c45629cf8eb4817dc0882"
+        },
+        "response_schema": {
+          "schema_id": "prisoma.observer.prepare-response.v1",
+          "schema_sha256": "e245dde13ed210158302eb8754f02384c76e580c5dbcd5687c319d0b629b0d57"
+        },
+        "compute_grant": "none",
+        "timeout_ms": 1000,
+        "max_cpu_time_ms": 0,
+        "max_request_bytes": 32768,
+        "max_response_bytes": 8192
+      }
+    ]
+  },
+  "capabilities": [
+    "operations.observation",
+    "runtime.managed-headless"
+  ],
+  "authority": {
+    "physical_actuation": false,
+    "plant_control": false,
+    "agent_direct_execution": false,
+    "scientific_authority": false,
+    "is_paper_local_evidence": false,
+    "calibrated_posterior": false
+  },
+  "ncp": {
+    "mode": "none",
+    "activation_enabled": false,
+    "host_compatible": false
+  },
+  "boundaries": [
+    "Engram owns lifecycle, readiness, deadlines, cancellation, and termination.",
+    "Prisoma verifies exact source receipts and emits descriptive local receipts.",
+    "Channel and subject identifiers remain a host-declared, unauthenticated projection.",
+    "The observer accepts no commands and grants no control or scientific authority."
+  ]
+}

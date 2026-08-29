@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engram.local/extension-contracts/prisoma.observer.engram-nest-evidence-validation-summary.v1.json",
+  "title": "Prisoma external Engram NEST evidence validation summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "validation_scope",
+    "prisoma_repository",
+    "prisoma_validator_source_roster_sha256",
+    "prisoma_validator_source_roster",
+    "engram_repository",
+    "engram_revision",
+    "engram_imported_source_roster_sha256",
+    "engram_imported_source_roster",
+    "inputs",
+    "lineage",
+    "authority",
+    "receipt_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "prisoma.observer.engram-nest-evidence-validation-summary.v1"
+    },
+    "validation_scope": {
+      "const": "engram-exact-validator-rejoin-only"
+    },
+    "prisoma_repository": { "$ref": "#/$defs/repository" },
+    "prisoma_validator_source_roster_sha256": { "$ref": "#/$defs/sha256" },
+    "prisoma_validator_source_roster": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/validator_source_file" }
+    },
+    "engram_repository": { "$ref": "#/$defs/repository" },
+    "engram_revision": {
+      "$ref": "#/$defs/git_object"
+    },
+    "engram_imported_source_roster_sha256": { "$ref": "#/$defs/sha256" },
+    "engram_imported_source_roster": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/engram_source_file" }
+    },
+    "inputs": { "$ref": "#/$defs/inputs" },
+    "lineage": { "$ref": "#/$defs/lineage" },
+    "authority": { "$ref": "#/$defs/authority" },
+    "receipt_sha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "git_object": {
+      "anyOf": [
+        { "type": "string", "minLength": 40, "maxLength": 40 },
+        { "type": "string", "minLength": 64, "maxLength": 64 }
+      ]
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "commit",
+        "tree",
+        "origin_main",
+        "object_format",
+        "clean"
+      ],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "commit": { "$ref": "#/$defs/git_object" },
+        "tree": { "$ref": "#/$defs/git_object" },
+        "origin_main": { "$ref": "#/$defs/git_object" },
+        "object_format": { "enum": ["sha1", "sha256"] },
+        "clean": { "const": true }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "object_format": { "const": "sha1" } },
+            "required": ["object_format"]
+          },
+          "then": {
+            "properties": {
+              "commit": { "type": "string", "minLength": 40, "maxLength": 40 },
+              "tree": { "type": "string", "minLength": 40, "maxLength": 40 },
+              "origin_main": { "type": "string", "minLength": 40, "maxLength": 40 }
+            }
+          },
+          "else": {
+            "properties": {
+              "commit": { "type": "string", "minLength": 64, "maxLength": 64 },
+              "tree": { "type": "string", "minLength": 64, "maxLength": 64 },
+              "origin_main": { "type": "string", "minLength": 64, "maxLength": 64 }
+            }
+          }
+        }
+      ]
+    },
+    "validator_source_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "git_blob", "byte_count"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "git_blob": { "$ref": "#/$defs/git_object" },
+        "byte_count": { "type": "integer", "minimum": 1, "maximum": 1048576 }
+      }
+    },
+    "nullable_sha256": {
+      "anyOf": [
+        { "$ref": "#/$defs/sha256" },
+        { "type": "null" }
+      ]
+    },
+    "engram_source_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "git_blob",
+        "byte_count",
+        "module_names"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "git_blob": { "$ref": "#/$defs/git_object" },
+        "byte_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16777216
+        },
+        "module_names": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary_schema_exact_sha256",
+        "run_receipt_exact_sha256",
+        "evidence_bundle_exact_sha256",
+        "source_run_receipt_sha256",
+        "source_bundle_sha256",
+        "validation_input_sha256"
+      ],
+      "properties": {
+        "summary_schema_exact_sha256": { "$ref": "#/$defs/sha256" },
+        "run_receipt_exact_sha256": { "$ref": "#/$defs/sha256" },
+        "evidence_bundle_exact_sha256": { "$ref": "#/$defs/sha256" },
+        "source_run_receipt_sha256": { "$ref": "#/$defs/sha256" },
+        "source_bundle_sha256": { "$ref": "#/$defs/sha256" },
+        "validation_input_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "study_run_id",
+        "neural_durable_evidence_profile",
+        "neural_provider_identity_sha256",
+        "run_status",
+        "preparation_phase",
+        "preparation_outcome",
+        "completed_step_count",
+        "terminal_neural_execution_count",
+        "provider_step_execution_count",
+        "provider_step_attempt_count",
+        "worker_termination_attempt_count",
+        "worker_terminal_disposition",
+        "tail_disposition_receipt_sha256",
+        "worker_lifecycle_receipt_sha256",
+        "neural_cleanup_confirmed",
+        "validated_against_run"
+      ],
+      "properties": {
+        "study_run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "neural_durable_evidence_profile": {
+          "const": "engram.nest-closed-loop-evidence-bundle.v2"
+        },
+        "neural_provider_identity_sha256": { "$ref": "#/$defs/sha256" },
+        "run_status": {
+          "enum": ["completed", "cancelled", "overloaded", "failed"]
+        },
+        "preparation_phase": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "preparation_outcome": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "completed_step_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1024
+        },
+        "terminal_neural_execution_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1024
+        },
+        "provider_step_execution_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1024
+        },
+        "provider_step_attempt_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1024
+        },
+        "worker_termination_attempt_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4096
+        },
+        "worker_terminal_disposition": {
+          "enum": [
+            "confirmed-lifecycle",
+            "unconfirmed-attempts",
+            "startup-contained",
+            "startup-unconfirmed",
+            "launch-not-attempted",
+            "unavailable"
+          ]
+        },
+        "tail_disposition_receipt_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "worker_lifecycle_receipt_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "neural_cleanup_confirmed": { "type": "boolean" },
+        "validated_against_run": { "const": true }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "descriptive_only",
+        "source_durable_evidence_verified",
+        "engram_loaded_source_bytes_attested",
+        "agent_bridge_command",
+        "execution_authority",
+        "pid_result",
+        "ncp_authority",
+        "physical_authority",
+        "scientific_authority",
+        "is_paper_local_evidence",
+        "calibrated_posterior"
+      ],
+      "properties": {
+        "descriptive_only": { "const": true },
+        "source_durable_evidence_verified": { "const": true },
+        "engram_loaded_source_bytes_attested": { "const": false },
+        "agent_bridge_command": { "const": false },
+        "execution_authority": { "const": false },
+        "pid_result": { "const": false },
+        "ncp_authority": { "const": false },
+        "physical_authority": { "const": false },
+        "scientific_authority": { "const": false },
+        "is_paper_local_evidence": { "const": false },
+        "calibrated_posterior": { "const": false }
+      }
+    }
+  }
+}

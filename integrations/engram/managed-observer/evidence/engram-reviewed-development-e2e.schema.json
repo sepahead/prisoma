@@ -1,0 +1,457 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engram.local/extension-contracts/prisoma.observer.engram-reviewed-development-e2e.v2.json",
+  "title": "Prisoma reviewed-development observer evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reviewed_development_only",
+    "production_manager_execution",
+    "real_child_process_executed",
+    "source",
+    "package",
+    "store",
+    "session",
+    "scenario",
+    "authority",
+    "receipt_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "prisoma.observer.engram-reviewed-development-e2e.v2"
+    },
+    "reviewed_development_only": { "const": true },
+    "production_manager_execution": { "const": false },
+    "real_child_process_executed": { "const": true },
+    "source": { "$ref": "#/$defs/source" },
+    "package": { "$ref": "#/$defs/package" },
+    "store": { "$ref": "#/$defs/store" },
+    "session": { "$ref": "#/$defs/session" },
+    "scenario": { "$ref": "#/$defs/scenario" },
+    "authority": { "$ref": "#/$defs/authority" },
+    "receipt_sha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "bounded_string": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "nullable_sha256": {
+      "anyOf": [
+        { "$ref": "#/$defs/sha256" },
+        { "type": "null" }
+      ]
+    },
+    "engram_source_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "git_blob",
+        "byte_count",
+        "module_names"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "git_blob": {
+          "type": "string",
+          "minLength": 40,
+          "maxLength": 40
+        },
+        "byte_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16777216
+        },
+        "module_names": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "engram_revision",
+        "engram_imported_source_roster_sha256",
+        "engram_imported_source_roster",
+        "engram_loaded_source_bytes_attested",
+        "sample_transcript_exact_sha256",
+        "source_fixture_exact_sha256",
+        "input_bundle_exact_sha256",
+        "source_run_receipt_sha256"
+      ],
+      "properties": {
+        "engram_revision": {
+          "type": "string",
+          "minLength": 40,
+          "maxLength": 40
+        },
+        "engram_imported_source_roster_sha256": { "$ref": "#/$defs/sha256" },
+        "engram_imported_source_roster": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/engram_source_file" }
+        },
+        "engram_loaded_source_bytes_attested": { "const": false },
+        "sample_transcript_exact_sha256": { "$ref": "#/$defs/sha256" },
+        "source_fixture_exact_sha256": { "$ref": "#/$defs/sha256" },
+        "input_bundle_exact_sha256": { "$ref": "#/$defs/sha256" },
+        "source_run_receipt_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "extension_id",
+        "extension_version",
+        "target_id",
+        "profile",
+        "installation_id",
+        "package_generation_id",
+        "bundle_receipt_sha256",
+        "executable_sha256",
+        "operation_roster_sha256",
+        "schema_registry_sha256",
+        "installation_disposition",
+        "publisher_authentication"
+      ],
+      "properties": {
+        "extension_id": { "const": "sepahead.prisoma.observer" },
+        "extension_version": { "const": "0.1.0" },
+        "target_id": { "const": "macos-aarch64-darwin" },
+        "profile": { "const": "engram.reviewed-native-development.v1" },
+        "installation_id": { "$ref": "#/$defs/bounded_string" },
+        "package_generation_id": { "$ref": "#/$defs/bounded_string" },
+        "bundle_receipt_sha256": { "$ref": "#/$defs/sha256" },
+        "executable_sha256": { "$ref": "#/$defs/sha256" },
+        "operation_roster_sha256": { "$ref": "#/$defs/sha256" },
+        "schema_registry_sha256": { "$ref": "#/$defs/sha256" },
+        "installation_disposition": { "const": "installed" },
+        "publisher_authentication": { "const": "publisher-unattested" }
+      }
+    },
+    "store": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "store_id",
+        "installation_observation_sha256",
+        "live_lease_removal_rejected",
+        "live_lease_removal_reason",
+        "post_reap_removal_disposition",
+        "post_reap_removal_recoverable",
+        "active_generation_count_after_removal",
+        "temporary_store_retained",
+        "temporary_store_generation_bytes_retained",
+        "input_bundle_retained_by_harness"
+      ],
+      "properties": {
+        "store_id": { "$ref": "#/$defs/bounded_string" },
+        "installation_observation_sha256": { "$ref": "#/$defs/sha256" },
+        "live_lease_removal_rejected": { "const": true },
+        "live_lease_removal_reason": { "const": "store.live-lease" },
+        "post_reap_removal_disposition": {
+          "const": "removed-to-retired-storage"
+        },
+        "post_reap_removal_recoverable": { "const": true },
+        "active_generation_count_after_removal": { "const": 0 },
+        "temporary_store_retained": { "const": false },
+        "temporary_store_generation_bytes_retained": { "const": false },
+        "input_bundle_retained_by_harness": { "const": true }
+      }
+    },
+    "handshake": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_sha256",
+        "launch_source",
+        "store_id",
+        "package_generation_id",
+        "package_generation_lease_retained",
+        "process_launch_performed",
+        "explicit_absolute_path_spawn",
+        "path_lookup_at_spawn",
+        "package_path_reopened_for_spawn",
+        "verified_executable_staged",
+        "staged_executable_owner_private",
+        "staged_executable_user_immutable",
+        "process_group_containment",
+        "guardian_owner_loss_seal",
+        "guardian_generation_lease_retained",
+        "guardian_uncertainty_record_prepared",
+        "descendant_creation_denied",
+        "os_sandbox_enforced",
+        "network_isolation_enforced",
+        "filesystem_isolation_enforced",
+        "external_dependency_closure_attested",
+        "automatic_restart",
+        "publisher_authenticated",
+        "durable_process_launch_authority",
+        "replayable_live_launch_authority",
+        "ncp_authority",
+        "physical_authority",
+        "scientific_authority"
+      ],
+      "properties": {
+        "receipt_sha256": { "$ref": "#/$defs/sha256" },
+        "launch_source": { "const": "package-store-lease" },
+        "store_id": { "$ref": "#/$defs/bounded_string" },
+        "package_generation_id": { "$ref": "#/$defs/bounded_string" },
+        "package_generation_lease_retained": { "const": true },
+        "process_launch_performed": { "const": true },
+        "explicit_absolute_path_spawn": { "const": true },
+        "path_lookup_at_spawn": { "const": true },
+        "package_path_reopened_for_spawn": { "const": false },
+        "verified_executable_staged": { "const": true },
+        "staged_executable_owner_private": { "const": true },
+        "staged_executable_user_immutable": { "const": true },
+        "process_group_containment": { "const": true },
+        "guardian_owner_loss_seal": { "const": true },
+        "guardian_generation_lease_retained": { "const": true },
+        "guardian_uncertainty_record_prepared": { "const": true },
+        "descendant_creation_denied": { "const": true },
+        "os_sandbox_enforced": { "const": true },
+        "network_isolation_enforced": { "const": true },
+        "filesystem_isolation_enforced": { "const": false },
+        "external_dependency_closure_attested": { "const": false },
+        "automatic_restart": { "const": false },
+        "publisher_authenticated": { "const": false },
+        "durable_process_launch_authority": { "const": false },
+        "replayable_live_launch_authority": { "const": false },
+        "ncp_authority": { "const": false },
+        "physical_authority": { "const": false },
+        "scientific_authority": { "const": false }
+      }
+    },
+    "response_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 19,
+      "maxProperties": 19,
+      "properties": {
+        "study_run_id": { "$ref": "#/$defs/bounded_string" },
+        "step_index": { "type": "integer", "minimum": 0, "maximum": 1024 },
+        "source_receipt_sha256": { "$ref": "#/$defs/nullable_sha256" },
+        "observer_receipt_sha256": { "$ref": "#/$defs/sha256" },
+        "observer_transcript_sha256": { "$ref": "#/$defs/sha256" },
+        "terminal": { "type": "boolean" },
+        "state_cleared": { "type": "boolean" },
+        "authority": { "const": "read-only-observer" },
+        "roster_authority": { "const": "host-declared-projection" },
+        "source_roster_authenticated": { "const": false },
+        "descriptive_only": { "const": true },
+        "agent_bridge_command": { "const": false },
+        "physical_actuation": { "const": false },
+        "ncp_used": { "const": false },
+        "pid_result": { "const": false },
+        "source_durable_evidence_verified": { "const": false },
+        "scientific_authority": { "const": false },
+        "is_paper_local_evidence": { "const": false },
+        "calibrated_posterior": { "const": false }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "operation_class",
+        "compute_grant",
+        "max_cpu_time_ms",
+        "status",
+        "request_frame_sha256",
+        "response_frame_sha256",
+        "expected_response_control_sha256",
+        "live_response_control_sha256",
+        "semantic_response_exact_match",
+        "response"
+      ],
+      "properties": {
+        "operation_id": {
+          "enum": [
+            "prisoma.observer.prepare.v1",
+            "prisoma.observer.observe.v1",
+            "prisoma.observer.finish.v1"
+          ]
+        },
+        "operation_class": { "const": "observation" },
+        "compute_grant": { "const": "none" },
+        "max_cpu_time_ms": { "const": 0 },
+        "status": { "const": "succeeded" },
+        "request_frame_sha256": { "$ref": "#/$defs/sha256" },
+        "response_frame_sha256": { "$ref": "#/$defs/sha256" },
+        "expected_response_control_sha256": { "$ref": "#/$defs/sha256" },
+        "live_response_control_sha256": { "$ref": "#/$defs/sha256" },
+        "semantic_response_exact_match": { "const": true },
+        "response": { "$ref": "#/$defs/response_projection" }
+      }
+    },
+    "termination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_sha256",
+        "handshake_receipt_sha256",
+        "disposition",
+        "reason_code",
+        "exit_code",
+        "termination_signal",
+        "child_reaped",
+        "guardian_reaped",
+        "group_signal_while_guardian_unreaped",
+        "direct_child_signal_while_unreaped",
+        "containment_signal_scope",
+        "containment_seal_signal",
+        "containment_empty",
+        "diagnostic_stream_complete",
+        "private_work_directory_removed",
+        "package_generation_lease_released",
+        "guardian_generation_lease_held_until_containment",
+        "durable_process_launch_authority",
+        "ncp_authority",
+        "physical_authority",
+        "scientific_authority"
+      ],
+      "properties": {
+        "receipt_sha256": { "$ref": "#/$defs/sha256" },
+        "handshake_receipt_sha256": { "$ref": "#/$defs/sha256" },
+        "disposition": { "const": "clean-exit" },
+        "reason_code": { "const": "runtime.clean-exit" },
+        "exit_code": { "const": 0 },
+        "termination_signal": { "type": "null" },
+        "child_reaped": { "const": true },
+        "guardian_reaped": { "const": true },
+        "group_signal_while_guardian_unreaped": { "const": true },
+        "direct_child_signal_while_unreaped": { "const": false },
+        "containment_signal_scope": { "const": "process-group" },
+        "containment_seal_signal": { "const": 9 },
+        "containment_empty": { "const": true },
+        "diagnostic_stream_complete": { "const": true },
+        "private_work_directory_removed": { "const": true },
+        "package_generation_lease_released": { "const": true },
+        "guardian_generation_lease_held_until_containment": { "const": true },
+        "durable_process_launch_authority": { "const": false },
+        "ncp_authority": { "const": false },
+        "physical_authority": { "const": false },
+        "scientific_authority": { "const": false }
+      }
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generation_id",
+        "generation_ordinal",
+        "handshake",
+        "operations",
+        "termination",
+        "runtime_lifecycle_binding_sha256",
+        "clean_exit_confirmed"
+      ],
+      "properties": {
+        "generation_id": { "$ref": "#/$defs/bounded_string" },
+        "generation_ordinal": { "const": 1 },
+        "handshake": { "$ref": "#/$defs/handshake" },
+        "operations": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/operation" }
+        },
+        "termination": { "$ref": "#/$defs/termination" },
+        "runtime_lifecycle_binding_sha256": { "$ref": "#/$defs/sha256" },
+        "clean_exit_confirmed": { "const": true }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_count",
+        "subject_ids",
+        "observed_step_count",
+        "planned_step_count",
+        "roster_authority",
+        "source_roster_authenticated"
+      ],
+      "properties": {
+        "subject_count": { "const": 3 },
+        "subject_ids": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "prefixItems": [
+            { "const": "drone-01" },
+            { "const": "drone-02" },
+            { "const": "drone-03" }
+          ],
+          "items": false
+        },
+        "observed_step_count": { "const": 2 },
+        "planned_step_count": { "const": 2 },
+        "roster_authority": { "const": "host-declared-projection" },
+        "source_roster_authenticated": { "const": false }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_class",
+        "compute_grant",
+        "descriptive_only",
+        "agent_bridge_command",
+        "execution_authority",
+        "store_installation_authority",
+        "publisher_authenticated",
+        "durable_process_launch_authority",
+        "ncp_authority",
+        "physical_authority",
+        "source_durable_evidence_verified",
+        "scientific_authority",
+        "is_paper_local_evidence",
+        "calibrated_posterior"
+      ],
+      "properties": {
+        "operation_class": { "const": "observation" },
+        "compute_grant": { "const": "none" },
+        "descriptive_only": { "const": true },
+        "agent_bridge_command": { "const": false },
+        "execution_authority": { "const": false },
+        "store_installation_authority": { "const": false },
+        "publisher_authenticated": { "const": false },
+        "durable_process_launch_authority": { "const": false },
+        "ncp_authority": { "const": false },
+        "physical_authority": { "const": false },
+        "source_durable_evidence_verified": { "const": false },
+        "scientific_authority": { "const": false },
+        "is_paper_local_evidence": { "const": false },
+        "calibrated_posterior": { "const": false }
+      }
+    }
+  }
+}

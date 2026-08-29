@@ -1,0 +1,7 @@
+{
+  "schema_version": "prisoma.observer.configuration.v1",
+  "max_channels": 64,
+  "max_steps": 1024,
+  "max_cleanup_receipts": 2,
+  "max_reason_bytes": 256
+}
