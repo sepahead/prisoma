@@ -6097,6 +6097,36 @@ def write_new(path: Path, payload: bytes) -> None:
             os.close(descriptor)
 
 
+def require_canonical_directory(path: Path, label: str) -> Path:
+    """Require one absolute, existing directory without lexical aliases."""
+
+    lexical = Path(path)
+    normalized = Path(os.path.abspath(lexical))
+    try:
+        resolved = lexical.resolve(strict=True)
+        observed = resolved.stat()
+    except OSError as error:
+        raise MatrixError(f"{label} is unavailable") from error
+    if (
+        not lexical.is_absolute()
+        or lexical != normalized
+        or lexical != resolved
+        or not stat.S_ISDIR(observed.st_mode)
+    ):
+        raise MatrixError(f"{label} is not one canonical directory")
+    return resolved
+
+
+def canonical_temporary_parent() -> Path:
+    """Resolve the platform temp alias before creating validation inputs."""
+
+    configured = tempfile.gettempdir()
+    return require_canonical_directory(
+        Path(os.path.realpath(configured)),
+        "temporary parent",
+    )
+
+
 def exact_nest_summary(
     engram_root: Path,
     expected_prisoma_revision: str,
@@ -6104,7 +6134,10 @@ def exact_nest_summary(
     terminal: dict[str, Any],
     evidence: dict[str, Any],
 ) -> dict[str, Any]:
-    with tempfile.TemporaryDirectory(prefix="prisoma-nest-matrix-") as directory:
+    with tempfile.TemporaryDirectory(
+        prefix="prisoma-nest-matrix-",
+        dir=canonical_temporary_parent(),
+    ) as directory:
         root = Path(directory)
         os.chmod(root, 0o700)
         run_path = root / "run-receipt.json"
@@ -10046,6 +10079,15 @@ def validate_observed_build_fixture(
 
 def self_test(binary: Path) -> int:
     validate_managed_runtime_canonicalizer_contract()
+    temporary_parent = canonical_temporary_parent()
+    if (
+        require_canonical_directory(
+            temporary_parent,
+            "temporary-parent positive control",
+        )
+        != temporary_parent
+    ):
+        raise MatrixError("canonical temporary-parent positive control differs")
     managed_digest_fixture = {"threshold": 1.0e-6}
     managed_digest_fixture["receipt_sha256"] = managed_runtime_digest(
         managed_digest_fixture
@@ -12082,8 +12124,42 @@ def self_test(binary: Path) -> int:
             ),
         )
     )
-    with tempfile.TemporaryDirectory(prefix="prisoma-observer-matrix-hostile-") as raw:
+    with tempfile.TemporaryDirectory(
+        prefix="prisoma-observer-matrix-hostile-",
+        dir=temporary_parent,
+    ) as raw:
         temporary = Path(raw)
+        if (
+            require_canonical_directory(
+                temporary,
+                "private temporary-directory positive control",
+            )
+            != temporary
+        ):
+            raise MatrixError("private temporary-directory positive control differs")
+        alias_parent = temporary / "alias-parent"
+        alias_parent.mkdir(mode=0o700)
+        lexical_alias = alias_parent / ".."
+        symlink_alias = temporary / "temporary-alias"
+        symlink_alias.symlink_to(temporary, target_is_directory=True)
+        controls.extend(
+            (
+                (
+                    "lexically aliased temporary directory",
+                    lambda: require_canonical_directory(
+                        lexical_alias,
+                        "hostile temporary directory",
+                    ),
+                ),
+                (
+                    "symlink-aliased temporary directory",
+                    lambda: require_canonical_directory(
+                        symlink_alias,
+                        "hostile temporary directory",
+                    ),
+                ),
+            )
+        )
         promoted_binary = temporary / "chmod-promoted-observer"
         promoted_binary.write_bytes(b"#!/bin/sh\nexit 0\n")
         os.chmod(promoted_binary, 0o700)
