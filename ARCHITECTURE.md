@@ -299,8 +299,12 @@ first external target is the compact LeWorldModel PushT planner at the frozen re
 `grandplan.md`. It uses adaptive CEM. The published PushT path runs 30 rounds with 300 samples, 30
 elites, horizon five, and five-action blocks. The adapter must retain every round and separately
 score its final recommendation before execution. The upstream evaluator hard-codes CUDA.
-One exact-package synthetic probe ran its tensor and full-budget CEM paths on MPS. It did not run
-the environment or closed loop. Therefore it remains an MPS port candidate, not MPS support. The
+The August synthetic probe ran tensor and full-budget CEM paths on MPS without the environment or closed loop.
+The [maintained LeWM adapter](docs/lewm/README.md) now runs real PushT images through verified pretrained weights on CPU and MPS.
+Its one-input engineering result includes both source constructions and complete search traces.
+It executes no raw action and collects no branch outcome labels.
+Source concordance remains limited to the recorded input. M2 and W1–W3 remain open.
+The adapter remains an MPS candidate, not general MPS support. The
 one-seed independent TwoRoom reproduction does not test PushT or M4. It does show that pipeline and
 evaluation conventions can determine the reported result. The adapter must bind a
 paper/configuration/code concordance ledger, train-only scaling, and raw-action support after inverse
@@ -399,7 +403,7 @@ See [SECURITY.md](SECURITY.md) and [LIMITATIONS.md](LIMITATIONS.md) for the rele
 Machine-readable ledgers in `protocols/` separate four kinds of truth:
 
 | Ledger | Question answered |
-|---|---|
+| --- | --- |
 | W1-W3 claim registry | What can the primary world-model program currently support? |
 | EC1/H1-H4 claim registry | What can the preserved diagnostic program currently support? |
 | Governance drafts | What must be frozen before confirmatory capture? |
@@ -425,8 +429,9 @@ rejected heuristic sketch.
 The native world-model reference is implemented. W1 and W2 require a frozen learned-model study
 with supported randomized actions, proper forecast scoring, fixed-pool or adaptive-search traces,
 calibrated abstention, randomized complete policies, and measured M4 resource receipts. The
-compact LeWorldModel PushT CEM path is the first port candidate. JEPA-WM is the second planning
-benchmark. No external adapter or learned-model result exists yet.
+compact LeWorldModel PushT CEM path has a maintained one-input CPU/MPS engineering adapter.
+JEPA-WM remains the second planning benchmark candidate.
+No completed learned-model scientific study or M2/W1–W3 qualification is claimed.
 
 W3 links the same authoritative state trajectory and camera across mesh and 3DGS renderers. A
 body/link manifest separates collision geometry from both render paths. It binds camera,

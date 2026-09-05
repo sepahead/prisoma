@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Prisoma experiment workflow</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0d101b; color: #f1f0fa; font: 1rem/1.6 system-ui, sans-serif; }
+    main { max-width: 1248px; margin: auto; padding: 24px; }
+    h1 { margin: 8px 0; font-size: clamp(1.75rem, 4vw, 2.75rem); line-height: 1.2; }
+    p { max-width: 75ch; color: #c2c5d5; }
+    a { color: #c2a8ff; text-underline-offset: 3px; overflow-wrap: anywhere; }
+    nav { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 20px 0; }
+    nav a { padding: 8px 0; min-height: 44px; }
+    fieldset { min-width: 0; margin: 24px 0; padding: 16px; border: 1px solid #404660; border-radius: 16px; }
+    legend { padding: 0 8px; }
+    input { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
+    label { display: inline-block; min-height: 44px; padding: 8px 14px; margin: 0 6px 12px 0; border: 1px solid #404660; border-radius: 8px; cursor: pointer; }
+    input:checked + label { background: #372c51; border-color: #c2a8ff; }
+    input:focus-visible + label, a:focus-visible, .canvas:focus-visible { outline: 3px solid #81dfcb; outline-offset: 4px; }
+    .canvas { width: 100%; overflow: auto; border-radius: 12px; }
+    picture { display: block; width: 100%; }
+    img { display: block; width: 100%; height: auto; }
+    #zoom150:checked ~ .canvas picture { width: 150%; }
+    #zoom300:checked ~ .canvas picture { width: 300%; }
+    li { margin: 8px 0; }
+    @media (max-width: 640px) { main { padding: 16px; } fieldset { padding: 8px; } }
+  </style>
+</head>
+<body>
+<main>
+  <p>PRISOMA · EXPERIMENT SEMANTICS</p>
+  <h1>Forecasts before outcomes</h1>
+  <p>The reference commits candidate predictions before selected execution and independent branch labels. LeWM inference and CREBAIN integration retain separate evidence boundaries.</p>
+  <nav aria-label="Workflow reading options">
+    <a href="EXPERIMENT_WORKFLOW.md">Complete text and mathematics</a>
+    <a href="../assets/experiment-workflow.svg">Open wide SVG</a>
+    <a href="../assets/experiment-workflow-mobile.svg">Open mobile SVG</a>
+    <a href="https://raw.githubusercontent.com/sepahead/prisoma/main/assets/experiment-workflow.svg">Direct vector fallback</a>
+  </nav>
+  <fieldset>
+    <legend>Diagram size</legend>
+    <input type="radio" name="zoom" id="fit" checked><label for="fit">Fit width</label>
+    <input type="radio" name="zoom" id="zoom150"><label for="zoom150">150%</label>
+    <input type="radio" name="zoom" id="zoom300"><label for="zoom300">300%</label>
+    <div class="canvas" tabindex="0" aria-label="Scrollable experiment diagram">
+      <picture>
+        <source media="(max-width: 640px)" srcset="../assets/experiment-workflow-mobile.svg">
+        <img src="../assets/experiment-workflow.svg" width="1200" height="1120" alt="Read the six-step text alternative below. The complete lifecycle is implemented by the deterministic affine reference. LeWM and CREBAIN have separate scopes.">
+      </picture>
+    </div>
+  </fieldset>
+  <h2>Text alternative</h2>
+  <ol>
+    <li>Freeze one complete saved state, permitted observations, and at least two supported candidate actions.</li>
+    <li>Commit every forecast and score before opening reference labels.</li>
+    <li>Execute only the selected action through the Agent Bridge and commit its execution receipt.</li>
+    <li>Restore an independent branch from the same saved state for each candidate and obtain its later reference outcome.</li>
+    <li>Compare forecast and decision behavior with matched inputs, compute, failures, and abstentions.</li>
+    <li>Verify commitments, selected execution, independent branch identity, and replay. Derived views remain read-only.</li>
+  </ol>
+  <p>Arrows show the reference execution order. The dashed CREBAIN boundary identifies an integration under qualification.</p>
+  <p>LeWM supplies real one-input CPU/MPS inference and search, without raw action execution or outcome labels. The complete learned experiment remains open.</p>
+  <p>PID uses its pinned consumer APIs and four separate interpretation gates. Rerun provides derived inspection. Native NCP capture uses a separate optional causal journal.</p>
+  <p>M2 and W1–W3 remain open. Model forecasts, simulator reference outcomes, and measured physical outcomes are different objects.</p>
+  <p><a href="../README.md">Return to Prisoma</a></p>
+</main>
+</body>
+</html>

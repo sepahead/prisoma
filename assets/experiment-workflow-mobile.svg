@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 2110" width="480" height="2110" role="img" aria-labelledby="title description">
+<title id="title">Prisoma experiment workflow: mobile reading view</title><desc id="description">Reading order: one complete state, candidate forecasts committed before labels, selected execution through Agent Bridge, independent restored outcomes, matched comparison, and verification. This is the deterministic affine reference. LeWM one-input engineering and CREBAIN integration remain separate. No scientific study or PID application promotion.</desc>
+<defs><linearGradient id="header" x2="1" y2="1"><stop stop-color="#24203d"/><stop offset="1" stop-color="#0d101b"/></linearGradient><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1L8 5L1 9" fill="none" stroke="#c2a8ff" stroke-width="2"/></marker></defs>
+<rect width="480" height="2110" rx="24" fill="#0d101b"/>
+<path d="M24 0H456Q480 0 480 24V145H0V24Q0 0 24 0" fill="url(#header)"/>
+<g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif" fill="#f1f0fa">
+<text x="24" y="42" font-size="14" font-weight="650" fill="#c2a8ff">PRISOMA / EXPERIMENT SEMANTICS</text>
+<text x="24" y="82" font-size="30" font-weight="650" fill="#f1f0fa">Forecast first.</text>
+<text x="24" y="118" font-size="27" font-weight="650" fill="#f1f0fa">Compare with later outcomes.</text>
+<text x="24" y="175" font-size="20" font-weight="400" fill="#c2c5d5">Implemented affine ordering reference</text>
+<text x="24" y="205" font-size="18" font-weight="400" fill="#c2c5d5">Software semantics, not a study result</text>
+<rect x="24" y="232" width="432" height="170" rx="16" fill="#171b2b" stroke="#c2a8ff" stroke-width="1.5"/>
+<circle cx="52" cy="263" r="15" fill="#372c51"/>
+<text x="46" y="269" font-size="18" font-weight="700" fill="#c2a8ff">1</text>
+<text x="77" y="271" font-size="22" font-weight="650" fill="#f1f0fa">Freeze the decision</text>
+<text x="46" y="312" font-size="19" font-weight="400" fill="#c2c5d5">One complete saved state</text>
+<text x="46" y="340" font-size="19" font-weight="400" fill="#c2c5d5">Same permitted observations</text>
+<text x="46" y="368" font-size="19" font-weight="400" fill="#c2c5d5">Ordered pool · at least 2 actions</text>
+<path d="M240 402V426" fill="none" stroke="#c2a8ff" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="24" y="435" width="432" height="170" rx="16" fill="#171b2b" stroke="#c2a8ff" stroke-width="1.5"/>
+<circle cx="52" cy="466" r="15" fill="#372c51"/>
+<text x="46" y="472" font-size="18" font-weight="700" fill="#c2a8ff">2</text>
+<text x="77" y="474" font-size="22" font-weight="650" fill="#f1f0fa">Forecast and commit</text>
+<text x="46" y="515" font-size="19" font-weight="400" fill="#c2c5d5">Query every candidate</text>
+<text x="46" y="543" font-size="19" font-weight="400" fill="#c2c5d5">Bind each prediction and score</text>
+<text x="46" y="571" font-size="19" font-weight="400" fill="#c2c5d5">Keep reference labels closed</text>
+<path d="M240 605V629" fill="none" stroke="#c2a8ff" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="24" y="638" width="432" height="170" rx="16" fill="#171b2b" stroke="#c2a8ff" stroke-width="1.5"/>
+<circle cx="52" cy="669" r="15" fill="#372c51"/>
+<text x="46" y="675" font-size="18" font-weight="700" fill="#c2a8ff">3</text>
+<text x="77" y="677" font-size="22" font-weight="650" fill="#f1f0fa">Execute the selection</text>
+<text x="46" y="718" font-size="19" font-weight="400" fill="#c2c5d5">Frozen rule chooses one action</text>
+<text x="46" y="746" font-size="19" font-weight="400" fill="#c2c5d5">Agent Bridge owns mutation</text>
+<text x="46" y="774" font-size="19" font-weight="400" fill="#c2c5d5">Commit the execution receipt</text>
+<path d="M240 808V832" fill="none" stroke="#c2a8ff" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="24" y="841" width="432" height="170" rx="16" fill="#171b2b" stroke="#c2a8ff" stroke-width="1.5"/>
+<circle cx="52" cy="872" r="15" fill="#372c51"/>
+<text x="46" y="878" font-size="18" font-weight="700" fill="#c2a8ff">4</text>
+<text x="77" y="880" font-size="22" font-weight="650" fill="#f1f0fa">Label restored branches</text>
+<text x="46" y="921" font-size="19" font-weight="400" fill="#c2c5d5">Restore the same saved state</text>
+<text x="46" y="949" font-size="19" font-weight="400" fill="#c2c5d5">One branch for each candidate</text>
+<text x="46" y="977" font-size="19" font-weight="400" fill="#c2c5d5">Obtain later reference outcomes</text>
+<path d="M240 1011V1035" fill="none" stroke="#c2a8ff" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="24" y="1044" width="432" height="170" rx="16" fill="#171b2b" stroke="#c2a8ff" stroke-width="1.5"/>
+<circle cx="52" cy="1075" r="15" fill="#372c51"/>
+<text x="46" y="1081" font-size="18" font-weight="700" fill="#c2a8ff">5</text>
+<text x="77" y="1083" font-size="22" font-weight="650" fill="#f1f0fa">Compare fairly</text>
+<text x="46" y="1124" font-size="19" font-weight="400" fill="#c2c5d5">Forecast error ≠ decision value</text>
+<text x="46" y="1152" font-size="19" font-weight="400" fill="#c2c5d5">Match inputs and compute</text>
+<text x="46" y="1180" font-size="19" font-weight="400" fill="#c2c5d5">Retain failures and abstentions</text>
+<path d="M240 1214V1238" fill="none" stroke="#c2a8ff" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="24" y="1247" width="432" height="170" rx="16" fill="#171b2b" stroke="#c2a8ff" stroke-width="1.5"/>
+<circle cx="52" cy="1278" r="15" fill="#372c51"/>
+<text x="46" y="1284" font-size="18" font-weight="700" fill="#c2a8ff">6</text>
+<text x="77" y="1286" font-size="22" font-weight="650" fill="#f1f0fa">Verify the evidence</text>
+<text x="46" y="1327" font-size="19" font-weight="400" fill="#c2c5d5">Rejoin forecasts and execution</text>
+<text x="46" y="1355" font-size="19" font-weight="400" fill="#c2c5d5">Check branch identity and replay</text>
+<text x="46" y="1383" font-size="19" font-weight="400" fill="#c2c5d5">Keep derived views read-only</text>
+<text x="24" y="1464" font-size="23" font-weight="650" fill="#f1f0fa">Separate components and evidence</text>
+<rect x="24" y="1488" width="432" height="143" rx="16" fill="#171b2b" stroke="#81dfcb" stroke-width="1.5"/>
+<text x="45" y="1520" font-size="22" font-weight="650" fill="#81dfcb">LeWM · real local execution</text>
+<text x="45" y="1554" font-size="18" font-weight="400" fill="#c2c5d5">One PushT input · CPU and MPS</text>
+<text x="45" y="1581" font-size="18" font-weight="400" fill="#c2c5d5">30 × 300 CEM · two source constructions</text>
+<text x="45" y="1608" font-size="18" font-weight="400" fill="#c2c5d5">No raw action execution or outcome label</text>
+<rect x="24" y="1650" width="432" height="143" rx="16" fill="#171b2b" stroke="#f0cc88" stroke-width="1.5" stroke-dasharray="7 5"/>
+<text x="45" y="1682" font-size="22" font-weight="650" fill="#f0cc88">CREBAIN · selected environment</text>
+<text x="45" y="1716" font-size="18" font-weight="400" fill="#c2c5d5">World, dynamics, and observations</text>
+<text x="45" y="1743" font-size="18" font-weight="400" fill="#c2c5d5">Prisoma integration under qualification</text>
+<text x="45" y="1770" font-size="18" font-weight="400" fill="#c2c5d5">No completed learned experiment</text>
+<text x="24" y="1837" font-size="22" font-weight="650" fill="#c2a8ff">PID</text>
+<text x="100" y="1837" font-size="18" font-weight="400" fill="#c2c5d5">Pinned consumer · four separate gates</text>
+<text x="24" y="1877" font-size="22" font-weight="650" fill="#81dfcb">Rerun</text>
+<text x="100" y="1877" font-size="18" font-weight="400" fill="#c2c5d5">Derived view · no control authority</text>
+<text x="24" y="1917" font-size="22" font-weight="650" fill="#f1f0fa">NCP</text>
+<text x="100" y="1917" font-size="18" font-weight="400" fill="#c2c5d5">Optional, separate causal journal</text>
+<text x="24" y="1981" font-size="18" font-weight="400" fill="#c2c5d5">Arrows show reference execution order.</text>
+<text x="24" y="2009" font-size="18" font-weight="400" fill="#c2c5d5">Dashed: integration still under qualification.</text>
+<text x="24" y="2054" font-size="20" font-weight="650" fill="#c2a8ff">M2 and W1–W3 remain open.</text>
+</g></svg>

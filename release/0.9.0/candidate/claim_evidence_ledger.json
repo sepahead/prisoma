@@ -94,7 +94,7 @@
       "content_bindings": [
         {
           "bytes": 100052,
-          "inventory_entry_sha256": "4301477f53cd9873d95df1b523848c0ed0f4fdbfcfac41bd2ed26235b85497a1",
+          "inventory_entry_sha256": "7f79e89c7c7dbdd79b24cd6cb7ab66502008654af5ed7d3c01a80ed6e5a77341",
           "path": "Cargo.lock",
           "sha256": "e8f3d29c199eb86a22fb7e2132b5bf5fa00bf4e85ccd22cf7c242b1383e8a488"
         },
@@ -236,9 +236,9 @@
       "content_bindings": [
         {
           "bytes": 59477,
-          "inventory_entry_sha256": "c54345e6d9550a5b1833f8516c5f7bc015cf6a34eac998fa68bae32eae35aece",
+          "inventory_entry_sha256": "6197f6088bb816b33d6930a3ffc8d366da95bc2960bb57d6498d4291f09c423e",
           "path": "protocols/capability_matrix_current_v1.json",
-          "sha256": "b73e8dbf16dbc0cf5a5b47fa8013164d0a51595a16b301ccfdcaf8c521bf6dc4"
+          "sha256": "d204fcf59be98e61715845127b9da7ae2f689b15c8d6b1274b477bc102808897"
         },
         {
           "bytes": 21113,
@@ -315,7 +315,7 @@
       "content_bindings": [
         {
           "bytes": 362542,
-          "inventory_entry_sha256": "2c84b31004f1fa94327f8d36faba4cd441ff047b00c4d1248d26b652d1bbbb6c",
+          "inventory_entry_sha256": "5cdbb951540c981494c6f18f4cec3035b07112c347cc89a03cf7076f59327c96",
           "path": "grandplan.md",
           "sha256": "0780ec6aae2ef04ec1d780eec3b09660c509fe3d3e1de6e26fde0924fe7285ac"
         },
@@ -360,7 +360,7 @@
       "content_bindings": [
         {
           "bytes": 33300,
-          "inventory_entry_sha256": "735879815eab2a5e4db7eb81bed60cb6a05a8e118759f4cf3e0635829b7b492d",
+          "inventory_entry_sha256": "8b1413a54b0a5d4515276e93fbbb16f5c5898f665e90843e3649852f4d2b2d2f",
           "path": "EXPERIMENTS.md",
           "sha256": "1a172edf479be4014ab8fe6feea944eee4f533409ee838daab12da244c4f3f70"
         },
@@ -405,7 +405,7 @@
       "content_bindings": [
         {
           "bytes": 33300,
-          "inventory_entry_sha256": "735879815eab2a5e4db7eb81bed60cb6a05a8e118759f4cf3e0635829b7b492d",
+          "inventory_entry_sha256": "8b1413a54b0a5d4515276e93fbbb16f5c5898f665e90843e3649852f4d2b2d2f",
           "path": "EXPERIMENTS.md",
           "sha256": "1a172edf479be4014ab8fe6feea944eee4f533409ee838daab12da244c4f3f70"
         },
@@ -450,7 +450,7 @@
       "content_bindings": [
         {
           "bytes": 362542,
-          "inventory_entry_sha256": "2c84b31004f1fa94327f8d36faba4cd441ff047b00c4d1248d26b652d1bbbb6c",
+          "inventory_entry_sha256": "5cdbb951540c981494c6f18f4cec3035b07112c347cc89a03cf7076f59327c96",
           "path": "grandplan.md",
           "sha256": "0780ec6aae2ef04ec1d780eec3b09660c509fe3d3e1de6e26fde0924fe7285ac"
         },
@@ -501,7 +501,7 @@
         },
         {
           "bytes": 362542,
-          "inventory_entry_sha256": "2c84b31004f1fa94327f8d36faba4cd441ff047b00c4d1248d26b652d1bbbb6c",
+          "inventory_entry_sha256": "5cdbb951540c981494c6f18f4cec3035b07112c347cc89a03cf7076f59327c96",
           "path": "grandplan.md",
           "sha256": "0780ec6aae2ef04ec1d780eec3b09660c509fe3d3e1de6e26fde0924fe7285ac"
         }
@@ -546,7 +546,7 @@
         },
         {
           "bytes": 362542,
-          "inventory_entry_sha256": "2c84b31004f1fa94327f8d36faba4cd441ff047b00c4d1248d26b652d1bbbb6c",
+          "inventory_entry_sha256": "5cdbb951540c981494c6f18f4cec3035b07112c347cc89a03cf7076f59327c96",
           "path": "grandplan.md",
           "sha256": "0780ec6aae2ef04ec1d780eec3b09660c509fe3d3e1de6e26fde0924fe7285ac"
         }
@@ -577,7 +577,7 @@
   "record_type": "candidate_claim_to_evidence_ledger",
   "release_version": "0.9.0",
   "schema_version": "prisoma.release-candidate/0.1.0",
-  "source_state_sha256": "7b5f29688b6ca577a93bef2a65d420151ea3de29c712ca879515b7d9e8dab490",
+  "source_state_sha256": "485bcd4c854aa0436575d4e053a1224af58a77afed006eb62a3fe88e7b1edb52",
   "status_contract": {
     "scientific_statuses": [
       "blocked_not_established",
