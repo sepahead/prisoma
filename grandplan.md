@@ -2990,6 +2990,10 @@ capture hooks.
 The complete dated review is
 [`WORLD_ACTION_MODEL_FRONTIER.md`](docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md).
 
+The [September 2026 LeWM engineering adapter](docs/lewm/README.md) adds real-render pretrained execution to the historical synthetic probe above.
+Its one-input CPU/MPS and package-concordance results remain engineering observations.
+Raw-action support, multiple replans, resource qualification, M2, W1, W2, and W3 remain open.
+
 ## 10.5 Safety and correction
 
 Current work studies safety benchmarks, safety-aware planning, correction, and replanning [R54–R58]. ForesightSafety-VLA further makes process-level cumulative safety cost, risk-exposure time, and safe/unsafe success/failure quadrants explicit across controlled visual, language, and scene variations [R56]. Prisoma may contribute process-level evidence and failure tracing. It must not claim certification or operational safety solely from diagnostic performance.

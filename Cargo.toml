@@ -21,7 +21,7 @@ default-members = ["crates/pid-bridge", "crates/pid-sim"]
 # kept off Prisoma's critical path. Build it explicitly with `--manifest-path`.
 # The Engram observer is a separately packaged Host API 2 child. It has no
 # dependency on the PID or NCP workspaces and is gated through its own manifest.
-exclude = ["crates/engram-managed-observer", "crates/ncp-observer", "pid-rs"]
+exclude = ["crates/ncp-local-capture", "crates/engram-managed-observer", "crates/ncp-observer", "pid-rs"]
 
 [workspace.package]
 version = "0.9.0"

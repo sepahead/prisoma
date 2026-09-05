@@ -543,10 +543,13 @@ consistency argument.
 The native exact-fork reference is implemented. W1 and W2 require a pinned learned-model adapter,
 matched action support, rights review, content-bound outputs, and measured M4 resource receipts.
 The first port target is the compact LeWorldModel PushT CEM path frozen in `grandplan.md`.
+The optional [engineering adapter](docs/lewm/README.md) now runs real-render pretrained inference with complete candidate commitments and independent arithmetic verification.
+Its exact local one-input checks do not qualify raw support, closed-loop control, M2, W1, W2, or W3.
 Reproduce its 30-round, 300-sample, 30-elite, horizon-five, five-action-block search before
 freezing a reduced-budget M4 arm. Its end-to-end upstream evaluator hard-codes CUDA and has no
 verified MPS path. One exact-package synthetic probe ran direct prediction, latent rollout, and the
 full CEM loop on MPS. This does not establish preprocessing, PushT, closed-loop, or planner parity.
+That synthetic probe is historical. The maintained adapter adds a separately bound real-render engineering path without promoting the old observation.
 The one-seed independent TwoRoom reproduction does not test PushT or M4. It found unconfigured
 pipeline conventions, conflicting evaluation settings, and a separation between one-step error
 and long-horizon planning. Audit the analogous PushT fields across paper, configuration, and code.

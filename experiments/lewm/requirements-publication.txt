@@ -1,0 +1,3 @@
+# Optional document renderer. This is separate from the model runtime.
+reportlab==4.4.10
+svglib==1.5.1

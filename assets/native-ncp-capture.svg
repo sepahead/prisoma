@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 570" role="img" aria-labelledby="title desc">
+<title id="title">Prisoma native NCP causal capture</title>
+<desc id="desc">Bind the plan and producer generations. Persist a reservation before execution. Verify complete neural, body, and monitor exchanges, then persist the captured step. Final verification requires an explicit complete or aborted terminal record.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#35506d"/></marker><style>text{font-family:Arial,Helvetica,sans-serif;fill:#172b45}.title{font-size:26px;font-weight:700}.label{font-size:19px;font-weight:700}.body{font-size:16px}.small{font-size:15px}.box{fill:white;stroke:#aec0d2;stroke-width:2}.flow{fill:none;stroke:#35506d;stroke-width:2.5;marker-end:url(#arrow)}</style></defs>
+<rect width="1100" height="570" rx="20" fill="#f3f6fa"/>
+<text class="title" x="38" y="48">Prisoma · Native causal capture</text>
+<text class="body" x="38" y="78">Producer-owned evidence · bounded journal · explicit terminal meaning</text>
+<rect class="box" x="38" y="115" width="226" height="210" rx="12"/>
+<text class="label" x="58" y="151">1. Bind preparation</text><text class="body" x="58" y="186">Complete common plan</text><text class="body" x="58" y="215">Three producer exchanges</text><text class="body" x="58" y="244">Exact initial snapshot</text><text class="small" x="58" y="292">Fixed quota and generations</text>
+<rect class="box" x="304" y="115" width="220" height="210" rx="12"/>
+<text class="label" x="324" y="151">2. Reserve the step</text><text class="body" x="324" y="186">Append reservation</text><text class="body" x="324" y="215">Synchronize storage</text><text class="body" x="324" y="244">Return commitment</text><text class="small" x="324" y="292">Then permit producer work</text>
+<rect class="box" x="564" y="115" width="260" height="210" rx="12"/>
+<text class="label" x="584" y="151">3. Capture exact results</text><text class="body" x="584" y="186">Neural source and proposal</text><text class="body" x="584" y="215">Actual body application</text><text class="body" x="584" y="244">Record-only assessment</text><text class="small" x="584" y="292">Append and synchronize</text>
+<rect class="box" x="864" y="115" width="198" height="210" rx="12"/>
+<text class="label" x="884" y="151">4. Close explicitly</text><text class="body" x="884" y="186">Full planned finish</text><text class="body" x="884" y="220">or aborted prefix</text><text class="small" x="884" y="263">No terminal record:</text><text class="small" x="884" y="287">incomplete evidence</text>
+<path class="flow" d="M264 225H297"/><path class="flow" d="M524 225H557"/><path class="flow" d="M824 225H857"/>
+<rect x="38" y="365" width="1024" height="164" rx="12" fill="#e8eef6" stroke="#aec0d2"/>
+<text class="label" x="58" y="402">Read-only journal verification</text><text class="body" x="58" y="438">Header → reservation → captured exchanges → … → complete or aborted terminal</text><text class="body" x="58" y="473">Verify every digest, causal join, byte budget, step position, and terminal count.</text><text class="small" x="58" y="508">Capture proves observed content. It grants no command, PID, calibration, or scientific validation authority.</text>
+</svg>

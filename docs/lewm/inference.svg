@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 850" role="img" aria-labelledby="title desc">
+  <title id="title">LeWM local inference and candidate search</title>
+  <desc id="desc">Actual PushT pixels enter a pinned visual encoder. Two separately identified model implementations forecast candidate action sequences. A goal score drives thirty rounds of cross-entropy search. Every proposal and forecast is recorded. Raw action execution remains disabled until a source-bound action scaler is available.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#235aa6"/></marker>
+    <style>
+      text{font-family:system-ui,-apple-system,Segoe UI,sans-serif;fill:#16283d}
+      .heading{font-size:38px;font-weight:750}.sub{font-size:22px;fill:#43576d}
+      .name{font-size:24px;font-weight:700}.body{font-size:21px}.small{font-size:18px;fill:#43576d}
+      .box{fill:#f6f9fd;stroke:#9db3cc;stroke-width:2;rx:16}
+      .edge{fill:none;stroke:#235aa6;stroke-width:3;marker-end:url(#arrow)}
+      .audit{fill:none;stroke:#566b81;stroke-width:2;stroke-dasharray:4 7}
+    </style>
+  </defs>
+  <rect width="1600" height="850" fill="#fff"/>
+  <text class="heading" x="60" y="66">From pixels to a scored action sequence</text>
+  <text class="sub" x="60" y="106">Pinned LeWorldModel · local M4 engineering candidate · scientific gates remain open</text>
+
+  <rect class="box" x="60" y="172" width="275" height="190"/>
+  <text class="name" x="82" y="212">Actual PushT render</text>
+  <text class="body" x="82" y="253">224 × 224 RGB pixels</text>
+  <text class="body" x="82" y="288">Frozen state and goal</text>
+  <text class="small" x="82" y="331" style="font-size:16px">Stored before model inference</text>
+
+  <rect class="box" x="380" y="172" width="280" height="190"/>
+  <text class="name" x="402" y="212" style="font-size:22px">Normalize and encode</text>
+  <text class="body" x="402" y="253" style="font-size:18px">Scale → normalize → resize</text>
+  <text class="body" x="402" y="288">192 latent components</text>
+  <text class="small" x="402" y="331">Exact checkpoint; strict load</text>
+
+  <rect class="box" x="705" y="172" width="270" height="190"/>
+  <text class="name" x="727" y="212" style="font-size:22px">Predict each sequence</text>
+  <text class="body" x="727" y="253">5 blocks × 5 actions</text>
+  <text class="body" x="727" y="288">Forecast 5 latent states</text>
+  <text class="small" x="727" y="331">Action-conditioned rollout</text>
+
+  <rect class="box" x="1020" y="172" width="245" height="190"/>
+  <text class="name" x="1042" y="212" style="font-size:22px">Score the final latent</text>
+  <text class="body" x="1042" y="253" style="font-size:18px">J = Σ (prediction − goal)²</text>
+  <text class="body" x="1042" y="288" style="font-size:18px">Lower score is preferred</text>
+  <text class="small" x="1042" y="331">A latent score, not meters</text>
+
+  <rect class="box" x="1310" y="172" width="230" height="190"/>
+  <text class="name" x="1332" y="212" style="font-size:22px">Update the search</text>
+  <text class="body" x="1332" y="253">300 proposals</text>
+  <text class="body" x="1332" y="288">30 elites · 30 rounds</text>
+  <text class="small" x="1332" y="331" style="font-size:16px">Score the returned mean</text>
+  <path class="edge" d="M335 267H380"/><path class="edge" d="M660 267H705"/>
+  <path class="edge" d="M975 267H1020"/><path class="edge" d="M1265 267H1310"/>
+
+  <path class="edge" d="M1425 362V417H840V362"/>
+  <rect x="974" y="395" width="330" height="42" fill="#fff"/>
+  <text class="body" x="994" y="423">Updated mean and sample scale</text>
+
+  <rect class="box" x="60" y="480" width="470" height="270"/>
+  <text class="name" x="84" y="523">Two pinned source arms</text>
+  <text class="body" x="84" y="568">A. Repository JEPA / ARPredictor</text>
+  <text class="body" x="84" y="607">B. Checkpoint-configured wheel LeWM</text>
+  <text class="small" x="84" y="655">The same weights can load into different code.</text>
+  <text class="small" x="84" y="688">Both arms are frozen before outcomes.</text>
+  <text class="small" x="84" y="721">No favorable-result selection between arms.</text>
+
+  <rect class="box" x="565" y="480" width="470" height="270"/>
+  <text class="name" x="589" y="523">Independent arithmetic checks</text>
+  <text class="body" x="589" y="568">Input hashes → forecasts → scores</text>
+  <text class="body" x="589" y="607">Elite membership → mean → sample scale</text>
+  <text class="small" x="589" y="655">All 9,000 proposals remain in each arm's trace.</text>
+  <text class="small" x="589" y="688">CPU/MPS controls compare values and order.</text>
+  <text class="small" x="589" y="721">Passing arithmetic does not prove model quality.</text>
+
+  <rect x="1070" y="480" width="470" height="270" rx="16" fill="#fff8ed" stroke="#ac762c" stroke-width="2"/>
+  <text class="name" x="1094" y="523">Execution boundary</text>
+  <text class="body" x="1094" y="568">The first plan executes no action.</text>
+  <text class="body" x="1094" y="607">Standardized proposals need a valid scaler.</text>
+  <text class="small" x="1094" y="655">Raw support must be checked after inversion.</text>
+  <text class="small" x="1094" y="688">A later plan must bind the actual control loop.</text>
+  <text class="small" x="1094" y="721">No CREBAIN or scientific completion claim.</text>
+
+  <text class="small" x="60" y="812">Solid arrows: actual inference/search data flow. This diagram shows the bounded probe, not the future experiment authority graph.</text>
+</svg>

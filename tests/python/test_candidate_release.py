@@ -38,6 +38,16 @@ def _read(path: Path) -> dict[str, Any]:
     return value
 
 
+def _source_classification_fixture(*, clean: bool) -> dict[str, Any]:
+    """Project an explicit unit-test state, without changing live inventory truth."""
+    inventory = _read(CANDIDATE_DIR / "source_inventory.json")
+    inventory["source"]["clean"] = clean
+    inventory["source"]["state"] = (
+        "clean_source_snapshot" if clean else "dirty_uncommitted_source_snapshot"
+    )
+    return inventory
+
+
 def _load_generator() -> dict[str, Any]:
     return runpy.run_path(os.fspath(GENERATOR))
 
@@ -429,7 +439,7 @@ def test_candidate_audit_passes_but_reports_no_go_pending_state() -> None:
     assert payload["published"] is False
 
 
-def test_candidate_inventory_covers_the_clean_source_and_pinned_gitlink() -> None:
+def test_candidate_inventory_covers_recorded_source_and_pinned_gitlink() -> None:
     inventory = _read(CANDIDATE_DIR / "source_inventory.json")
     entries = inventory["entries"]
     parent_paths = {
@@ -457,11 +467,20 @@ def test_candidate_inventory_covers_the_clean_source_and_pinned_gitlink() -> Non
         inventory["inventory_policy"]["recursive_rows_derived_from"]
         == "pinned_index_commit_git_objects"
     )
-    assert inventory["source"]["clean"] is True
-    assert inventory["source"]["state"] == "clean_source_snapshot"
-    assert inventory["summary"]["index_changed_entry_count"] == 0
-    assert inventory["summary"]["worktree_changed_entry_count"] == 0
-    assert inventory["summary"]["untracked_entry_count"] == 0
+    parent_entries = [entry for entry in entries if entry["path"] in parent_paths]
+    index_changed = sum(entry["index_state"] != "unchanged" for entry in parent_entries)
+    worktree_changed = sum(
+        entry["worktree_state"] != "unchanged" for entry in parent_entries
+    )
+    untracked = sum(entry["index_state"] == "untracked" for entry in parent_entries)
+    clean = index_changed == 0 and worktree_changed == 0
+    assert inventory["source"]["clean"] is clean
+    assert inventory["source"]["state"] == (
+        "clean_source_snapshot" if clean else "dirty_uncommitted_source_snapshot"
+    )
+    assert inventory["summary"]["index_changed_entry_count"] == index_changed
+    assert inventory["summary"]["worktree_changed_entry_count"] == worktree_changed
+    assert inventory["summary"]["untracked_entry_count"] == untracked
     assert inventory["inventory_policy"]["self_excluded_paths"] == [CANDIDATE_RELATIVE]
     fixed_point = inventory["inventory_policy"]["fixed_point_semantics"]
     assert fixed_point["source_digest_excludes_candidate_outputs"] is True
@@ -667,10 +686,21 @@ def test_inventory_captures_staged_deletions_from_head(tmp_path: Path) -> None:
         ["git", "config", "user.email", "test@example.invalid"],
         ["git", "add", "."],
         ["git", "commit", "-q", "-m", "test fixture"],
-        ["git", "rm", "-q", "tracked.txt"],
     ):
         subprocess.run(argv, cwd=repo, check=True)
 
+    clean_inventory = generator["capture_stable_inventory"](repo)
+    assert clean_inventory["source"]["clean"] is True
+    assert clean_inventory["source"]["state"] == "clean_source_snapshot"
+    assert clean_inventory["summary"]["index_changed_entry_count"] == 0
+    assert clean_inventory["summary"]["worktree_changed_entry_count"] == 0
+    (repo / "tracked.txt").write_text("modified\n", encoding="utf-8")
+    dirty_inventory = generator["capture_stable_inventory"](repo)
+    assert dirty_inventory["source"]["clean"] is False
+    assert dirty_inventory["source"]["state"] == "dirty_uncommitted_source_snapshot"
+    assert dirty_inventory["summary"]["index_changed_entry_count"] == 0
+    assert dirty_inventory["summary"]["worktree_changed_entry_count"] == 1
+    subprocess.run(["git", "rm", "-q", "-f", "tracked.txt"], cwd=repo, check=True)
     inventory = generator["capture_stable_inventory"](repo)
     deleted = next(
         entry for entry in inventory["entries"] if entry["path"] == "tracked.txt"
@@ -810,7 +840,7 @@ def test_task_claim_defect_receipt_and_draft_boundaries_are_explicit() -> None:
 
 def test_source_defect_types_clean_dirty_and_post_push_states() -> None:
     generator = _load_generator()
-    inventory = _read(CANDIDATE_DIR / "source_inventory.json")
+    inventory = _source_classification_fixture(clean=True)
     progress = inventory["progress_snapshot"]["document"]
     receipts = generator["build_receipts"](inventory, progress)
 
@@ -840,9 +870,7 @@ def test_source_defect_types_clean_dirty_and_post_push_states() -> None:
     )
     assert "dirty" not in clean_defect["title"]
 
-    dirty_inventory = copy.deepcopy(inventory)
-    dirty_inventory["source"]["clean"] = False
-    dirty_inventory["source"]["state"] = "dirty_uncommitted_source_snapshot"
+    dirty_inventory = _source_classification_fixture(clean=False)
     dirty_register = generator["build_defect_register"](
         dirty_inventory, progress, receipts
     )
@@ -880,10 +908,13 @@ def test_source_defect_types_clean_dirty_and_post_push_states() -> None:
     "mutation",
     ("title", "resolution_rule", "snapshot_kind", "post_push_status"),
 )
-def test_source_defect_typed_truth_mutations_fail_closed(mutation: str) -> None:
+@pytest.mark.parametrize("clean", (True, False))
+def test_source_defect_typed_truth_mutations_fail_closed(
+    mutation: str, clean: bool
+) -> None:
     generator = _load_generator()
     auditor = _load_auditor()
-    inventory = _read(CANDIDATE_DIR / "source_inventory.json")
+    inventory = _source_classification_fixture(clean=clean)
     artifacts = generator["build_artifacts_from_inventory"](ROOT, inventory)
     documents = {name: json.loads(raw) for name, raw in artifacts.items()}
     auditor["_validate_semantic_boundaries"](documents)
@@ -898,7 +929,9 @@ def test_source_defect_typed_truth_mutations_fail_closed(mutation: str) -> None:
     elif mutation == "resolution_rule":
         source_defect["resolution_rule"] = "record a local passing test"
     elif mutation == "snapshot_kind":
-        source_defect["source_snapshot"]["kind"] = "dirty_uncommitted_snapshot"
+        source_defect["source_snapshot"]["kind"] = (
+            "dirty_uncommitted_snapshot" if clean else "clean_committed_snapshot"
+        )
     else:
         source_defect["post_push_binding"]["receipt_status"] = "failed"
 

@@ -81,6 +81,8 @@ The local crates stay small in role:
 | `pid-rerun` | Bounded run-log-validating Rerun conversion | No control authority |
 | `experiments/safe_adapter` | Reference `(V,L,D,A)` adapter implementation | Preserved diagnostic path; synthetic proof only until real capture |
 | `experiments/attribution` | Bounded exploratory attribution probe | No causal-faithfulness claim |
+| [`experiments/lewm`](docs/lewm/README.md) | Optional pretrained LeWM forecasts, candidate commitments, and complete CEM trace verification | MPS engineering candidate; no raw execution or scientific qualification |
+| [`crates/ncp-local-capture`](crates/ncp-local-capture/README.md) | Native local causal capture and read-only journal verification | Separate bounded simulation profile; no command or estimator capability |
 | `crates/ncp-observer` | Optional read-only wire-0.8 observer | Excluded from the main workspace |
 
 The estimator source of truth is the pinned
@@ -118,6 +120,7 @@ See [findings.md](findings.md) for current estimator evidence. See
 - A zero-model-download exact-fork world-model decision reference with a fixed candidate pool,
   pre-label forecast publication, bridge-only selected execution, post-receipt independent branch
   labels, and replay.
+- An optional source-bound LeWM engineering adapter with real PushT images, CPU/MPS controls, and independently checked candidate-search traces.
 - A bounded offline `(V,L,D,A)` harness with static baselines and explicit PID modes.
 - Typed resource admission for samples, decoded metadata, distance, dense-solver, and categorical
   work.
@@ -138,9 +141,9 @@ preregistration, a confirmatory result, a safety result, or deployment evidence.
 - A production remote-security boundary.
 - The complete Rerun diagnostic application.
 - A Tauri/SparkJS product shell.
-- A Gaussian-splatting runtime or external learned-world-model adapter.
+- A Gaussian-splatting runtime or scientifically qualified external learned-world-model adapter.
 - A qualified JEPA-WM, VLA-JEPA, Flex-\(\pi\), or other reviewed model adapter.
-- An MPS-validated learned-world-model planning pipeline.
+- A qualified MPS learned-world-model pipeline with supported raw actions, multiple replans, and complete resource evidence.
 
 The native world-model reference is the first software rung. Linked mesh-versus-3DGS fidelity
 tomography is a planned study. Neither is empirical evidence yet.
@@ -288,8 +291,9 @@ and is small. A clean Rust build can still fetch pinned Cargo dependencies.
 The first external target is the compact LeWorldModel PushT CEM planner at the exact revisions in
 `grandplan.md`. Its reviewed configuration uses 30 rounds, 300 samples, 30 elites, horizon five,
 and action blocks of length five. Its upstream evaluator hard-codes CUDA, so it is only an **MPS
-candidate**. One exact-package synthetic probe ran the predictor, rollout, and full-budget CEM on
-MPS. It did not run PushT or closed-loop replanning. Reproduce the exact CEM path before freezing a
+candidate**. The optional [LeWM adapter](docs/lewm/README.md) now provides real-render pretrained inference and full-budget CEM on the pinned private runtime.
+Its one-input CPU/MPS and construction-port checks are engineering evidence. It executes no raw action.
+The earlier synthetic probe remains historical evidence. Reproduce the exact CEM path before freezing a
 reduced-budget arm. A one-seed independent TwoRoom reproduction found outcome-relevant pipeline
 conventions outside configuration files and conflicting evaluation settings. It did not test
 PushT or M4. Bind a paper/configuration/code concordance ledger and freeze each unresolved feasible
@@ -298,9 +302,15 @@ transformation. Admit the port only after CPU/MPS parity, action sensitivity, ad
 reconstruction, multi-replan execution, and measured tail-latency, memory, power, and deadline
 receipts. JEPA-WM is the second planning benchmark.
 SmolVLA is the direct-policy MPS baseline. VLA-JEPA is a predictive-training comparator. No
-reviewed external model is a current Prisoma dependency or a qualified MPS runtime.
+reviewed external model is a qualified MPS runtime. The optional model environment remains separate from the default installation.
 
 ## NCP and Engram boundary
+
+The new [native local capture](crates/ncp-local-capture/README.md) package owns a bounded causal journal.
+It preserves complete neural, body, and monitor exchanges through NCP.
+Its local controls use synthetic producer exchanges and do not qualify real NEST or installed ecosystem execution.
+The construction dependency must become an exact immutable NCP revision before publication.
+
 
 Prisoma pins the optional observer to NCP `v0.8.0` and wire 0.8. The crate is excluded from
 the default workspace so NCP and Zenoh remain off the critical path.

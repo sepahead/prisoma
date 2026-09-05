@@ -1,0 +1,24 @@
+[package]
+name = "prisoma-ncp-local-capture"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.93"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/sepahead/prisoma"
+description = "Bounded native local NCP causal capture and read-only journal verification"
+publish = false
+
+[workspace]
+resolver = "2"
+
+[dependencies]
+ncp-local = { version = "=1.0.0", git = "https://github.com/sepahead/NCP", rev = "de751d499b5e07d1c95a072e08255083d77cb38b" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+libc = "0.2"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }

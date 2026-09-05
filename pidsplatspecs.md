@@ -17,7 +17,7 @@ component design. [EXPERIMENTS.md](EXPERIMENTS.md) contains executable proof com
 | Tauri/SparkJS shell | Deferred |
 | `(V,L,D,A)` offline harness | Implemented bounded software path |
 | Exact-fork world-model decision reference | Implemented software conformance path |
-| External learned-world-model adapter | Not implemented or MPS-qualified |
+| External learned-world-model adapter | Optional source-bound LeWM engineering path; raw execution and scientific qualification remain open |
 | H1 common preflight | Implemented by `pid-h1-preflight` |
 | H1 Protocol-A reference | Synthetic finite benchmark only |
 | H2 reference | Synthetic fixed-horizon arithmetic only |

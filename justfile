@@ -154,6 +154,14 @@ ncp-fault-observatory out="outputs/ncp_fault_observatory":
 ncp-observer-test:
     cargo test --locked --manifest-path crates/ncp-observer/Cargo.toml
 
+# Explicit native local NCP capture gate. Root PID builds remain independent.
+ncp-local-capture-check:
+    cargo fmt --manifest-path crates/ncp-local-capture/Cargo.toml -- --check
+    cargo test --locked --manifest-path crates/ncp-local-capture/Cargo.toml --all-targets
+    cargo clippy --locked --manifest-path crates/ncp-local-capture/Cargo.toml --all-targets -- -D warnings
+    RUSTDOCFLAGS="-D warnings" cargo doc --locked --manifest-path crates/ncp-local-capture/Cargo.toml --no-deps
+    cargo build --locked --release --manifest-path crates/ncp-local-capture/Cargo.toml
+
 # Complete Host API 2 gate for the workspace-excluded, read-only Engram observer.
 engram-managed-observer-check:
     cargo fmt --manifest-path crates/engram-managed-observer/Cargo.toml -- --check

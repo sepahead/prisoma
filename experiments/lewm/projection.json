@@ -1,0 +1,170 @@
+{
+  "assets": {
+    "model/config.json": {
+      "bytes": 1313,
+      "sha256": "2564086e961e7b5c7c04dffc451091115b389a590645ff19653c64fd0bc16e09"
+    },
+    "model/weights.pt": {
+      "bytes": 72290721,
+      "sha256": "48938400ae3464c9680731287f583a9cb516f55a8ec64ea13a91be47fb15b607"
+    },
+    "source-wheels/stable_pretraining-0.1.7-py3-none-any.whl": {
+      "bytes": 832402,
+      "sha256": "60fc8fc3c9490e9a059aa7e038ab62cbe0505841e78c4165c18a99d8f599ec65"
+    },
+    "source-wheels/stable_worldmodel-0.1.1-py3-none-any.whl": {
+      "bytes": 305812,
+      "sha256": "00eaabd9e046e6364b3d1db47e5b365a0f628aea3a9376d6a407f75cbbbd2ef5"
+    },
+    "upstream-lewm/LICENSE": {
+      "bytes": 1067,
+      "sha256": "4882021920cbd61e050e4dc2e02440e9bd36ea4cbc5803e738a2ee3d63502e07"
+    },
+    "upstream-lewm/src/lewm/jepa.py": {
+      "bytes": 5636,
+      "sha256": "c771400cd3eb71b57c4f941a1204e59cbcc842ef8245787f674bb4c1a0684671"
+    },
+    "upstream-lewm/src/lewm/module.py": {
+      "bytes": 8983,
+      "sha256": "a7c870265099e89169eafdcc6429941d408d9dea269d305589b071e2d5ea1407"
+    },
+    "upstream-lewm/uv.lock": {
+      "bytes": 1267083,
+      "sha256": "1bf638a080ce7717ee000f5b0be9de1ca327624025ba52433c7fbcbcc90d024e"
+    }
+  },
+  "files": {
+    "notices/lewm-LICENSE": {
+      "asset": "upstream-lewm/LICENSE",
+      "bytes": 1067,
+      "member": null,
+      "sha256": "4882021920cbd61e050e4dc2e02440e9bd36ea4cbc5803e738a2ee3d63502e07"
+    },
+    "notices/stable-pretraining-LICENSE": {
+      "asset": "source-wheels/stable_pretraining-0.1.7-py3-none-any.whl",
+      "bytes": 1069,
+      "member": "stable_pretraining-0.1.7.dist-info/licenses/LICENSE",
+      "sha256": "8fa02eaa4e67a5455e8ab9268b29e0c283d4b4a5ae239f88282c00392f373bfd"
+    },
+    "notices/stable-pretraining-METADATA": {
+      "asset": "source-wheels/stable_pretraining-0.1.7-py3-none-any.whl",
+      "bytes": 42703,
+      "member": "stable_pretraining-0.1.7.dist-info/METADATA",
+      "sha256": "208da4fdea1fede49472a99df2e45e90fec7a0096dd5b512e375d139d9deb199"
+    },
+    "notices/stable-worldmodel-METADATA": {
+      "asset": "source-wheels/stable_worldmodel-0.1.1-py3-none-any.whl",
+      "bytes": 18087,
+      "member": "stable_worldmodel-0.1.1.dist-info/METADATA",
+      "sha256": "7f429c94bac21fa06a6e0f4d8beb235db2c3d3ed8e120b19a0671f1c10c2c6eb"
+    },
+    "prisoma_lewm_reference/jepa.py": {
+      "asset": "upstream-lewm/src/lewm/jepa.py",
+      "bytes": 5636,
+      "member": null,
+      "sha256": "c771400cd3eb71b57c4f941a1204e59cbcc842ef8245787f674bb4c1a0684671"
+    },
+    "prisoma_lewm_reference/module.py": {
+      "asset": "upstream-lewm/src/lewm/module.py",
+      "bytes": 8983,
+      "member": null,
+      "sha256": "a7c870265099e89169eafdcc6429941d408d9dea269d305589b071e2d5ea1407"
+    },
+    "stable_worldmodel/envs/pusht/env.py": {
+      "asset": "source-wheels/stable_worldmodel-0.1.1-py3-none-any.whl",
+      "bytes": 31008,
+      "member": "stable_worldmodel/envs/pusht/env.py",
+      "sha256": "3c4df51ed01ed034386c24961caa638f02b5c0e31c88fec727a9f1cd5808e203"
+    },
+    "stable_worldmodel/envs/utils.py": {
+      "asset": "source-wheels/stable_worldmodel-0.1.1-py3-none-any.whl",
+      "bytes": 8006,
+      "member": "stable_worldmodel/envs/utils.py",
+      "sha256": "2e5d98a5c13227cba6f5574bf72b6eab149ee5b3783df0481b8d240f34047f56"
+    },
+    "stable_worldmodel/protocols.py": {
+      "asset": "source-wheels/stable_worldmodel-0.1.1-py3-none-any.whl",
+      "bytes": 2812,
+      "member": "stable_worldmodel/protocols.py",
+      "sha256": "35b3e08fa2df0239277d2004356375af58b207edbfa555d46d24baca646fc401"
+    },
+    "stable_worldmodel/solver/callbacks/__init__.py": {
+      "asset": "source-wheels/stable_worldmodel-0.1.1-py3-none-any.whl",
+      "bytes": 541,
+      "member": "stable_worldmodel/solver/callbacks/__init__.py",
+      "sha256": "bfbeaab14335013057ce236d359ddb3a1eeb342d25cd3c270365fb241481503b"
+    },
+    "stable_worldmodel/solver/callbacks/cem.py": {
+      "asset": "source-wheels/stable_worldmodel-0.1.1-py3-none-any.whl",
+      "bytes": 1632,
+      "member": "stable_worldmodel/solver/callbacks/cem.py",
+      "sha256": "9631f12f5cc42b7722bd1dab88e5433ae2f13098b63e2a62a17be2d8cbd79c75"
+    },
+    "stable_worldmodel/solver/callbacks/common.py": {
+      "asset": "source-wheels/stable_worldmodel-0.1.1-py3-none-any.whl",
+      "bytes": 2336,
+      "member": "stable_worldmodel/solver/callbacks/common.py",
+      "sha256": "00f498dbd347ef4233893ee0accdf87e1201f93ccaa2662abe402e66967fa3d1"
+    },
+    "stable_worldmodel/solver/callbacks/gd.py": {
+      "asset": "source-wheels/stable_worldmodel-0.1.1-py3-none-any.whl",
+      "bytes": 1514,
+      "member": "stable_worldmodel/solver/callbacks/gd.py",
+      "sha256": "c614a261164edf027719209cbcd6648efe8930b7760e3f57a0fc525eb1813454"
+    },
+    "stable_worldmodel/solver/cem.py": {
+      "asset": "source-wheels/stable_worldmodel-0.1.1-py3-none-any.whl",
+      "bytes": 10080,
+      "member": "stable_worldmodel/solver/cem.py",
+      "sha256": "a6662e7f1f2c6ecaf0a8527255d531aa05ed583339aabdf2798d0206382ef51b"
+    },
+    "stable_worldmodel/solver/solver.py": {
+      "asset": "source-wheels/stable_worldmodel-0.1.1-py3-none-any.whl",
+      "bytes": 2376,
+      "member": "stable_worldmodel/solver/solver.py",
+      "sha256": "51c023b96c203b982fa0d3aabd35f08f2a66057aa1b19b44fbbbd2b21d5e8ab4"
+    },
+    "stable_worldmodel/solver/utils.py": {
+      "asset": "source-wheels/stable_worldmodel-0.1.1-py3-none-any.whl",
+      "bytes": 2401,
+      "member": "stable_worldmodel/solver/utils.py",
+      "sha256": "d30c6225a9c4c83782132180a94c94188b07e0381d2c938c658fe5a49aed48e1"
+    },
+    "stable_worldmodel/spaces.py": {
+      "asset": "source-wheels/stable_worldmodel-0.1.1-py3-none-any.whl",
+      "bytes": 26887,
+      "member": "stable_worldmodel/spaces.py",
+      "sha256": "73079b2a66dace087abc7c417691e3cc339887866915553e21d0936a362229eb"
+    },
+    "stable_worldmodel/utils.py": {
+      "asset": "source-wheels/stable_worldmodel-0.1.1-py3-none-any.whl",
+      "bytes": 4641,
+      "member": "stable_worldmodel/utils.py",
+      "sha256": "9979483129df100cf4728dd45d1b6d0bb02d1fadec637d7f7065fe7894a3c276"
+    },
+    "stable_worldmodel/wm/lewm/lewm.py": {
+      "asset": "source-wheels/stable_worldmodel-0.1.1-py3-none-any.whl",
+      "bytes": 5424,
+      "member": "stable_worldmodel/wm/lewm/lewm.py",
+      "sha256": "eb259214252af0b01d309044e632cd95ada06e0bb5ef0383102f03699b64a5cb"
+    },
+    "stable_worldmodel/wm/lewm/module.py": {
+      "asset": "source-wheels/stable_worldmodel-0.1.1-py3-none-any.whl",
+      "bytes": 8062,
+      "member": "stable_worldmodel/wm/lewm/module.py",
+      "sha256": "3a6209baf30c11f77a5f6637282a1821fc62cea827438a97b23933caab51d8c7"
+    }
+  },
+  "generated": {
+    "prisoma_lewm_reference/__init__.py": "\"\"\"Prisoma local projection: selected pinned modules; see source-manifest.json.\"\"\"\n",
+    "stable_worldmodel/__init__.py": "\"\"\"Prisoma local projection: selected pinned modules; see source-manifest.json.\"\"\"\n",
+    "stable_worldmodel/envs/__init__.py": "\"\"\"Prisoma local projection: selected pinned modules; see source-manifest.json.\"\"\"\n",
+    "stable_worldmodel/envs/pusht/__init__.py": "\"\"\"Prisoma local projection: selected pinned modules; see source-manifest.json.\"\"\"\n",
+    "stable_worldmodel/solver/__init__.py": "\"\"\"Prisoma local projection: selected pinned modules; see source-manifest.json.\"\"\"\n",
+    "stable_worldmodel/wm/__init__.py": "\"\"\"Prisoma local projection: selected pinned modules; see source-manifest.json.\"\"\"\n",
+    "stable_worldmodel/wm/lewm/__init__.py": "\"\"\"Prisoma local projection: selected pinned modules; see source-manifest.json.\"\"\"\n"
+  },
+  "rights": "engineering_only_planning_wheel_mit_metadata_notice_gap_unresolved",
+  "schema": "prisoma.lewm.source-projection.v1",
+  "upstream_revision": "8a2c595813d0eee85b2dbffa6f58ff0842f9e673"
+}

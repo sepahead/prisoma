@@ -1,0 +1,14 @@
+{
+  "font_sha256": {
+    "LeWMBold": "d72db21f9242aedd6b917d8549ad5921766b24d5f8d0becfda2ff4c620b3c2e0",
+    "LeWMMono": "ca436a8f07f6699107542ebe19dcc9478f12aa666927699e9fa10115e7d2ee95",
+    "LeWMSans": "525979822591a3447cfc49d943d6f7683508e25543407871c0ed8fed05fd2bd9"
+  },
+  "pdf_sha256": "be5835cc387a114655f6accccd81b0a2a717ad7401511e7aa582ff24d9f9660f",
+  "renderer_sha256": "c6d527d159ec1204187d8b8ff6a19da58564f239818a590ba7ffa885d1f1d553",
+  "schema": "prisoma.lewm.math-publication.v1",
+  "source_authority": "Markdown",
+  "source_sha256": "fc91f87a9b126bda11652b79d62ec7bcfe794deb86acc94d3edb80ca9f854513",
+  "svg_sha256": "d566652435eda8643bf110994e159d9ea53d747f60db6f9b7b4288d2e1fba17e",
+  "visual_review": "required_separately"
+}

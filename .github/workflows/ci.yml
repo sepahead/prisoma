@@ -56,6 +56,13 @@ jobs:
         run: cargo clippy --locked --manifest-path crates/ncp-observer/Cargo.toml --all-targets -- -D warnings
       - name: Clippy (Engram managed observer — excluded from the workspace)
         run: cargo clippy --locked --manifest-path crates/engram-managed-observer/Cargo.toml --all-targets --all-features -- -D warnings
+      - name: Native local NCP capture
+        run: |
+          cargo fmt --manifest-path crates/ncp-local-capture/Cargo.toml -- --check
+          cargo test --locked --manifest-path crates/ncp-local-capture/Cargo.toml --all-targets
+          cargo clippy --locked --manifest-path crates/ncp-local-capture/Cargo.toml --all-targets -- -D warnings
+          RUSTDOCFLAGS="-D warnings" cargo doc --locked --manifest-path crates/ncp-local-capture/Cargo.toml --no-deps
+          cargo build --locked --release --manifest-path crates/ncp-local-capture/Cargo.toml
       - name: Tests
         run: cargo test --locked --workspace --all-targets --all-features
       - name: Rapier manipulation harness smoke
@@ -577,6 +584,8 @@ jobs:
         run: cargo-deny --log-level warn --manifest-path crates/ncp-observer/Cargo.toml --locked check
       - name: cargo-deny (Engram managed observer)
         run: cargo-deny --log-level warn --manifest-path crates/engram-managed-observer/Cargo.toml --locked check
+      - name: cargo-deny (native local NCP capture)
+        run: cargo-deny --log-level warn --manifest-path crates/ncp-local-capture/Cargo.toml --config deny.toml --locked --all-features check
       - name: Reject the vulnerable Zenoh compression feature
         run: |
           # Scan the complete resolved feature graph so a second Zenoh transport

@@ -92,6 +92,7 @@ It does not own network transports, the simulator, or file confinement.
 - stdio, TCP, and WebSocket bridge transports.
 - A Rapier-backed manipulation fixture.
 - A native exact-fork world-model decision reference.
+- An optional [LeWM engineering adapter](docs/lewm/README.md) with source-bound forecasts, immutable candidates, and independently verified CEM traces.
 - H1 and H2 protocol arithmetic references.
 - The offline `(V,L,D,A)` harness.
 - Exact-snapshot publication helpers.

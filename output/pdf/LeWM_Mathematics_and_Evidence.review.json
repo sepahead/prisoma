@@ -1,0 +1,15 @@
+{
+  "all_pages_rendered_and_inspected": true,
+  "build_receipt_sha256": "d90eec2c5a795e0b68a28d16c621d29302db3c657e69dfddfe9f6816b0d2f0db",
+  "pages": 5,
+  "pdf_sha256": "be5835cc387a114655f6accccd81b0a2a717ad7401511e7aa582ff24d9f9660f",
+  "raster_images": 0,
+  "review": "All five rendered pages inspected at 1100-pixel page height; no overlap, clipping, missing symbols or blank pages. Native vector diagram and text remain zoomable.",
+  "schema": "prisoma.lewm.pdf-visual-review.v1",
+  "text_checks": "pass",
+  "versions": {
+    "pypdf": "6.7.4",
+    "reportlab": "4.4.10",
+    "svglib": "1.5.1"
+  }
+}

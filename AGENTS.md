@@ -582,9 +582,15 @@ The Engram reviewed-development v2 launch gate remains `NOT RUN`.
 It binds one-, two-, and three-drone captures to exact CREBAIN, Engram, and Prisoma revisions.
 It grants no production manager, publisher, NCP, physical, plant, or scientific authority.
 
+### LeWM engineering adapter
+
+The optional [LeWM engineering adapter](docs/lewm/README.md) now provides source-bound pretrained forecasts and full-budget CPU/MPS controls.
+It stages unchanged upstream modules from exact local assets. It executes no raw action and qualifies no scientific claim.
+The planning-wheel license-notice discrepancy remains explicit.
+
 ### Specified but not built
 
-The learned LeWorldModel M4 adapter, matched mesh-versus-3DGS study, fuller Rerun views, and
+The qualified learned LeWorldModel control pipeline, matched mesh-versus-3DGS study, fuller Rerun views, and
 Tauri/SparkJS shell are not built. The native `pid-world-model-reference` is built. Do not promote
 its deterministic contract proof to learned-model, physical, W1, or W2 evidence. The independent
 LeWM reproduction is one-seed TwoRoom evidence, not PushT or M4 evidence. Before a LeWM port study,
