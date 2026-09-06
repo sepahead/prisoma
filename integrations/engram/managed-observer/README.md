@@ -195,6 +195,20 @@ It checks every schema digest and authority field.
 It also executes the real binary and compares the normalized transcript.
 This portable gate does not authorize a release artifact.
 
+Cargo can hard-link its public output to a retained `deps` inode on Linux.
+The portable gate explicitly copies that bounded output into one independent owner-private inode before runtime checks.
+It preserves the old counterpart and verifies the exact copied bytes.
+Held directory descriptors bind each parent before and after replacement.
+Cleanup attempts every owned resource once.
+An error after replacement does not prove that the old artifact remains.
+
+The strict consumer still rejects linked, noncanonical, or unowned executable inputs.
+After rebuilding, run this preparation again because Cargo can recreate the hard link.
+
+The helper records current source and index identities separately, including any mismatch.
+It does not attest compiled source, create an observed-build receipt, or authorize package staging.
+The clean-source arm64 release lane below keeps its separate construction and verification.
+
 Run the clean-source release gate on an Apple silicon Mac:
 
 ```bash

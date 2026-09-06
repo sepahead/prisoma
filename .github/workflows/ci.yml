@@ -81,6 +81,8 @@ jobs:
           cargo test --locked --manifest-path crates/engram-managed-observer/Cargo.toml --all-targets --all-features
           RUSTDOCFLAGS="-D warnings" cargo doc --locked --manifest-path crates/engram-managed-observer/Cargo.toml --all-features --no-deps
           cargo build --locked --release --manifest-path crates/engram-managed-observer/Cargo.toml --bin prisoma-engram-managed-observer
+          python3 -B integrations/engram/managed-observer/scripts/test_bootstrap_binary.py
+          python3 -B integrations/engram/managed-observer/scripts/prepare-bootstrap-observer.py
           python3 integrations/engram/managed-observer/scripts/check-contract.py
           python3 integrations/engram/managed-observer/scripts/generate-transcript.py --binary crates/engram-managed-observer/target/release/prisoma-engram-managed-observer --verify integrations/engram/managed-observer/sample-transcript.json
           python3 integrations/engram/managed-observer/scripts/review-crebain-real-nest-matrix.py --binary crates/engram-managed-observer/target/release/prisoma-engram-managed-observer --self-test

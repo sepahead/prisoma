@@ -340,10 +340,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "0eada48a3f384f7e342ecaa7b48e5b193d1922e1",
+        "git_blob_id": "11fa72a7770ec4be2559eb16aa8281b1da0a73f5",
         "independent_reviewer": null,
         "language": "YAML",
-        "line_count": 771,
+        "line_count": 773,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": ".github/workflows/ci.yml",
         "public_surface": false,
@@ -351,7 +351,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": true,
-        "sha256": "f2c47d9333e617b303ebc313a5d1513d8ecd605ed3ff49871c149090db70357e",
+        "sha256": "04ef9b1dbb325e5aa58d302cccfebab8e123811ed173094f5b8c4b1f8c64177b",
         "tests": [],
         "updated_at": null
       },
@@ -361,12 +361,12 @@
         "oid": "0eada48a3f384f7e342ecaa7b48e5b193d1922e1"
       },
       "index": {
-        "bytes": 54762,
-        "content_sha256": "f2c47d9333e617b303ebc313a5d1513d8ecd605ed3ff49871c149090db70357e",
+        "bytes": 54949,
+        "content_sha256": "04ef9b1dbb325e5aa58d302cccfebab8e123811ed173094f5b8c4b1f8c64177b",
         "mode": "100644",
-        "oid": "0eada48a3f384f7e342ecaa7b48e5b193d1922e1"
+        "oid": "11fa72a7770ec4be2559eb16aa8281b1da0a73f5"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -375,14 +375,14 @@
       },
       "path": ".github/workflows/ci.yml",
       "working_tree": {
-        "bytes": 54762,
+        "bytes": 54949,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 771,
+        "line_count": 773,
         "link_target": null,
         "mode": "100644",
-        "sha256": "f2c47d9333e617b303ebc313a5d1513d8ecd605ed3ff49871c149090db70357e"
+        "sha256": "04ef9b1dbb325e5aa58d302cccfebab8e123811ed173094f5b8c4b1f8c64177b"
       },
       "worktree_state": "unchanged"
     },
@@ -743,7 +743,7 @@
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "97808237193c45281175cb99e07ee31d67b98f5d"
+        "oid": "07ae468a0e4d2a06f96a32b3bed2639682125bd5"
       },
       "index": {
         "bytes": 15966,
@@ -751,7 +751,7 @@
         "mode": "100644",
         "oid": "07ae468a0e4d2a06f96a32b3bed2639682125bd5"
       },
-      "index_state": "modified",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -798,7 +798,7 @@
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "7254a82ba0645717edb927e4acd826c349981f48"
+        "oid": "a809929b37eea169ecd6c27be671b98d9a3b7425"
       },
       "index": {
         "bytes": 25634,
@@ -806,7 +806,7 @@
         "mode": "100644",
         "oid": "a809929b37eea169ecd6c27be671b98d9a3b7425"
       },
-      "index_state": "modified",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -963,7 +963,7 @@
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "7abec40ebafea63eb58ae6a6397ad1673e216398"
+        "oid": "d4dc940579408e3c88ef2b6ec7e3ec0d612fac43"
       },
       "index": {
         "bytes": 1989,
@@ -971,7 +971,7 @@
         "mode": "100644",
         "oid": "d4dc940579408e3c88ef2b6ec7e3ec0d612fac43"
       },
-      "index_state": "modified",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -1678,7 +1678,7 @@
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "6ada8ac026cdbfd5978468d198a3d59cde24e67b"
+        "oid": "d380b1480cd00c8e312a8d91ecaa47e0d58292d4"
       },
       "index": {
         "bytes": 12541,
@@ -1686,7 +1686,7 @@
         "mode": "100644",
         "oid": "d380b1480cd00c8e312a8d91ecaa47e0d58292d4"
       },
-      "index_state": "modified",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -2390,14 +2390,18 @@
         "tests": [],
         "updated_at": null
       },
-      "head": null,
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "9245a3781a040cac1c5cce2ee7313951ae67aa8b"
+      },
       "index": {
         "bytes": 8250,
         "content_sha256": "6f95c7322c1916c87c15ab51b6a5112e14cc0fdf3163329e4b66f80f74e1f0a2",
         "mode": "100644",
         "oid": "9245a3781a040cac1c5cce2ee7313951ae67aa8b"
       },
-      "index_state": "added",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -2441,14 +2445,18 @@
         "tests": [],
         "updated_at": null
       },
-      "head": null,
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "1d5f82f6f7377b3dd76639e822ef37716d0381c9"
+      },
       "index": {
         "bytes": 9015,
         "content_sha256": "00a7d7af344cddd644bb559b3da09b37a33df10f181a1090e5f789e41bfac1a8",
         "mode": "100644",
         "oid": "1d5f82f6f7377b3dd76639e822ef37716d0381c9"
       },
-      "index_state": "added",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -8307,7 +8315,7 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": true,
-        "git_blob_id": "23e2f6f128057aac6c9b99e3fd7e7ad060b19e55",
+        "git_blob_id": "5b7f098c20ccba4a2994cabab5f25fcd4486c5b9",
         "independent_reviewer": null,
         "language": "Markdown",
         "line_count": 45,
@@ -8318,20 +8326,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "1743821fa8522c38a7646f781e4638094c951b60b45f08dc9ade808676cf4f30",
+        "sha256": "1553241b30a974a3b9cd34741b0bac77b1660852cb558d3bd2ea533c684f3b29",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "1be1bd630ed97ef20df061ac3209a125f7206776"
+        "oid": "23e2f6f128057aac6c9b99e3fd7e7ad060b19e55"
       },
       "index": {
         "bytes": 36136,
-        "content_sha256": "1743821fa8522c38a7646f781e4638094c951b60b45f08dc9ade808676cf4f30",
+        "content_sha256": "1553241b30a974a3b9cd34741b0bac77b1660852cb558d3bd2ea533c684f3b29",
         "mode": "100644",
-        "oid": "23e2f6f128057aac6c9b99e3fd7e7ad060b19e55"
+        "oid": "5b7f098c20ccba4a2994cabab5f25fcd4486c5b9"
       },
       "index_state": "modified",
       "inventory_origin": {
@@ -8349,7 +8357,7 @@
         "line_count": 45,
         "link_target": null,
         "mode": "100644",
-        "sha256": "1743821fa8522c38a7646f781e4638094c951b60b45f08dc9ade808676cf4f30"
+        "sha256": "1553241b30a974a3b9cd34741b0bac77b1660852cb558d3bd2ea533c684f3b29"
       },
       "worktree_state": "unchanged"
     },
@@ -8377,14 +8385,18 @@
         "tests": [],
         "updated_at": null
       },
-      "head": null,
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "a2962673738f69d48b2e91549f3f302d17f8c08d"
+      },
       "index": {
         "bytes": 10334,
         "content_sha256": "5628c34cc8fa9e7be0567be6f75b00dcfeb0806fc8b0ff69cffbea90239fc913",
         "mode": "100644",
         "oid": "a2962673738f69d48b2e91549f3f302d17f8c08d"
       },
-      "index_state": "added",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -8978,14 +8990,18 @@
         "tests": [],
         "updated_at": null
       },
-      "head": null,
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "39ce2fe6e9dc3cd3b326646561fcee38006e45c3"
+      },
       "index": {
         "bytes": 4607,
         "content_sha256": "29177f2d073c208b94158978b69eaf1d388d0aa0b0d3e33f0177b4356bd9ad27",
         "mode": "100644",
         "oid": "39ce2fe6e9dc3cd3b326646561fcee38006e45c3"
       },
-      "index_state": "added",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -12754,10 +12770,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "77b476f09076afcbfda944318a7955d355cca9e2",
+        "git_blob_id": "fa73ecd25d3da2baf21f636898ebef909d4e09f5",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 509,
+        "line_count": 523,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "integrations/engram/managed-observer/README.md",
         "public_surface": false,
@@ -12765,7 +12781,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "673fe02b7c40da74d96a84c42f66635f6ded62f3e518b4a65ea5bd42f0299ab3",
+        "sha256": "f8e97d587d5468fd0c9f9500890e43dc3ccfecc9e9504dc15c2b73333ac3d6f3",
         "tests": [],
         "updated_at": null
       },
@@ -12775,12 +12791,12 @@
         "oid": "77b476f09076afcbfda944318a7955d355cca9e2"
       },
       "index": {
-        "bytes": 25170,
-        "content_sha256": "673fe02b7c40da74d96a84c42f66635f6ded62f3e518b4a65ea5bd42f0299ab3",
+        "bytes": 26085,
+        "content_sha256": "f8e97d587d5468fd0c9f9500890e43dc3ccfecc9e9504dc15c2b73333ac3d6f3",
         "mode": "100644",
-        "oid": "77b476f09076afcbfda944318a7955d355cca9e2"
+        "oid": "fa73ecd25d3da2baf21f636898ebef909d4e09f5"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -12789,14 +12805,14 @@
       },
       "path": "integrations/engram/managed-observer/README.md",
       "working_tree": {
-        "bytes": 25170,
+        "bytes": 26085,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 509,
+        "line_count": 523,
         "link_target": null,
         "mode": "100644",
-        "sha256": "673fe02b7c40da74d96a84c42f66635f6ded62f3e518b4a65ea5bd42f0299ab3"
+        "sha256": "f8e97d587d5468fd0c9f9500890e43dc3ccfecc9e9504dc15c2b73333ac3d6f3"
       },
       "worktree_state": "unchanged"
     },
@@ -14404,6 +14420,57 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
+        "git_blob_id": "47c7abf4b3fa1e28eb832c48ca4623e98fd24d5a",
+        "independent_reviewer": null,
+        "language": "Python",
+        "line_count": 272,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/engram/managed-observer/scripts/prepare-bootstrap-observer.py",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "5cb7eb52af5662a952f44fcb06df475b74a8a0e47dbb8ea589acbb1f61470474",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 10778,
+        "content_sha256": "5cb7eb52af5662a952f44fcb06df475b74a8a0e47dbb8ea589acbb1f61470474",
+        "mode": "100644",
+        "oid": "47c7abf4b3fa1e28eb832c48ca4623e98fd24d5a"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/engram/managed-observer/scripts/prepare-bootstrap-observer.py",
+      "working_tree": {
+        "bytes": 10778,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 272,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "5cb7eb52af5662a952f44fcb06df475b74a8a0e47dbb8ea589acbb1f61470474"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
         "git_blob_id": "b0d87f65bf57ec1baa271496b6c9aba022734fdd",
         "independent_reviewer": null,
         "language": "Python",
@@ -14679,6 +14746,57 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
+        "git_blob_id": "26ae6bf02457bc979303490ae8dfa12052a73776",
+        "independent_reviewer": null,
+        "language": "Python",
+        "line_count": 318,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/engram/managed-observer/scripts/test_bootstrap_binary.py",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "f6830bb3905f8b1c0252023a5a233a291c8760d74a0efe61c5c0032da1ce1e2a",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 13074,
+        "content_sha256": "f6830bb3905f8b1c0252023a5a233a291c8760d74a0efe61c5c0032da1ce1e2a",
+        "mode": "100644",
+        "oid": "26ae6bf02457bc979303490ae8dfa12052a73776"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/engram/managed-observer/scripts/test_bootstrap_binary.py",
+      "working_tree": {
+        "bytes": 13074,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 318,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "f6830bb3905f8b1c0252023a5a233a291c8760d74a0efe61c5c0032da1ce1e2a"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
         "git_blob_id": "f03e1fdc825ee696bd47d1bc2e655f222599bb6e",
         "independent_reviewer": null,
         "language": "Python",
@@ -14899,10 +15017,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "7e65403550e360047dabb2e78a2f6dddbb998263",
+        "git_blob_id": "6f3529ae7c1cf7c356820f73105e09cf192d4b0c",
         "independent_reviewer": null,
         "language": "binary_or_unknown",
-        "line_count": 534,
+        "line_count": 536,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "justfile",
         "public_surface": false,
@@ -14910,7 +15028,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "b11c421611399d6b8450f515661365a503820451ccb16bf6cb26446cb4f4c1cf",
+        "sha256": "d27bcfe86114cd0647174793f4f8b8b253aaa94e464a73c40d9f5a8e1e581688",
         "tests": [],
         "updated_at": null
       },
@@ -14920,12 +15038,12 @@
         "oid": "7e65403550e360047dabb2e78a2f6dddbb998263"
       },
       "index": {
-        "bytes": 54400,
-        "content_sha256": "b11c421611399d6b8450f515661365a503820451ccb16bf6cb26446cb4f4c1cf",
+        "bytes": 54575,
+        "content_sha256": "d27bcfe86114cd0647174793f4f8b8b253aaa94e464a73c40d9f5a8e1e581688",
         "mode": "100644",
-        "oid": "7e65403550e360047dabb2e78a2f6dddbb998263"
+        "oid": "6f3529ae7c1cf7c356820f73105e09cf192d4b0c"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -14934,14 +15052,14 @@
       },
       "path": "justfile",
       "working_tree": {
-        "bytes": 54400,
+        "bytes": 54575,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 534,
+        "line_count": 536,
         "link_target": null,
         "mode": "100644",
-        "sha256": "b11c421611399d6b8450f515661365a503820451ccb16bf6cb26446cb4f4c1cf"
+        "sha256": "d27bcfe86114cd0647174793f4f8b8b253aaa94e464a73c40d9f5a8e1e581688"
       },
       "worktree_state": "unchanged"
     },
@@ -26944,7 +27062,7 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": true,
-        "git_blob_id": "f76674db4c0d242729e1ea5391b85dd8ba6e9cd1",
+        "git_blob_id": "288e93bc3c1021de2bd0684bd374c395974d4c0f",
         "independent_reviewer": null,
         "language": "JSON",
         "line_count": 1266,
@@ -26955,20 +27073,20 @@
         "reviewer": null,
         "science_critical": true,
         "security_critical": false,
-        "sha256": "d204fcf59be98e61715845127b9da7ae2f689b15c8d6b1274b477bc102808897",
+        "sha256": "ed1a7e14b6e50500f05e88f689d9f8699e954aff2c3d747ebc3f697d395a761c",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "0cf3611c728f865211d0bc02c376e325e6063da9"
+        "oid": "f76674db4c0d242729e1ea5391b85dd8ba6e9cd1"
       },
       "index": {
         "bytes": 59477,
-        "content_sha256": "d204fcf59be98e61715845127b9da7ae2f689b15c8d6b1274b477bc102808897",
+        "content_sha256": "ed1a7e14b6e50500f05e88f689d9f8699e954aff2c3d747ebc3f697d395a761c",
         "mode": "100644",
-        "oid": "f76674db4c0d242729e1ea5391b85dd8ba6e9cd1"
+        "oid": "288e93bc3c1021de2bd0684bd374c395974d4c0f"
       },
       "index_state": "modified",
       "inventory_origin": {
@@ -26986,7 +27104,7 @@
         "line_count": 1266,
         "link_target": null,
         "mode": "100644",
-        "sha256": "d204fcf59be98e61715845127b9da7ae2f689b15c8d6b1274b477bc102808897"
+        "sha256": "ed1a7e14b6e50500f05e88f689d9f8699e954aff2c3d747ebc3f697d395a761c"
       },
       "worktree_state": "unchanged"
     },
@@ -30547,12 +30665,12 @@
   "repository": "https://github.com/sepahead/prisoma",
   "schema_version": "prisoma.release-candidate/0.1.0",
   "source": {
-    "candidate_state_sha256": "485bcd4c854aa0436575d4e053a1224af58a77afed006eb62a3fe88e7b1edb52",
+    "candidate_state_sha256": "62ba829e347be4585dbbb92ff801fa12f5935264bf34dbdfecc5bc90f3a2ff60",
     "clean": false,
     "explicit_source_arguments_required": true,
-    "head_commit": "46b32b930dd7a6862009b3bddafedb82f3087670",
-    "head_tree": "2cb50164ef72418dc9301dc3f245d6945b38b1b2",
-    "index_entries_sha256": "ac89f5728c8eab3bdc72e169012a51f331ce9a7f09dc304c39e68f2fe7aa62fb",
+    "head_commit": "32957f3dbbb8ae8f21b581ad16f426ef564f5d01",
+    "head_tree": "88480748fbbc43c044f4d46cc8e201c7d0c8036c",
+    "index_entries_sha256": "91b9d03d99304fe799697dbac0db251ab2bd268ad0120953c89fe68bd53636a2",
     "recursive_gitlinks": [
       {
         "commit": "796c11e70f009634b853dc4ada6f565563d82f51",
@@ -30563,14 +30681,14 @@
       }
     ],
     "state": "dirty_uncommitted_source_snapshot",
-    "worktree_entries_sha256": "cac4dbf7fd80b32caa378669651e30e7971dc2ba29025ce6800ae591edba0822"
+    "worktree_entries_sha256": "37675fa44eeb4f2dc09b18ffe96c535bacd31c2ca13e1b2d3689083f4b390414"
   },
   "summary": {
     "clean": false,
-    "entry_count": 554,
-    "index_changed_entry_count": 10,
-    "indexed_entry_count": 347,
-    "parent_entry_count": 347,
+    "entry_count": 556,
+    "index_changed_entry_count": 7,
+    "indexed_entry_count": 349,
+    "parent_entry_count": 349,
     "recursive_gitlink_entry_count": 207,
     "untracked_entry_count": 0,
     "worktree_changed_entry_count": 0

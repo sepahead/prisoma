@@ -170,6 +170,8 @@ engram-managed-observer-check:
     cargo clippy --locked --manifest-path crates/engram-managed-observer/Cargo.toml --all-targets --all-features -- -D warnings
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --manifest-path crates/engram-managed-observer/Cargo.toml --all-features --no-deps
     cargo build --locked --release --manifest-path crates/engram-managed-observer/Cargo.toml --bin prisoma-engram-managed-observer
+    python3 -B integrations/engram/managed-observer/scripts/test_bootstrap_binary.py
+    python3 -B integrations/engram/managed-observer/scripts/prepare-bootstrap-observer.py
     uv run --no-sync ruff check integrations/engram/managed-observer/scripts
     uv run --no-sync ruff format --check integrations/engram/managed-observer/scripts
     python3 integrations/engram/managed-observer/scripts/test_source_provenance.py
