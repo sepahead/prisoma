@@ -1147,7 +1147,7 @@
         },
         {
           "path": "README.md",
-          "sha256": "9d6bb571e78579c0300dec2dbb53242b55475fe1e64f6c4d087fe8c24968bfb5"
+          "sha256": "c6a14dc4865a5f069b39a114571fe8e90748640cc35c6f1e71ed82380d744cad"
         }
       ],
       "known_limitations": "The scripted push-to-goal fixture is a deterministic software cross-check, not a real VLA policy/environment choice, external adapter, validated simulator, or physical repeatability study.",

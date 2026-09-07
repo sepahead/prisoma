@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="398 68 124 124" width="124" height="124" role="img" aria-label="PRISOMA historical profile mark"><title>PRISOMA historical profile mark</title><desc>Archived design extracted from a historical portfolio SVG. This image makes no current product or release claim.</desc><defs><filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="4" result="b" />
+      <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+    </filter>
+    <radialGradient id="triGrad" cx="50%" cy="56%" r="70%">
+      <stop offset="0%" stop-color="#241a44" />
+      <stop offset="100%" stop-color="#0a1117" />
+    </radialGradient>
+    </defs><style>:root{--hub-accent: #34d399; --cube-accent: #fb923c; --tri-accent: #a78bfa;}
+.tri{fill: url(#triGrad); stroke: #a78bfa; stroke-width: 2; filter: url(#soft);}
+:root{--hub-accent: #059669; --cube-accent: #c2410c; --tri-accent: #7c3aed;}
+.tri{fill: #ffffff; stroke: #7c3aed;}</style><g class="nodes"><g>
+    <polygon points="460,77 505.9,156.5 414.1,156.5" class="tri" stroke-linejoin="round" />
+    <g transform="translate(454 114.5) scale(1)"><path d="M2 6 V4.4 a4 4 0 0 1 8 0 V6" fill="none" stroke="var(--tri-accent)" stroke-width="1.5" /><rect x="0" y="6" width="12" height="9" rx="1.6" fill="var(--tri-accent)" /></g>
+    </g>
+  </g></svg>

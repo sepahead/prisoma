@@ -2,6 +2,8 @@
   <img src="assets/prisoma-logo.svg" width="120" alt="Prisoma information prism">
 </p>
 
+<p align="center"><a href="assets/archive/logos/README.md">Logo design archive</a></p>
+
 # Prisoma
 
 **Experiments for action-conditioned world models and embodied decisions.**

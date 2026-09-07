@@ -358,7 +358,7 @@
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "0eada48a3f384f7e342ecaa7b48e5b193d1922e1"
+        "oid": "11fa72a7770ec4be2559eb16aa8281b1da0a73f5"
       },
       "index": {
         "bytes": 54949,
@@ -366,7 +366,7 @@
         "mode": "100644",
         "oid": "11fa72a7770ec4be2559eb16aa8281b1da0a73f5"
       },
-      "index_state": "modified",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -1660,10 +1660,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "d380b1480cd00c8e312a8d91ecaa47e0d58292d4",
+        "git_blob_id": "48503d335ce5e7f5a8800a61ceb8d5afae7fd28e",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 213,
+        "line_count": 215,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "README.md",
         "public_surface": true,
@@ -1671,7 +1671,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "5637ff38f502c771d53bc7ca73f48bcfe6e062e88de9cc47e1eb6075e088bd12",
+        "sha256": "82929aa790e3f639d736c03e1954bce21ff558f8ebbff9e9ab1cb4cc835b5254",
         "tests": [],
         "updated_at": null
       },
@@ -1681,12 +1681,12 @@
         "oid": "d380b1480cd00c8e312a8d91ecaa47e0d58292d4"
       },
       "index": {
-        "bytes": 12541,
-        "content_sha256": "5637ff38f502c771d53bc7ca73f48bcfe6e062e88de9cc47e1eb6075e088bd12",
+        "bytes": 12629,
+        "content_sha256": "82929aa790e3f639d736c03e1954bce21ff558f8ebbff9e9ab1cb4cc835b5254",
         "mode": "100644",
-        "oid": "d380b1480cd00c8e312a8d91ecaa47e0d58292d4"
+        "oid": "48503d335ce5e7f5a8800a61ceb8d5afae7fd28e"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -1695,14 +1695,14 @@
       },
       "path": "README.md",
       "working_tree": {
-        "bytes": 12541,
+        "bytes": 12629,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 213,
+        "line_count": 215,
         "link_target": null,
         "mode": "100644",
-        "sha256": "5637ff38f502c771d53bc7ca73f48bcfe6e062e88de9cc47e1eb6075e088bd12"
+        "sha256": "82929aa790e3f639d736c03e1954bce21ff558f8ebbff9e9ab1cb4cc835b5254"
       },
       "worktree_state": "unchanged"
     },
@@ -2088,6 +2088,1893 @@
         "link_target": null,
         "mode": "100644",
         "sha256": "30e4c7f4f86746cfc1ff00282249c47669e11b8323f52a96d7e39019f8efb3ab"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "7fa8c90cd3a19b3a02e0d5f2ccd69e548686b2de",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 2,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/.gitattributes",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "3aeb6677589e6cc3e5cfc0b6e1ddadeb130d909cca98afc59454e12a97c20af1",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 117,
+        "content_sha256": "3aeb6677589e6cc3e5cfc0b6e1ddadeb130d909cca98afc59454e12a97c20af1",
+        "mode": "100644",
+        "oid": "7fa8c90cd3a19b3a02e0d5f2ccd69e548686b2de"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/.gitattributes",
+      "working_tree": {
+        "bytes": 117,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 2,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "3aeb6677589e6cc3e5cfc0b6e1ddadeb130d909cca98afc59454e12a97c20af1"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "root_documentation",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "4a5d6135f9535b7f07ed83469094c47598f6432d",
+        "independent_reviewer": null,
+        "language": "Markdown",
+        "line_count": 60,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/README.md",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "f9385d3a867bc7abf84526179c6786e7af496302c2b353240e300aa6416785c1",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 15150,
+        "content_sha256": "f9385d3a867bc7abf84526179c6786e7af496302c2b353240e300aa6416785c1",
+        "mode": "100644",
+        "oid": "4a5d6135f9535b7f07ed83469094c47598f6432d"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/README.md",
+      "working_tree": {
+        "bytes": 15150,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 60,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "f9385d3a867bc7abf84526179c6786e7af496302c2b353240e300aa6416785c1"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "aa9282f148a4ad9d916fbf7e2114b8c49cbe6bae",
+        "independent_reviewer": null,
+        "language": "JSON",
+        "line_count": 2416,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/manifest.json",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "672753b03bce5a0b7ba98d0f8639a887eae47b15f712412a0cbee617caf6fcf5",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 122238,
+        "content_sha256": "672753b03bce5a0b7ba98d0f8639a887eae47b15f712412a0cbee617caf6fcf5",
+        "mode": "100644",
+        "oid": "aa9282f148a4ad9d916fbf7e2114b8c49cbe6bae"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/manifest.json",
+      "working_tree": {
+        "bytes": 122238,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 2416,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "672753b03bce5a0b7ba98d0f8639a887eae47b15f712412a0cbee617caf6fcf5"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "b15ef1db2cd9e63cf12358d1b0198dba2429e91f",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 14,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-04-001-profile-dark-25ddaa3884.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "25ddaa38842753694bc7ea83451f7b45c76ac7b8d97655cc3cb85f37ecd4de54",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 1262,
+        "content_sha256": "25ddaa38842753694bc7ea83451f7b45c76ac7b8d97655cc3cb85f37ecd4de54",
+        "mode": "100644",
+        "oid": "b15ef1db2cd9e63cf12358d1b0198dba2429e91f"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-04-001-profile-dark-25ddaa3884.svg",
+      "working_tree": {
+        "bytes": 1262,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 14,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "25ddaa38842753694bc7ea83451f7b45c76ac7b8d97655cc3cb85f37ecd4de54"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "2d4c122d19f6ef6c171cd9e8b5976e24089eb9ff",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 16,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-04-002-profile-light-41edfbffc3.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "41edfbffc3d04f305e9d297ef50d92f03516f1d84685b8828e1d463d50859e5a",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 1377,
+        "content_sha256": "41edfbffc3d04f305e9d297ef50d92f03516f1d84685b8828e1d463d50859e5a",
+        "mode": "100644",
+        "oid": "2d4c122d19f6ef6c171cd9e8b5976e24089eb9ff"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-04-002-profile-light-41edfbffc3.svg",
+      "working_tree": {
+        "bytes": 1377,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 16,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "41edfbffc3d04f305e9d297ef50d92f03516f1d84685b8828e1d463d50859e5a"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "af35d248fde0615dd4cc6f1da91f1fcf24e94850",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 75,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-10-003-prisoma-logo-bb8aad2c4c.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "bb8aad2c4c9f14888e2de1c231ca000fd5b84fa0ab5303543bab086ee23fc96d",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 4241,
+        "content_sha256": "bb8aad2c4c9f14888e2de1c231ca000fd5b84fa0ab5303543bab086ee23fc96d",
+        "mode": "100644",
+        "oid": "af35d248fde0615dd4cc6f1da91f1fcf24e94850"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-10-003-prisoma-logo-bb8aad2c4c.svg",
+      "working_tree": {
+        "bytes": 4241,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 75,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "bb8aad2c4c9f14888e2de1c231ca000fd5b84fa0ab5303543bab086ee23fc96d"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "d1d719cb02654271851c5218f80ba7a7797c63d7",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 31,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-10-004-profile-dark-a744c7aa5b.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "a744c7aa5b85e6785a20748582237c0c0b8712518d3659089e9886ec8738922c",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 2270,
+        "content_sha256": "a744c7aa5b85e6785a20748582237c0c0b8712518d3659089e9886ec8738922c",
+        "mode": "100644",
+        "oid": "d1d719cb02654271851c5218f80ba7a7797c63d7"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-10-004-profile-dark-a744c7aa5b.svg",
+      "working_tree": {
+        "bytes": 2270,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 31,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "a744c7aa5b85e6785a20748582237c0c0b8712518d3659089e9886ec8738922c"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "57a0a5e15b8a110269ffedee1bee4a0bf31d593f",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 35,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-10-005-profile-light-bf3ce9275f.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "bf3ce9275f069c7a8831de3697e678392997f5088b5ca338a838a9b2e5c21e5e",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 2453,
+        "content_sha256": "bf3ce9275f069c7a8831de3697e678392997f5088b5ca338a838a9b2e5c21e5e",
+        "mode": "100644",
+        "oid": "57a0a5e15b8a110269ffedee1bee4a0bf31d593f"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-10-005-profile-light-bf3ce9275f.svg",
+      "working_tree": {
+        "bytes": 2453,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 35,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "bf3ce9275f069c7a8831de3697e678392997f5088b5ca338a838a9b2e5c21e5e"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "aa46727e2c1353325f13388162dae4974a2863c4",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 63,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-10-006-profile-dark-6a384de64e.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "6a384de64e3e941f076f6aa58eb1211b15061e6bf3d5dd48fbf0419b69ce1039",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 5193,
+        "content_sha256": "6a384de64e3e941f076f6aa58eb1211b15061e6bf3d5dd48fbf0419b69ce1039",
+        "mode": "100644",
+        "oid": "aa46727e2c1353325f13388162dae4974a2863c4"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-10-006-profile-dark-6a384de64e.svg",
+      "working_tree": {
+        "bytes": 5193,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 63,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "6a384de64e3e941f076f6aa58eb1211b15061e6bf3d5dd48fbf0419b69ce1039"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "e17fb6607ae5845d1d7b5d099813b0815c2f2ae6",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 65,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-10-007-profile-light-49860a11da.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "49860a11da47024f0eed0e068e6928f085355380b5153eecc26dda4a12feef6f",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 5296,
+        "content_sha256": "49860a11da47024f0eed0e068e6928f085355380b5153eecc26dda4a12feef6f",
+        "mode": "100644",
+        "oid": "e17fb6607ae5845d1d7b5d099813b0815c2f2ae6"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-10-007-profile-light-49860a11da.svg",
+      "working_tree": {
+        "bytes": 5296,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 65,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "49860a11da47024f0eed0e068e6928f085355380b5153eecc26dda4a12feef6f"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "ab60a721f64ee698a2d4ba6cb8751b4f9cc55d2c",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 84,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-10-008-profile-dark-35ed5c4126.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "35ed5c4126d790a3b32080140d3b080c816c0a8fb281eddb584662766c5e3c21",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 6907,
+        "content_sha256": "35ed5c4126d790a3b32080140d3b080c816c0a8fb281eddb584662766c5e3c21",
+        "mode": "100644",
+        "oid": "ab60a721f64ee698a2d4ba6cb8751b4f9cc55d2c"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-10-008-profile-dark-35ed5c4126.svg",
+      "working_tree": {
+        "bytes": 6907,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 84,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "35ed5c4126d790a3b32080140d3b080c816c0a8fb281eddb584662766c5e3c21"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "b0ddff747d131a2265a67f9c9ec40777508f26f2",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 85,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-10-009-profile-light-f7e3481d3c.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "f7e3481d3ce07dd42ead858a09ba85349eb9c5c4b9cbe48a4634824de720602f",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 6984,
+        "content_sha256": "f7e3481d3ce07dd42ead858a09ba85349eb9c5c4b9cbe48a4634824de720602f",
+        "mode": "100644",
+        "oid": "b0ddff747d131a2265a67f9c9ec40777508f26f2"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-10-009-profile-light-f7e3481d3c.svg",
+      "working_tree": {
+        "bytes": 6984,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 85,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "f7e3481d3ce07dd42ead858a09ba85349eb9c5c4b9cbe48a4634824de720602f"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "7618aceb3183296a47fe7bc071b6b71a7e12b50f",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 85,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-12-010-profile-dark-d8d0abdab8.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "d8d0abdab8a3e5e7db927037b97ce2890fdea670a94daec2650f6688b8c55714",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 8395,
+        "content_sha256": "d8d0abdab8a3e5e7db927037b97ce2890fdea670a94daec2650f6688b8c55714",
+        "mode": "100644",
+        "oid": "7618aceb3183296a47fe7bc071b6b71a7e12b50f"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-12-010-profile-dark-d8d0abdab8.svg",
+      "working_tree": {
+        "bytes": 8395,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 85,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "d8d0abdab8a3e5e7db927037b97ce2890fdea670a94daec2650f6688b8c55714"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "75f02608672758281fe09033ed688cedcce0b1f1",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 86,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-12-011-profile-light-25adaa2057.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "25adaa205781493677b118923ace3b4cbb42650232d7a0c74dd4f5a6d5cb4801",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 8472,
+        "content_sha256": "25adaa205781493677b118923ace3b4cbb42650232d7a0c74dd4f5a6d5cb4801",
+        "mode": "100644",
+        "oid": "75f02608672758281fe09033ed688cedcce0b1f1"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-12-011-profile-light-25adaa2057.svg",
+      "working_tree": {
+        "bytes": 8472,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 86,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "25adaa205781493677b118923ace3b4cbb42650232d7a0c74dd4f5a6d5cb4801"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "33ceff65e921ac65472d9c6cfc5adbf3774b189f",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 111,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-12-012-profile-dark-e33da2e58e.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "e33da2e58ec9bf4c318537cc61d94022b63c199d7a83515852630e445168ae31",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 10716,
+        "content_sha256": "e33da2e58ec9bf4c318537cc61d94022b63c199d7a83515852630e445168ae31",
+        "mode": "100644",
+        "oid": "33ceff65e921ac65472d9c6cfc5adbf3774b189f"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-12-012-profile-dark-e33da2e58e.svg",
+      "working_tree": {
+        "bytes": 10716,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 111,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "e33da2e58ec9bf4c318537cc61d94022b63c199d7a83515852630e445168ae31"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "343d58cfc52a866f5690c89fdef7b0e227e20f1f",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 112,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-12-013-profile-light-4ae5ccb3e8.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "4ae5ccb3e8b607deb20552f247d5b700c57d96d00041f22f3d72c45daf967122",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 10793,
+        "content_sha256": "4ae5ccb3e8b607deb20552f247d5b700c57d96d00041f22f3d72c45daf967122",
+        "mode": "100644",
+        "oid": "343d58cfc52a866f5690c89fdef7b0e227e20f1f"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-12-013-profile-light-4ae5ccb3e8.svg",
+      "working_tree": {
+        "bytes": 10793,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 112,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "4ae5ccb3e8b607deb20552f247d5b700c57d96d00041f22f3d72c45daf967122"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "0120c7137b6214c7c0b9df1bf57525a777f29e9d",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 91,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-12-014-profile-dark-90264e2b76.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "90264e2b76570156d1e0d1ff7cd0d3668f30f3853ad512695567eab41c7707b1",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 9825,
+        "content_sha256": "90264e2b76570156d1e0d1ff7cd0d3668f30f3853ad512695567eab41c7707b1",
+        "mode": "100644",
+        "oid": "0120c7137b6214c7c0b9df1bf57525a777f29e9d"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-12-014-profile-dark-90264e2b76.svg",
+      "working_tree": {
+        "bytes": 9825,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 91,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "90264e2b76570156d1e0d1ff7cd0d3668f30f3853ad512695567eab41c7707b1"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "16129a1921501e4a6e93af33c10c22e21bdf582d",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 92,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-12-015-profile-light-7d4970876e.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "7d4970876eaa0dc7ae66355a284e2bc1cf38b3560ad0d1969adb1ee183118667",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 9902,
+        "content_sha256": "7d4970876eaa0dc7ae66355a284e2bc1cf38b3560ad0d1969adb1ee183118667",
+        "mode": "100644",
+        "oid": "16129a1921501e4a6e93af33c10c22e21bdf582d"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-12-015-profile-light-7d4970876e.svg",
+      "working_tree": {
+        "bytes": 9902,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 92,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "7d4970876eaa0dc7ae66355a284e2bc1cf38b3560ad0d1969adb1ee183118667"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "f49b7802cf9bfa6ad0788da3f0099116936e4a88",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 99,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-12-016-profile-dark-b74f22478a.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "b74f22478a38cec6008e9ee8b44ab479903fa50e555ceac3c08234b8ba7d9b8c",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 10627,
+        "content_sha256": "b74f22478a38cec6008e9ee8b44ab479903fa50e555ceac3c08234b8ba7d9b8c",
+        "mode": "100644",
+        "oid": "f49b7802cf9bfa6ad0788da3f0099116936e4a88"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-12-016-profile-dark-b74f22478a.svg",
+      "working_tree": {
+        "bytes": 10627,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 99,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "b74f22478a38cec6008e9ee8b44ab479903fa50e555ceac3c08234b8ba7d9b8c"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "36b8dfaf7ddbebca07d585bbb1172f941e19bf1d",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 100,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-12-017-profile-light-9a9dc96d3c.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "9a9dc96d3ccc8a89b0c435d43cb026b60b87ab1e4ef5296406ba178320994900",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 10704,
+        "content_sha256": "9a9dc96d3ccc8a89b0c435d43cb026b60b87ab1e4ef5296406ba178320994900",
+        "mode": "100644",
+        "oid": "36b8dfaf7ddbebca07d585bbb1172f941e19bf1d"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-12-017-profile-light-9a9dc96d3c.svg",
+      "working_tree": {
+        "bytes": 10704,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 100,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "9a9dc96d3ccc8a89b0c435d43cb026b60b87ab1e4ef5296406ba178320994900"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "6cb2c8ace46ca03ace0783fff421d60fc5f1509b",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 99,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-12-018-profile-dark-f626af97d3.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "f626af97d38fdfd649c5b63ce9f487735f5b8254e65351d3a58bdda481f58565",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 10624,
+        "content_sha256": "f626af97d38fdfd649c5b63ce9f487735f5b8254e65351d3a58bdda481f58565",
+        "mode": "100644",
+        "oid": "6cb2c8ace46ca03ace0783fff421d60fc5f1509b"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-12-018-profile-dark-f626af97d3.svg",
+      "working_tree": {
+        "bytes": 10624,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 99,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "f626af97d38fdfd649c5b63ce9f487735f5b8254e65351d3a58bdda481f58565"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "a73439b8bc7dca16a48810f522476fa7ca8bdc33",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 100,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-12-019-profile-light-9ade80ee27.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "9ade80ee27c52c40affba9cb88fb7ababc18f34ffa32210d9a87c5480f71f0fb",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 10701,
+        "content_sha256": "9ade80ee27c52c40affba9cb88fb7ababc18f34ffa32210d9a87c5480f71f0fb",
+        "mode": "100644",
+        "oid": "a73439b8bc7dca16a48810f522476fa7ca8bdc33"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-12-019-profile-light-9ade80ee27.svg",
+      "working_tree": {
+        "bytes": 10701,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 100,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "9ade80ee27c52c40affba9cb88fb7ababc18f34ffa32210d9a87c5480f71f0fb"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "57045ea9e02e8999ce01a6535b59ae6b782d0719",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 102,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-12-020-profile-dark-bd90b8df71.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "bd90b8df71773761130987ab810e5fdd2eb844bfe054f0c49f3db7ddd322c0f4",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 10978,
+        "content_sha256": "bd90b8df71773761130987ab810e5fdd2eb844bfe054f0c49f3db7ddd322c0f4",
+        "mode": "100644",
+        "oid": "57045ea9e02e8999ce01a6535b59ae6b782d0719"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-12-020-profile-dark-bd90b8df71.svg",
+      "working_tree": {
+        "bytes": 10978,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 102,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "bd90b8df71773761130987ab810e5fdd2eb844bfe054f0c49f3db7ddd322c0f4"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "45c3cc1fcfe571fa2d21bf6f959fe0aeb2b3107b",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 103,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-12-021-profile-light-33c6873ce6.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "33c6873ce69ad355c9c029a6ef86586f57bdad1e45b848a5c614e66dd4dcada4",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 11055,
+        "content_sha256": "33c6873ce69ad355c9c029a6ef86586f57bdad1e45b848a5c614e66dd4dcada4",
+        "mode": "100644",
+        "oid": "45c3cc1fcfe571fa2d21bf6f959fe0aeb2b3107b"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-12-021-profile-light-33c6873ce6.svg",
+      "working_tree": {
+        "bytes": 11055,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 103,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "33c6873ce69ad355c9c029a6ef86586f57bdad1e45b848a5c614e66dd4dcada4"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "8ec2cbf03f86bf84e24c8e277217b46cc13ce7f3",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 102,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-12-022-profile-dark-6f62b426c5.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "6f62b426c57f5a03a20b32cbe0681bc1593a485aa136d585b1e4802f769343a2",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 10982,
+        "content_sha256": "6f62b426c57f5a03a20b32cbe0681bc1593a485aa136d585b1e4802f769343a2",
+        "mode": "100644",
+        "oid": "8ec2cbf03f86bf84e24c8e277217b46cc13ce7f3"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-12-022-profile-dark-6f62b426c5.svg",
+      "working_tree": {
+        "bytes": 10982,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 102,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "6f62b426c57f5a03a20b32cbe0681bc1593a485aa136d585b1e4802f769343a2"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "5fdebb9690ec0bdfa245ec6f2931d9d56f625af0",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 103,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-12-023-profile-light-5be0b6be0e.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "5be0b6be0e7fcb99c7b545ea746c5f6f4a65115c874050a0298bd48646d610bf",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 11059,
+        "content_sha256": "5be0b6be0e7fcb99c7b545ea746c5f6f4a65115c874050a0298bd48646d610bf",
+        "mode": "100644",
+        "oid": "5fdebb9690ec0bdfa245ec6f2931d9d56f625af0"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-12-023-profile-light-5be0b6be0e.svg",
+      "working_tree": {
+        "bytes": 11059,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 103,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "5be0b6be0e7fcb99c7b545ea746c5f6f4a65115c874050a0298bd48646d610bf"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "daafe7ec87e21b6867513c1ce72a8951a9b33260",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 290,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-12-024-logo-dark-a0fede3484.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "a0fede34847884ad8b1fbd97d005e9779b5e6898e8b4249f1efd9beae0773169",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 25849,
+        "content_sha256": "a0fede34847884ad8b1fbd97d005e9779b5e6898e8b4249f1efd9beae0773169",
+        "mode": "100644",
+        "oid": "daafe7ec87e21b6867513c1ce72a8951a9b33260"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-12-024-logo-dark-a0fede3484.svg",
+      "working_tree": {
+        "bytes": 25849,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 290,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "a0fede34847884ad8b1fbd97d005e9779b5e6898e8b4249f1efd9beae0773169"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "63bc5559126d51e52282a0767693f2af169d6dc6",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 312,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-12-025-logo-light-95e456e5a8.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "95e456e5a8c99f4fc9695dbdff58623068c0cf126f75f30510a111a254441e84",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 26812,
+        "content_sha256": "95e456e5a8c99f4fc9695dbdff58623068c0cf126f75f30510a111a254441e84",
+        "mode": "100644",
+        "oid": "63bc5559126d51e52282a0767693f2af169d6dc6"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-12-025-logo-light-95e456e5a8.svg",
+      "working_tree": {
+        "bytes": 26812,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 312,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "95e456e5a8c99f4fc9695dbdff58623068c0cf126f75f30510a111a254441e84"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "d2697f668b79db2faf2ba2c7cddb02262181a97f",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 102,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-13-026-profile-dark-83b6cb52cb.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "83b6cb52cb66d63d52f7a66627645aad8000d385f210e44ba5f3ad4f4daad986",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 10981,
+        "content_sha256": "83b6cb52cb66d63d52f7a66627645aad8000d385f210e44ba5f3ad4f4daad986",
+        "mode": "100644",
+        "oid": "d2697f668b79db2faf2ba2c7cddb02262181a97f"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-13-026-profile-dark-83b6cb52cb.svg",
+      "working_tree": {
+        "bytes": 10981,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 102,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "83b6cb52cb66d63d52f7a66627645aad8000d385f210e44ba5f3ad4f4daad986"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "306c601b9217628b308cd8c92ceae20b1e023978",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 103,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-13-027-profile-light-ac0e3c4a17.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "ac0e3c4a17c6175d1481006d9e55efe7449f6aa774b87a5a042b20ee93abf937",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 11058,
+        "content_sha256": "ac0e3c4a17c6175d1481006d9e55efe7449f6aa774b87a5a042b20ee93abf937",
+        "mode": "100644",
+        "oid": "306c601b9217628b308cd8c92ceae20b1e023978"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-13-027-profile-light-ac0e3c4a17.svg",
+      "working_tree": {
+        "bytes": 11058,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 103,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "ac0e3c4a17c6175d1481006d9e55efe7449f6aa774b87a5a042b20ee93abf937"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "88959bac4eac1a65e3fdedb0afcc518dc3e09b03",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 102,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-13-028-profile-dark-f5d90a99e6.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "f5d90a99e630a3f8f538509b5615fa117bfa2636ad0e9e691422e13a8c28b843",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 10977,
+        "content_sha256": "f5d90a99e630a3f8f538509b5615fa117bfa2636ad0e9e691422e13a8c28b843",
+        "mode": "100644",
+        "oid": "88959bac4eac1a65e3fdedb0afcc518dc3e09b03"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-13-028-profile-dark-f5d90a99e6.svg",
+      "working_tree": {
+        "bytes": 10977,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 102,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "f5d90a99e630a3f8f538509b5615fa117bfa2636ad0e9e691422e13a8c28b843"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "230a79cdb7a5cc080f3f8dd8d71f63cbaaa85375",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 103,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-13-029-profile-light-fca587dd9d.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "fca587dd9dfae10bacc861f5e70fae4759f3d4496f2b2cacaf844199734d42d1",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 11054,
+        "content_sha256": "fca587dd9dfae10bacc861f5e70fae4759f3d4496f2b2cacaf844199734d42d1",
+        "mode": "100644",
+        "oid": "230a79cdb7a5cc080f3f8dd8d71f63cbaaa85375"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-13-029-profile-light-fca587dd9d.svg",
+      "working_tree": {
+        "bytes": 11054,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 103,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "fca587dd9dfae10bacc861f5e70fae4759f3d4496f2b2cacaf844199734d42d1"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "e04cfa6d3e4f6f7d48923efa62b672f2ea2c1b9e",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 102,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-26-030-profile-dark-f838c9ff68.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "f838c9ff6830420b927137cc54a062075dbbc39571a4c4684ca4394d1364fa00",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 10977,
+        "content_sha256": "f838c9ff6830420b927137cc54a062075dbbc39571a4c4684ca4394d1364fa00",
+        "mode": "100644",
+        "oid": "e04cfa6d3e4f6f7d48923efa62b672f2ea2c1b9e"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-26-030-profile-dark-f838c9ff68.svg",
+      "working_tree": {
+        "bytes": 10977,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 102,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "f838c9ff6830420b927137cc54a062075dbbc39571a4c4684ca4394d1364fa00"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "4228434ba38b43b863ea2eb114b313c84c9bc7b0",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 103,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-07-26-031-profile-light-868d94be9c.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "868d94be9cae470c4ed0cd76846fdad41d4a3ffb9f9a89e04dea05e1e4b33511",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 11054,
+        "content_sha256": "868d94be9cae470c4ed0cd76846fdad41d4a3ffb9f9a89e04dea05e1e4b33511",
+        "mode": "100644",
+        "oid": "4228434ba38b43b863ea2eb114b313c84c9bc7b0"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-07-26-031-profile-light-868d94be9c.svg",
+      "working_tree": {
+        "bytes": 11054,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 103,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "868d94be9cae470c4ed0cd76846fdad41d4a3ffb9f9a89e04dea05e1e4b33511"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "558ec77633f3822033c0579d0dd29390fc6e44ee",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 101,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-08-20-032-profile-dark-c9d9746c64.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "c9d9746c649c284a0d5528d972d54851c3e91be19b5cf32f626521048df4abef",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 10900,
+        "content_sha256": "c9d9746c649c284a0d5528d972d54851c3e91be19b5cf32f626521048df4abef",
+        "mode": "100644",
+        "oid": "558ec77633f3822033c0579d0dd29390fc6e44ee"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-08-20-032-profile-dark-c9d9746c64.svg",
+      "working_tree": {
+        "bytes": 10900,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 101,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "c9d9746c649c284a0d5528d972d54851c3e91be19b5cf32f626521048df4abef"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "d7eda3da808a59c066d0e1040de18eaac9f6c9b4",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 101,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-09-05-033-profile-dark-ac01c79c49.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "ac01c79c49b608e28deba6469a1a619052fbb503388f966592922eda21a5b807",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 10913,
+        "content_sha256": "ac01c79c49b608e28deba6469a1a619052fbb503388f966592922eda21a5b807",
+        "mode": "100644",
+        "oid": "d7eda3da808a59c066d0e1040de18eaac9f6c9b4"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-09-05-033-profile-dark-ac01c79c49.svg",
+      "working_tree": {
+        "bytes": 10913,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 101,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "ac01c79c49b608e28deba6469a1a619052fbb503388f966592922eda21a5b807"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "e160df3c68f8668730ea4eb4a342af0478fc06cc",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 101,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "assets/archive/logos/prisoma/2026-09-05-034-profile-dark-b893ca40bb.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "b893ca40bbcf1b6cdab728e8665bad9f2f3b707bd533d838ee220a850d9a5d74",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 10913,
+        "content_sha256": "b893ca40bbcf1b6cdab728e8665bad9f2f3b707bd533d838ee220a850d9a5d74",
+        "mode": "100644",
+        "oid": "e160df3c68f8668730ea4eb4a342af0478fc06cc"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "assets/archive/logos/prisoma/2026-09-05-034-profile-dark-b893ca40bb.svg",
+      "working_tree": {
+        "bytes": 10913,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 101,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "b893ca40bbcf1b6cdab728e8665bad9f2f3b707bd533d838ee220a850d9a5d74"
       },
       "worktree_state": "unchanged"
     },
@@ -8333,7 +10220,7 @@
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "23e2f6f128057aac6c9b99e3fd7e7ad060b19e55"
+        "oid": "5b7f098c20ccba4a2994cabab5f25fcd4486c5b9"
       },
       "index": {
         "bytes": 36136,
@@ -8341,7 +10228,7 @@
         "mode": "100644",
         "oid": "5b7f098c20ccba4a2994cabab5f25fcd4486c5b9"
       },
-      "index_state": "modified",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -12788,7 +14675,7 @@
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "77b476f09076afcbfda944318a7955d355cca9e2"
+        "oid": "fa73ecd25d3da2baf21f636898ebef909d4e09f5"
       },
       "index": {
         "bytes": 26085,
@@ -12796,7 +14683,7 @@
         "mode": "100644",
         "oid": "fa73ecd25d3da2baf21f636898ebef909d4e09f5"
       },
-      "index_state": "modified",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -14435,14 +16322,18 @@
         "tests": [],
         "updated_at": null
       },
-      "head": null,
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "47c7abf4b3fa1e28eb832c48ca4623e98fd24d5a"
+      },
       "index": {
         "bytes": 10778,
         "content_sha256": "5cb7eb52af5662a952f44fcb06df475b74a8a0e47dbb8ea589acbb1f61470474",
         "mode": "100644",
         "oid": "47c7abf4b3fa1e28eb832c48ca4623e98fd24d5a"
       },
-      "index_state": "added",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -14761,14 +16652,18 @@
         "tests": [],
         "updated_at": null
       },
-      "head": null,
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "26ae6bf02457bc979303490ae8dfa12052a73776"
+      },
       "index": {
         "bytes": 13074,
         "content_sha256": "f6830bb3905f8b1c0252023a5a233a291c8760d74a0efe61c5c0032da1ce1e2a",
         "mode": "100644",
         "oid": "26ae6bf02457bc979303490ae8dfa12052a73776"
       },
-      "index_state": "added",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -15035,7 +16930,7 @@
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "7e65403550e360047dabb2e78a2f6dddbb998263"
+        "oid": "6f3529ae7c1cf7c356820f73105e09cf192d4b0c"
       },
       "index": {
         "bytes": 54575,
@@ -15043,7 +16938,7 @@
         "mode": "100644",
         "oid": "6f3529ae7c1cf7c356820f73105e09cf192d4b0c"
       },
-      "index_state": "modified",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -27062,7 +28957,7 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": true,
-        "git_blob_id": "288e93bc3c1021de2bd0684bd374c395974d4c0f",
+        "git_blob_id": "103a121b9fe7012242115978f280e53695a832f5",
         "independent_reviewer": null,
         "language": "JSON",
         "line_count": 1266,
@@ -27073,20 +28968,20 @@
         "reviewer": null,
         "science_critical": true,
         "security_critical": false,
-        "sha256": "ed1a7e14b6e50500f05e88f689d9f8699e954aff2c3d747ebc3f697d395a761c",
+        "sha256": "863ebb9abdd9aa71853c61e298167740205d2420a21e75e2ebb85322330893c8",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "f76674db4c0d242729e1ea5391b85dd8ba6e9cd1"
+        "oid": "288e93bc3c1021de2bd0684bd374c395974d4c0f"
       },
       "index": {
         "bytes": 59477,
-        "content_sha256": "ed1a7e14b6e50500f05e88f689d9f8699e954aff2c3d747ebc3f697d395a761c",
+        "content_sha256": "863ebb9abdd9aa71853c61e298167740205d2420a21e75e2ebb85322330893c8",
         "mode": "100644",
-        "oid": "288e93bc3c1021de2bd0684bd374c395974d4c0f"
+        "oid": "103a121b9fe7012242115978f280e53695a832f5"
       },
       "index_state": "modified",
       "inventory_origin": {
@@ -27104,7 +28999,7 @@
         "line_count": 1266,
         "link_target": null,
         "mode": "100644",
-        "sha256": "ed1a7e14b6e50500f05e88f689d9f8699e954aff2c3d747ebc3f697d395a761c"
+        "sha256": "863ebb9abdd9aa71853c61e298167740205d2420a21e75e2ebb85322330893c8"
       },
       "worktree_state": "unchanged"
     },
@@ -30665,12 +32560,12 @@
   "repository": "https://github.com/sepahead/prisoma",
   "schema_version": "prisoma.release-candidate/0.1.0",
   "source": {
-    "candidate_state_sha256": "62ba829e347be4585dbbb92ff801fa12f5935264bf34dbdfecc5bc90f3a2ff60",
+    "candidate_state_sha256": "1df1bf267d658575762af8b64655b5ddf1f90df9f137ac62975cd66b38e5f4bd",
     "clean": false,
     "explicit_source_arguments_required": true,
-    "head_commit": "32957f3dbbb8ae8f21b581ad16f426ef564f5d01",
-    "head_tree": "88480748fbbc43c044f4d46cc8e201c7d0c8036c",
-    "index_entries_sha256": "91b9d03d99304fe799697dbac0db251ab2bd268ad0120953c89fe68bd53636a2",
+    "head_commit": "b9b0de72b68d64893968a9b48ecc24e0cf45ea4b",
+    "head_tree": "1c3382c9603ddcfceeadb067198a1d201d421954",
+    "index_entries_sha256": "1ae7312f1763ba9485fe7b7eceb51d185239418d1de3139340899ac7bc8ac6ee",
     "recursive_gitlinks": [
       {
         "commit": "796c11e70f009634b853dc4ada6f565563d82f51",
@@ -30681,14 +32576,14 @@
       }
     ],
     "state": "dirty_uncommitted_source_snapshot",
-    "worktree_entries_sha256": "37675fa44eeb4f2dc09b18ffe96c535bacd31c2ca13e1b2d3689083f4b390414"
+    "worktree_entries_sha256": "eac435989ba3099bb88b2b969e130d0529feb4c02fe6f88b6e159033361bd16f"
   },
   "summary": {
     "clean": false,
-    "entry_count": 556,
-    "index_changed_entry_count": 7,
-    "indexed_entry_count": 349,
-    "parent_entry_count": 349,
+    "entry_count": 593,
+    "index_changed_entry_count": 39,
+    "indexed_entry_count": 386,
+    "parent_entry_count": 386,
     "recursive_gitlink_entry_count": 207,
     "untracked_entry_count": 0,
     "worktree_changed_entry_count": 0

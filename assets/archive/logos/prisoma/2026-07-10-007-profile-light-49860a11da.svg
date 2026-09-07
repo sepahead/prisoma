@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="398 68 124 124" width="124" height="124" role="img" aria-label="PRISOMA historical profile mark"><title>PRISOMA historical profile mark</title><desc>Archived design extracted from a historical portfolio SVG. This image makes no current product or release claim.</desc><defs><filter id="edgeGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2.4" result="b" />
+      <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+    </filter>
+    <filter id="nodeShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2.4" flood-color="#000000" flood-opacity="0.38" />
+    </filter>
+    </defs><style>:root{--hub-accent: #34d399; --cube-accent: #fb923c; --tri-accent: #a78bfa;}
+.pz-beam{stroke-width: 1.8; stroke-linecap: round;}
+.prz-body{fill: url(#przGlass);}
+.prz-in{stroke: #f4f7fa; stroke-width: 2; stroke-linecap: round;}
+.prz-inseg{stroke: #f4f7fa; stroke-opacity: 0.35; stroke-width: 2; stroke-linecap: round;}
+.prz-edge{fill: none; stroke: url(#przSilver); stroke-width: 2.4;}
+.prz-groove{fill: none; stroke: #05070b; stroke-opacity: 0.5; stroke-width: 1;}
+.prz-hairline{fill: none; stroke: #2b333d; stroke-opacity: 0.55; stroke-width: 1;}
+.prz-glint{fill: none; stroke: #ffffff; stroke-width: 0.9; stroke-opacity: 0.7; stroke-linecap: round;}
+:root{--hub-accent: #059669; --cube-accent: #c2410c; --tri-accent: #7c3aed;}
+.prz-in{stroke: #475569;}</style><g class="nodes"><g>
+    <defs>
+      <linearGradient id="przGlass" x1="0" y1="77" x2="0" y2="156.5" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#4c4370" /><stop offset="45%" stop-color="#262047" /><stop offset="100%" stop-color="#120e26" />
+      </linearGradient>
+      <radialGradient id="przCore" gradientUnits="userSpaceOnUse" cx="458" cy="134" r="34">
+        <stop offset="0%" stop-color="#c4b5fd" stop-opacity="0.3" /><stop offset="55%" stop-color="#a78bfa" stop-opacity="0.1" /><stop offset="100%" stop-color="#a78bfa" stop-opacity="0" />
+      </radialGradient>
+      <linearGradient id="przSheen" x1="414" y1="77" x2="506" y2="156.5" gradientUnits="userSpaceOnUse">
+        <stop offset="0.3" stop-color="#ffffff" stop-opacity="0" /><stop offset="0.42" stop-color="#ffffff" stop-opacity="0.2" /><stop offset="0.52" stop-color="#ffffff" stop-opacity="0.03" /><stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+      </linearGradient>
+      <linearGradient id="przSilver" x1="0" y1="77" x2="0" y2="156.5" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#f8fafc" /><stop offset="40%" stop-color="#c7d0da" /><stop offset="72%" stop-color="#8b96a3" /><stop offset="100%" stop-color="#525c66" />
+      </linearGradient>
+      <linearGradient id="przFan" x1="0" y1="110" x2="0" y2="154" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#34d399" stop-opacity="0.16" /><stop offset="50%" stop-color="#fbbf24" stop-opacity="0.1" /><stop offset="100%" stop-color="#ef4444" stop-opacity="0.16" />
+      </linearGradient>
+      <radialGradient id="przFlare" gradientUnits="userSpaceOnUse" cx="458" cy="134" r="9">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95" /><stop offset="45%" stop-color="#e9d5ff" stop-opacity="0.5" /><stop offset="100%" stop-color="#e9d5ff" stop-opacity="0" />
+      </radialGradient>
+      <clipPath id="przClip"><polygon points="460,77 505.9,156.5 414.1,156.5" /></clipPath>
+    </defs>
+    <g filter="url(#nodeShadow)"><polygon points="460,77 505.9,156.5 414.1,156.5" class="prz-body" /></g>
+    <g clip-path="url(#przClip)">
+      <polygon points="460,77 505.9,156.5 414.1,156.5" fill="url(#przCore)" />
+      <polygon points="460,77 505.9,156.5 414.1,156.5" fill="url(#przSheen)" />
+      <line class="prz-inseg" x1="432.5" y1="124.6" x2="458" y2="134" />
+    </g>
+    <line class="prz-in" x1="404" y1="114" x2="433" y2="124.8" />
+    <polygon points="460,77 505.9,156.5 414.1,156.5" class="prz-edge" stroke-linejoin="round" />
+    <polygon points="460,81.8 501.7,154.1 418.3,154.1" class="prz-groove" stroke-linejoin="round" />
+    <polygon points="460,74.2 508.3,157.9 411.7,157.9" class="prz-hairline" stroke-linejoin="round" />
+    <path class="prz-glint" d="M460 72.5 V81.5 M455.5 77 H464.5" />
+    <polygon points="458,134 510,110 508,154" fill="url(#przFan)" />
+    <g filter="url(#edgeGlow)">
+      <line class="pz-beam" x1="458" y1="134" x2="510" y2="110" stroke="#34d399" />
+      <line class="pz-beam" x1="458" y1="134" x2="515" y2="134" stroke="#fbbf24" />
+      <line class="pz-beam" x1="458" y1="134" x2="508" y2="154" stroke="#ef4444" />
+      <circle cx="510" cy="110" r="1.8" fill="#34d399" />
+      <circle cx="515" cy="134" r="1.8" fill="#fbbf24" />
+      <circle cx="508" cy="154" r="1.8" fill="#ef4444" />
+    </g>
+    <circle cx="458" cy="134" r="8" fill="url(#przFlare)">
+      <animate attributeName="opacity" values="0.8;1;0.8" dur="3.4s" repeatCount="indefinite" />
+    </circle>
+    <g opacity="0.85"><g transform="translate(455.8 96.8) scale(0.7)"><path d="M2 6 V4.4 a4 4 0 0 1 8 0 V6" fill="none" stroke="#c7d0da" stroke-width="1.5" /><rect x="0" y="6" width="12" height="9" rx="1.6" fill="#c7d0da" /></g></g>
+    </g>
+  </g></svg>
