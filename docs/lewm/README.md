@@ -154,6 +154,9 @@ It does not produce an H3 ancestry attestation, a language source, or a PID esti
 Dataset-bound normalization, supported raw actions, multiple replans, complete checkpoints, and matched-baseline outcome comparisons remain separate milestones.
 The current one-input result does not validate a population law or learned model quality.
 
+The [owned training-action reader](OWNED_DATASET_READER.md) supplies a separate source interface for exact archive-to-scaler fitting.
+Its synthetic controls do not qualify the actual training archive or grant raw execution authority.
+
 The planning wheel declares MIT but omits a license file.
 The adapter preserves that known discrepancy and every notice actually supplied by its exact inputs.
 Code, model, data, and transitive-rights review remain separate. No broad adoption clearance is inferred.
