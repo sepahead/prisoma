@@ -11,7 +11,7 @@ The current command executes model inference and search. It executes no raw acti
 
 [Open the scalable diagram](inference.svg) to inspect its details.
 Read the [mathematics guide](MATHEMATICS.md) for units, equations, and worked examples.
-The [five-page PDF](../../output/pdf/LeWM_Mathematics_and_Evidence.pdf) is its vector publication view.
+The [illustrated PDF](../../output/pdf/LeWM_Mathematics_and_Evidence.pdf) is its vector publication view.
 
 ## What Prisoma adds
 
@@ -156,6 +156,8 @@ The current one-input result does not validate a population law or learned model
 
 The [owned training-action reader](OWNED_DATASET_READER.md) supplies a separate source interface for exact archive-to-scaler fitting.
 Its synthetic controls do not qualify the actual training archive or grant raw execution authority.
+The [action-conversion diagram](action-conversion.svg) separates raw proposals, model blocks, and checked inverse values.
+The mathematics guide explains the float32 rounding controls and the registered integer and real-arithmetic obligations.
 
 The planning wheel declares MIT but omits a license file.
 The adapter preserves that known discrepancy and every notice actually supplied by its exact inputs.

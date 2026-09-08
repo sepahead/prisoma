@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import html
 import json
+import math
 from pathlib import Path
 import re
 
@@ -37,6 +38,7 @@ def build(output: Path) -> dict:
 
     source = ROOT / "docs/lewm/MATHEMATICS.md"
     diagram = ROOT / "docs/lewm/inference.svg"
+    embedded_diagrams = {}
     fonts = {
         "LeWMSans": Path("/System/Library/Fonts/Supplemental/Arial.ttf"),
         "LeWMBold": Path("/System/Library/Fonts/Supplemental/Arial Bold.ttf"),
@@ -98,6 +100,19 @@ def build(output: Path) -> dict:
         text = html.escape(text)
         return re.sub(r"`([^`]+)`", r'<font name="LeWMMono">\1</font>', text)
 
+    def scaled_diagram(path):
+        drawing = svg2rlg(str(path))
+        if drawing is None or any(
+            not math.isfinite(value) or value <= 0
+            for value in (drawing.width, drawing.height)
+        ):
+            raise ValueError("SVG must have positive finite display dimensions")
+        scale = min((A4[0] - 96) / drawing.width, 650 / drawing.height)
+        drawing.scale(scale, scale)
+        drawing.width *= scale
+        drawing.height *= scale
+        return drawing
+
     story = [
         Spacer(1, 20),
         Paragraph("LeWorldModel<br/>From pixels to a scored action", styles["title"]),
@@ -108,11 +123,7 @@ def build(output: Path) -> dict:
         ),
         Spacer(1, 12),
     ]
-    drawing = svg2rlg(str(diagram))
-    scale = (A4[0] - 96) / drawing.width
-    drawing.scale(scale, scale)
-    drawing.width *= scale
-    drawing.height *= scale
+    drawing = scaled_diagram(diagram)
     story.extend(
         [
             drawing,
@@ -161,6 +172,13 @@ def build(output: Path) -> dict:
                 code = None
         elif code is not None:
             code.append(line)
+        elif match := re.fullmatch(r"!\[([^\]]+)\]\(([^)]+)\)", line):
+            flush()
+            target = (source.parent / match[2]).resolve(strict=True)
+            if target.parent != source.parent or target.suffix != ".svg":
+                raise ValueError("Embedded diagrams must be sibling SVG sources")
+            embedded_diagrams[target.name] = digest(target)
+            story.extend([scaled_diagram(target), Spacer(1, 14)])
         elif not line.strip():
             flush()
         elif re.match(r"^\d+\. ", line):
@@ -200,6 +218,7 @@ def build(output: Path) -> dict:
         "schema": "prisoma.lewm.math-publication.v1",
         "source_sha256": digest(source),
         "svg_sha256": digest(diagram),
+        "embedded_svg_sha256": embedded_diagrams,
         "renderer_sha256": digest(Path(__file__)),
         "pdf_sha256": digest(output),
         "font_sha256": {name: digest(path) for name, path in fonts.items()},

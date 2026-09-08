@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 860" role="img" aria-labelledby="title description">
+  <title id="title">Prisoma: raw proposals, model blocks, and inverse-transformed commands</title>
+  <desc id="description">An owned scaler preserves fitted statistics and original rows. Raw float32 proposals and their inverse-transformed values each pass the action-box check. Twenty-five two-axis actions pack into five ten-coordinate model blocks. Float32 operations retain rounding at each step. Prepared arrays do not authorize execution or establish training-distribution support.</desc>
+  <defs>
+    <style>
+      text{font-family:Arial,Helvetica,sans-serif;fill:#203047}
+      .title{font-size:30px;font-weight:700}.heading{font-size:23px;font-weight:700}
+      .body{font-size:19px}.small{font-size:17px}.mono{font-family:monospace;font-size:19px}
+      .purple{fill:#68479d}.muted{fill:#526174}.number{font-size:17px;font-weight:700;fill:#ffffff}
+      .flow{fill:none;stroke:#7653b6;stroke-width:2.5;stroke-linejoin:round}
+    </style>
+  </defs>
+  <rect width="840" height="860" rx="20" fill="#f6f7fb"/>
+  <rect x="28" y="28" width="5" height="57" rx="2" fill="#7653b6"/>
+  <text x="48" y="52" class="title">From raw proposals to model blocks</text>
+  <text x="48" y="81" class="body muted">Three retained arrays. One explicit conversion contract.</text>
+
+  <rect x="28" y="109" width="784" height="103" rx="13" fill="#eee9f7" stroke="#d4c8e7"/>
+  <circle cx="54" cy="137" r="13" fill="#7653b6"/><text x="49" y="143" class="number">1</text>
+  <text x="78" y="144" class="heading">Fit the actual scaler on admitted rows</text>
+  <text x="49" y="175" class="body">Retain original rows and the complete-row NaN exclusion mask.</text>
+  <text x="49" y="199" class="small muted">Use fitted mean, variance, and scale. A copied receipt cannot issue a scaler.</text>
+
+  <g>
+    <rect x="28" y="243" width="233" height="155" rx="13" fill="#ffffff" stroke="#d4c8e7"/>
+    <text x="47" y="274" class="heading">Raw proposal u</text>
+    <text x="47" y="307" class="mono">[K, 25, 2]</text>
+    <text x="47" y="339" class="body">float32 • finite</text>
+    <text x="47" y="370" class="body purple">Check each |u| ≤ 1</text>
+    <path d="M268 318H294 M288 312L294 318L288 324" class="flow"/>
+    <rect x="303" y="243" width="234" height="155" rx="13" fill="#eee9f7" stroke="#bba8d7"/>
+    <text x="322" y="274" class="heading">Model input a</text>
+    <text x="322" y="307" class="mono">[1, K, 5, 10]</text>
+    <text x="322" y="339" class="body">Transform, then pack</text>
+    <text x="322" y="370" class="body purple">Finite • |a| ≤ 10^6</text>
+    <path d="M544 318H570 M564 312L570 318L564 324" class="flow"/>
+    <rect x="579" y="243" width="233" height="155" rx="13" fill="#ffffff" stroke="#b9d5cc"/>
+    <text x="598" y="274" class="heading">Inverse value û</text>
+    <text x="598" y="307" class="mono">[K, 25, 2]</text>
+    <text x="598" y="339" class="body">float32 • finite</text>
+    <text x="598" y="370" class="body purple">Check each |û| ≤ 1</text>
+  </g>
+
+  <circle cx="41" cy="438" r="13" fill="#7653b6"/><text x="36" y="444" class="number">2</text>
+  <text x="65" y="445" class="heading">Preserve float32 operation order</text>
+  <text x="28" y="476" class="body">First cast the fitted statistics: m = RN32(mean), s = RN32(scale).</text>
+  <rect x="28" y="493" width="784" height="111" rx="13" fill="#ffffff" stroke="#d5dce6"/>
+  <text x="48" y="527" class="mono">v = RN32(u − m)</text>
+  <text x="448" y="527" class="mono">a = RN32(v / s)</text>
+  <text x="48" y="560" class="mono">w = RN32(a × s)</text>
+  <text x="448" y="560" class="mono">û = RN32(w + m)</text>
+  <text x="48" y="589" class="small muted">RN32 rounds one result to float32. The inverse can differ from the proposal.</text>
+
+  <circle cx="41" cy="644" r="13" fill="#7653b6"/><text x="36" y="650" class="number">3</text>
+  <text x="65" y="651" class="heading">Keep the action order through packing</text>
+  <text x="28" y="682" class="body">Primitive k, coordinate j → block k // 5, slot 2 × (k % 5) + j.</text>
+  <g class="small">
+    <rect x="28" y="701" width="146" height="55" rx="8" fill="#e4def0"/><text x="45" y="723">k = 0 … 4</text><text x="45" y="746">block 0 • 10 slots</text>
+    <rect x="187" y="701" width="146" height="55" rx="8" fill="#ede7f5"/><text x="204" y="723">k = 5 … 9</text><text x="204" y="746">block 1 • 10 slots</text>
+    <rect x="346" y="701" width="146" height="55" rx="8" fill="#e4def0"/><text x="363" y="723">k = 10 … 14</text><text x="363" y="746">block 2 • 10 slots</text>
+    <rect x="505" y="701" width="146" height="55" rx="8" fill="#ede7f5"/><text x="522" y="723">k = 15 … 19</text><text x="522" y="746">block 3 • 10 slots</text>
+    <rect x="664" y="701" width="148" height="55" rx="8" fill="#e4def0"/><text x="681" y="723">k = 20 … 24</text><text x="681" y="746">block 4 • 10 slots</text>
+  </g>
+  <text x="28" y="794" class="body">K = 2 … 300 candidates; k = 0 … 24; j = 0 or 1.</text>
+  <text x="28" y="824" class="small muted">Box legality grants neither empirical training support nor execution authority.</text>
+  <text x="28" y="847" class="small muted">Prisoma retains all three arrays and the observed maximum round-trip difference.</text>
+</svg>

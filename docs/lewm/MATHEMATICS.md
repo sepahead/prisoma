@@ -1,6 +1,6 @@
 # LeWM: the quantities this probe actually computes
 
-This note describes the frozen engineering probe. It does not report model quality or physical accuracy.
+This note explains the frozen engineering probe and the separate raw-candidate converter. It does not report model quality or physical accuracy.
 
 ## State, observation, and action
 
@@ -44,6 +44,124 @@ The frozen first probe has no such fit. Therefore, it cannot execute its standar
 A model action block concatenates five consecutive two-dimensional actions.
 Its width is ten. It represents 0.5 simulated seconds when an authorized scaler and execution path exist.
 Five blocks represent 2.5 simulated seconds.
+
+## Preparing raw candidates
+
+The separate converter retains proposed raw values `u`, standardized model values `a`, and inverse-transformed values `u_hat`.
+It executes no command. The first frozen LeWM probe retains its standardized-only boundary.
+
+![Raw proposals, model blocks, and checked inverse values](action-conversion.svg)
+
+The converter accepts an owner-issued scaler. A copied receipt or caller-supplied mean cannot issue one.
+The owned reader binds the complete frozen archive before fitting. Its actual training-archive qualification remains `NOT RUN`.
+Synthetic controls retain `synthetic_control_only` scope.
+
+## Real arithmetic and fitted statistics
+
+Let `j` select the x or y coordinate. Let `mean[j]` and `scale[j] > 0` be its fitted mean and scale.
+In exact real arithmetic, the raw interval has this model-coordinate image:
+
+```text
+-1 <= u[j] <= 1
+    if and only if
+(-1 - mean[j]) / scale[j] <= a[j]
+    and a[j] <= (1 - mean[j]) / scale[j]
+```
+
+Subtracting the same mean preserves order. Dividing by a positive scale also preserves order.
+The two-coordinate raw square therefore maps to a rectangle. The ideal real inverse recovers the original value.
+These algebraic statements do not establish exact floating-point round trips.
+
+Let `n` count the complete retained fit rows, and let `r[i,j]` be row `i`'s coordinate `j`.
+The fit uses population variance:
+
+```text
+mean[j] = sum_i r[i,j] / n
+variance[j] = sum_i (r[i,j] - mean[j])^2 / n
+```
+
+The denominator is `n`. Any row containing NaN is excluded as a whole. Any infinity rejects the input.
+At least two complete finite rows must remain.
+Use sklearn's retained `scale_` instead of recomputing the square root of its variance.
+The pinned implementation gives constant and numerically near-constant axes unit scale.
+A positive computed variance can therefore accompany scale one.
+
+## Float32 conversion and a retained failure
+
+The pinned sklearn implementation casts fitted float64 means and scales to the float32 input dtype before arithmetic.
+Let `RN32` round one result to the binary32 value used by this runtime.
+For each coordinate, the actual stored intermediate values follow this order:
+
+```text
+m = RN32(mean[j])        s = RN32(scale[j])
+v = RN32(u[j] - m)       a[j] = RN32(v / s)
+w = RN32(a[j] * s)       u_hat[j] = RN32(w + m)
+```
+
+The converter checks three numeric domains.
+Proposals must be finite and inside `[-1,1]`. Standardized values must be finite with magnitude at most `1000000`.
+The actual inverse values must also be finite and inside `[-1,1]`.
+No clipping or added tolerance expands that last box. A legal proposal can therefore fail conversion.
+
+Consider these synthetic control rows, stored as float64:
+
+```text
+[-1,  -0.5 ]
+[ 0,   0.25]
+[ 0.5, 1   ]
+```
+
+Their ideal mean is `(-1/6, 1/4)`. Their population variance is `(7/18, 3/8)`.
+The observed float64 scales are approximately `(0.6236095644623235, 0.6123724356957945)`.
+For a proposal entered as float32 `(0.1,0.2)`, the x coordinate changes as follows:
+
+```text
+proposed u:    0.10000000149011612   bits 0x3dcccccd
+model a:       0.42761802673339844
+inverse u_hat: 0.10000000894069672   bits 0x3dccccce
+```
+
+The inverse is the next float32 value above the proposal. Both coordinates remain inside the box, so conversion succeeds.
+An existing selected boundary control fits these float32 rows:
+
+```text
+[-0.21676428616046906, -0.701422393321991  ]
+[-0.7363889813423157,   0.926403284072876  ]
+[-0.2295258790254593,  -0.45703527331352234]
+```
+
+For raw `(-1,-1)`, the inverse is `(-1,-1.0000001192092896)`. The converter rejects the whole pool.
+With that same fit, raw `(-0.5,-0.5)` returns `(-0.5,-0.5000000596046448)` and passes.
+These are selected regression controls, not held-out measurements.
+Both examples use the pinned NumPy 2.4.6 and scikit-learn 1.9.0 runtime.
+
+Signed zero can also change during conversion. Zero maximum numerical difference would not establish identical bytes.
+The retained arrays and their separate hashes preserve that distinction.
+
+## Packing, timing, and machine checks
+
+Each of `K` candidates contains 25 two-coordinate primitives. The converter accepts 2 through 300 candidates.
+The raw array shape is `[K,25,2]`. The model shape is `[1,K,5,10]`.
+Let `k` select the primitive, `j` its coordinate, `b` the model block, and `q` the slot:
+
+```text
+b = k // 5              q = 2 * (k % 5) + j
+k = 5 * b + q // 2      j = q % 2
+```
+
+These maps are inverses for `0 <= k < 25`, `0 <= j < 2`, `0 <= b < 5`, and `0 <= q < 10`.
+Primitive 7's y coordinate occupies block 1, slot 5.
+Packing preserves values and primitive order. This indexing bijection does not make float32 normalization a bijection.
+
+One primitive nominally spans 0.1 simulated seconds. One block spans 0.5 seconds.
+Preparing these arrays produces no elapsed simulation or execution receipt.
+
+The registered `formal/lewm_action_conversion.smt2` model checks the indexing maps and positive-real affine identities.
+Its nine obligations include valid premise witnesses, four counterexample searches, and deliberately defective alternatives.
+Z3 4.16.0 checks the written formulas. These results do not verify NumPy, sklearn, floating-point refinement, or the complete reader.
+
+A raw-box check establishes bounded numeric legality for this conversion profile.
+It establishes neither empirical training support, calibrated model accuracy, nor successful control.
 
 ## Encoding and prediction
 

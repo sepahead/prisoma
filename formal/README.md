@@ -63,6 +63,15 @@ transition relation or the impossibility of a forbidden mathematical/publication
   nonnegative-weight aggregation by ordinary induction. The model deliberately holds predictions
   fixed and therefore says nothing about censoring assumptions used during fit.
 
+- `lewm_action_conversion.smt2`: integer packing maps 25 two-coordinate primitives to
+  five ten-coordinate blocks without losing order or slot identity. Its inverse covers
+  every slot. An affine map with positive real scale maps `[-1,1]` exactly to its
+  shifted/scaled interval and has an exact real inverse. Nine independent scopes retain valid witnesses
+  and counterexamples for a wrong packing stride, negative scale, and zero scale.
+  These obligations exclude actual float32 refinement, empirical training support,
+  model quality, and execution authority. The raw proposal, standardized tensor, and
+  inverse-transformed candidate remain distinct in the implementation.
+
 The registered `sat` results make transition premises/status tags non-vacuous or require a
 deliberate countermodel. The four scientific countermodels are:
 

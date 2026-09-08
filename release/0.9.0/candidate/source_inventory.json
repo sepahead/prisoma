@@ -11065,10 +11065,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "9d3456127f1786bab59b6fd5f5f9c17e531d1dae",
+        "git_blob_id": "179d8d1f46f4947ca663befcc58b555b8d12106f",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 135,
+        "line_count": 253,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "docs/lewm/MATHEMATICS.md",
         "public_surface": false,
@@ -11076,7 +11076,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "fc91f87a9b126bda11652b79d62ec7bcfe794deb86acc94d3edb80ca9f854513",
+        "sha256": "244a988b4ef00c1bf3f5097b56a0703e6d111ab874ad2c1d08ea20421b2d34bf",
         "tests": [],
         "updated_at": null
       },
@@ -11086,12 +11086,12 @@
         "oid": "9d3456127f1786bab59b6fd5f5f9c17e531d1dae"
       },
       "index": {
-        "bytes": 5895,
-        "content_sha256": "fc91f87a9b126bda11652b79d62ec7bcfe794deb86acc94d3edb80ca9f854513",
+        "bytes": 11343,
+        "content_sha256": "244a988b4ef00c1bf3f5097b56a0703e6d111ab874ad2c1d08ea20421b2d34bf",
         "mode": "100644",
-        "oid": "9d3456127f1786bab59b6fd5f5f9c17e531d1dae"
+        "oid": "179d8d1f46f4947ca663befcc58b555b8d12106f"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -11100,14 +11100,14 @@
       },
       "path": "docs/lewm/MATHEMATICS.md",
       "working_tree": {
-        "bytes": 5895,
+        "bytes": 11343,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 135,
+        "line_count": 253,
         "link_target": null,
         "mode": "100644",
-        "sha256": "fc91f87a9b126bda11652b79d62ec7bcfe794deb86acc94d3edb80ca9f854513"
+        "sha256": "244a988b4ef00c1bf3f5097b56a0703e6d111ab874ad2c1d08ea20421b2d34bf"
       },
       "worktree_state": "unchanged"
     },
@@ -11135,14 +11135,18 @@
         "tests": [],
         "updated_at": null
       },
-      "head": null,
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "6e39883e7473842edab86210c9b79a3d768897f8"
+      },
       "index": {
         "bytes": 7583,
         "content_sha256": "de99fb1068ec0c3f06cd360de2e0e67a67e6a61b7099d9233d92f81d42f3ca46",
         "mode": "100644",
         "oid": "6e39883e7473842edab86210c9b79a3d768897f8"
       },
-      "index_state": "added",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -11226,10 +11230,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "23c0ffea345a3910a66f6c3771e075c2954a05b9",
+        "git_blob_id": "ea387c902b573980384a2215dbae794ab2c1e180",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 175,
+        "line_count": 177,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "docs/lewm/README.md",
         "public_surface": false,
@@ -11237,20 +11241,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "1a893e3278d2acd1c33761641b20ad8d020d82cf48cf004b568c1e5619500bc6",
+        "sha256": "46159434ad20a442885451aab58fcd8ba95eb8275c5a36a44a2e14b2dfd6d974",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "31e0328391a898143457fea2acbfa7dcabfdc455"
+        "oid": "23c0ffea345a3910a66f6c3771e075c2954a05b9"
       },
       "index": {
-        "bytes": 9544,
-        "content_sha256": "1a893e3278d2acd1c33761641b20ad8d020d82cf48cf004b568c1e5619500bc6",
+        "bytes": 9789,
+        "content_sha256": "46159434ad20a442885451aab58fcd8ba95eb8275c5a36a44a2e14b2dfd6d974",
         "mode": "100644",
-        "oid": "23c0ffea345a3910a66f6c3771e075c2954a05b9"
+        "oid": "ea387c902b573980384a2215dbae794ab2c1e180"
       },
       "index_state": "modified",
       "inventory_origin": {
@@ -11261,14 +11265,14 @@
       },
       "path": "docs/lewm/README.md",
       "working_tree": {
-        "bytes": 9544,
+        "bytes": 9789,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 175,
+        "line_count": 177,
         "link_target": null,
         "mode": "100644",
-        "sha256": "1a893e3278d2acd1c33761641b20ad8d020d82cf48cf004b568c1e5619500bc6"
+        "sha256": "46159434ad20a442885451aab58fcd8ba95eb8275c5a36a44a2e14b2dfd6d974"
       },
       "worktree_state": "unchanged"
     },
@@ -11336,7 +11340,58 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "ee7c4c8cce9b37a5b11546a4006e02b9f2e1a0a5",
+        "git_blob_id": "5f1ebb424a76066688138ac29b46ce4f85f03424",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 67,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "docs/lewm/action-conversion.svg",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "5b2cfcab8a5091fba79cc62a61474cbcb1cf3390b5869798ab726b8dea90c812",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 5334,
+        "content_sha256": "5b2cfcab8a5091fba79cc62a61474cbcb1cf3390b5869798ab726b8dea90c812",
+        "mode": "100644",
+        "oid": "5f1ebb424a76066688138ac29b46ce4f85f03424"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "docs/lewm/action-conversion.svg",
+      "working_tree": {
+        "bytes": 5334,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 67,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "5b2cfcab8a5091fba79cc62a61474cbcb1cf3390b5869798ab726b8dea90c812"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "documentation_and_review_record",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "e3a57185726712266f80267d2cfc5c18a936da92",
         "independent_reviewer": null,
         "language": "binary_or_unknown",
         "line_count": 80,
@@ -11347,7 +11402,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "d566652435eda8643bf110994e159d9ea53d747f60db6f9b7b4288d2e1fba17e",
+        "sha256": "e55289d6ebaa06a13604d6763a6049a6feb524fa3d689a58d009c674a1a8357a",
         "tests": [],
         "updated_at": null
       },
@@ -11357,12 +11412,12 @@
         "oid": "ee7c4c8cce9b37a5b11546a4006e02b9f2e1a0a5"
       },
       "index": {
-        "bytes": 5645,
-        "content_sha256": "d566652435eda8643bf110994e159d9ea53d747f60db6f9b7b4288d2e1fba17e",
+        "bytes": 5607,
+        "content_sha256": "e55289d6ebaa06a13604d6763a6049a6feb524fa3d689a58d009c674a1a8357a",
         "mode": "100644",
-        "oid": "ee7c4c8cce9b37a5b11546a4006e02b9f2e1a0a5"
+        "oid": "e3a57185726712266f80267d2cfc5c18a936da92"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -11371,14 +11426,14 @@
       },
       "path": "docs/lewm/inference.svg",
       "working_tree": {
-        "bytes": 5645,
+        "bytes": 5607,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
         "line_count": 80,
         "link_target": null,
         "mode": "100644",
-        "sha256": "d566652435eda8643bf110994e159d9ea53d747f60db6f9b7b4288d2e1fba17e"
+        "sha256": "e55289d6ebaa06a13604d6763a6049a6feb524fa3d689a58d009c674a1a8357a"
       },
       "worktree_state": "unchanged"
     },
@@ -12821,10 +12876,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "1408c1344687d0931bff63e96913fd3675f82084",
+        "git_blob_id": "42c5a50bfd7d4292f26c0830849d2f24cec498e8",
         "independent_reviewer": null,
         "language": "Python",
-        "line_count": 222,
+        "line_count": 241,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "experiments/lewm/build_pdf.py",
         "public_surface": true,
@@ -12832,7 +12887,7 @@
         "reviewer": null,
         "science_critical": true,
         "security_critical": false,
-        "sha256": "c6d527d159ec1204187d8b8ff6a19da58564f239818a590ba7ffa885d1f1d553",
+        "sha256": "7ad722f68e253afc0edcb49549d6847b24dbe59c4ea0ca2b8c30a1cb2afc1cd0",
         "tests": [],
         "updated_at": null
       },
@@ -12842,12 +12897,12 @@
         "oid": "1408c1344687d0931bff63e96913fd3675f82084"
       },
       "index": {
-        "bytes": 7167,
-        "content_sha256": "c6d527d159ec1204187d8b8ff6a19da58564f239818a590ba7ffa885d1f1d553",
+        "bytes": 8069,
+        "content_sha256": "7ad722f68e253afc0edcb49549d6847b24dbe59c4ea0ca2b8c30a1cb2afc1cd0",
         "mode": "100644",
-        "oid": "1408c1344687d0931bff63e96913fd3675f82084"
+        "oid": "42c5a50bfd7d4292f26c0830849d2f24cec498e8"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -12856,14 +12911,14 @@
       },
       "path": "experiments/lewm/build_pdf.py",
       "working_tree": {
-        "bytes": 7167,
+        "bytes": 8069,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 222,
+        "line_count": 241,
         "link_target": null,
         "mode": "100644",
-        "sha256": "c6d527d159ec1204187d8b8ff6a19da58564f239818a590ba7ffa885d1f1d553"
+        "sha256": "7ad722f68e253afc0edcb49549d6847b24dbe59c4ea0ca2b8c30a1cb2afc1cd0"
       },
       "worktree_state": "unchanged"
     },
@@ -12946,14 +13001,18 @@
         "tests": [],
         "updated_at": null
       },
-      "head": null,
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "ed388b07b4342f4b347b3337524d3afb3ba69665"
+      },
       "index": {
         "bytes": 31905,
         "content_sha256": "70da0bb9f5669165307c3ca0c049f2275d0793e8c9ad4fb7c20d0eb3bd26dc8d",
         "mode": "100644",
         "oid": "ed388b07b4342f4b347b3337524d3afb3ba69665"
       },
-      "index_state": "added",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -13382,14 +13441,18 @@
         "tests": [],
         "updated_at": null
       },
-      "head": null,
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "c083fad600a6537791d55eb0990a0ce419b7f67f"
+      },
       "index": {
         "bytes": 11154,
         "content_sha256": "e61a73a6ebf1e508adf4b6debf028e694c1afa3c0f30ef3a2e05044d9b4962b8",
         "mode": "100644",
         "oid": "c083fad600a6537791d55eb0990a0ce419b7f67f"
       },
-      "index_state": "added",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -14133,10 +14196,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "87d92d81fe96ecb335dcee8e49074fd9694cb4ed",
+        "git_blob_id": "e7d084fc3f62a1f757ccfa171991cec5a0c27b6e",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 109,
+        "line_count": 118,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "formal/README.md",
         "public_surface": false,
@@ -14144,7 +14207,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "c0b274b01dbf075b00408849cc894f165ca917c2c603d5d70e18acdc4fa14e25",
+        "sha256": "b90496366e28ca33ea6e476cc62bf15fc23a0a89f24cc6aaf76297207e5e77e7",
         "tests": [],
         "updated_at": null
       },
@@ -14154,12 +14217,12 @@
         "oid": "87d92d81fe96ecb335dcee8e49074fd9694cb4ed"
       },
       "index": {
-        "bytes": 8650,
-        "content_sha256": "c0b274b01dbf075b00408849cc894f165ca917c2c603d5d70e18acdc4fa14e25",
+        "bytes": 9331,
+        "content_sha256": "b90496366e28ca33ea6e476cc62bf15fc23a0a89f24cc6aaf76297207e5e77e7",
         "mode": "100644",
-        "oid": "87d92d81fe96ecb335dcee8e49074fd9694cb4ed"
+        "oid": "e7d084fc3f62a1f757ccfa171991cec5a0c27b6e"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -14168,14 +14231,14 @@
       },
       "path": "formal/README.md",
       "working_tree": {
-        "bytes": 8650,
+        "bytes": 9331,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 109,
+        "line_count": 118,
         "link_target": null,
         "mode": "100644",
-        "sha256": "c0b274b01dbf075b00408849cc894f165ca917c2c603d5d70e18acdc4fa14e25"
+        "sha256": "b90496366e28ca33ea6e476cc62bf15fc23a0a89f24cc6aaf76297207e5e77e7"
       },
       "worktree_state": "unchanged"
     },
@@ -14518,10 +14581,61 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "6bd1876f1ea7525d7819cd54b7e9ae844c8424c9",
+        "git_blob_id": "82451114742b1be9dee2355f8ea64e90f169240d",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 107,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "formal/lewm_action_conversion.smt2",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "9373bedd027d40a5a693ceec37661059f8a939f8c2941002b788abcb2003d459",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 4136,
+        "content_sha256": "9373bedd027d40a5a693ceec37661059f8a939f8c2941002b788abcb2003d459",
+        "mode": "100644",
+        "oid": "82451114742b1be9dee2355f8ea64e90f169240d"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "formal/lewm_action_conversion.smt2",
+      "working_tree": {
+        "bytes": 4136,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 107,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "9373bedd027d40a5a693ceec37661059f8a939f8c2941002b788abcb2003d459"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "a36ab6f738ac17206f7f1be10deb70f332a25a45",
         "independent_reviewer": null,
         "language": "JSON",
-        "line_count": 89,
+        "line_count": 93,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "formal/model_registry.json",
         "public_surface": false,
@@ -14529,7 +14643,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "64bdebbc97ee4581f7207d777cd1a1b97d3e46d79db37390971cfafd647169bd",
+        "sha256": "c799d33a3bfb5de4101064216076b460a5d5c1af19385a859af12e7ff3a1f965",
         "tests": [],
         "updated_at": null
       },
@@ -14539,12 +14653,12 @@
         "oid": "6bd1876f1ea7525d7819cd54b7e9ae844c8424c9"
       },
       "index": {
-        "bytes": 2433,
-        "content_sha256": "64bdebbc97ee4581f7207d777cd1a1b97d3e46d79db37390971cfafd647169bd",
+        "bytes": 2651,
+        "content_sha256": "c799d33a3bfb5de4101064216076b460a5d5c1af19385a859af12e7ff3a1f965",
         "mode": "100644",
-        "oid": "6bd1876f1ea7525d7819cd54b7e9ae844c8424c9"
+        "oid": "a36ab6f738ac17206f7f1be10deb70f332a25a45"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -14553,14 +14667,14 @@
       },
       "path": "formal/model_registry.json",
       "working_tree": {
-        "bytes": 2433,
+        "bytes": 2651,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 89,
+        "line_count": 93,
         "link_target": null,
         "mode": "100644",
-        "sha256": "64bdebbc97ee4581f7207d777cd1a1b97d3e46d79db37390971cfafd647169bd"
+        "sha256": "c799d33a3bfb5de4101064216076b460a5d5c1af19385a859af12e7ff3a1f965"
       },
       "worktree_state": "unchanged"
     },
@@ -17323,10 +17437,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "7260c429adba7bea45d503ca562fb08c9e4c822c",
+        "git_blob_id": "4a7c21e903a236894c8ffc343de7e84334630ef7",
         "independent_reviewer": null,
         "language": "JSON",
-        "line_count": 14,
+        "line_count": 17,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "output/pdf/LeWM_Mathematics_and_Evidence.build.json",
         "public_surface": false,
@@ -17334,7 +17448,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "d90eec2c5a795e0b68a28d16c621d29302db3c657e69dfddfe9f6816b0d2f0db",
+        "sha256": "1b737b5283a42cd8cdefa34735bd97a72017f890e1dcd96e4ff6b9fba5f100bd",
         "tests": [],
         "updated_at": null
       },
@@ -17344,12 +17458,12 @@
         "oid": "7260c429adba7bea45d503ca562fb08c9e4c822c"
       },
       "index": {
-        "bytes": 746,
-        "content_sha256": "d90eec2c5a795e0b68a28d16c621d29302db3c657e69dfddfe9f6816b0d2f0db",
+        "bytes": 874,
+        "content_sha256": "1b737b5283a42cd8cdefa34735bd97a72017f890e1dcd96e4ff6b9fba5f100bd",
         "mode": "100644",
-        "oid": "7260c429adba7bea45d503ca562fb08c9e4c822c"
+        "oid": "4a7c21e903a236894c8ffc343de7e84334630ef7"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -17358,14 +17472,14 @@
       },
       "path": "output/pdf/LeWM_Mathematics_and_Evidence.build.json",
       "working_tree": {
-        "bytes": 746,
+        "bytes": 874,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 14,
+        "line_count": 17,
         "link_target": null,
         "mode": "100644",
-        "sha256": "d90eec2c5a795e0b68a28d16c621d29302db3c657e69dfddfe9f6816b0d2f0db"
+        "sha256": "1b737b5283a42cd8cdefa34735bd97a72017f890e1dcd96e4ff6b9fba5f100bd"
       },
       "worktree_state": "unchanged"
     },
@@ -17378,10 +17492,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "f1633a24016467bc78e57679eea73c62f0bca676",
+        "git_blob_id": "08b3eaff353c825a0d1c62bb14d4028a8518bb91",
         "independent_reviewer": null,
         "language": "binary_or_unknown",
-        "line_count": 705,
+        "line_count": 787,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "output/pdf/LeWM_Mathematics_and_Evidence.pdf",
         "public_surface": false,
@@ -17389,7 +17503,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "be5835cc387a114655f6accccd81b0a2a717ad7401511e7aa582ff24d9f9660f",
+        "sha256": "f8caa17afe8a47aa84002e539ca03e4dcb43a229da1acffbed29d59748da4de7",
         "tests": [],
         "updated_at": null
       },
@@ -17399,12 +17513,12 @@
         "oid": "f1633a24016467bc78e57679eea73c62f0bca676"
       },
       "index": {
-        "bytes": 115668,
-        "content_sha256": "be5835cc387a114655f6accccd81b0a2a717ad7401511e7aa582ff24d9f9660f",
+        "bytes": 126662,
+        "content_sha256": "f8caa17afe8a47aa84002e539ca03e4dcb43a229da1acffbed29d59748da4de7",
         "mode": "100644",
-        "oid": "f1633a24016467bc78e57679eea73c62f0bca676"
+        "oid": "08b3eaff353c825a0d1c62bb14d4028a8518bb91"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -17413,14 +17527,14 @@
       },
       "path": "output/pdf/LeWM_Mathematics_and_Evidence.pdf",
       "working_tree": {
-        "bytes": 115668,
+        "bytes": 126662,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 705,
+        "line_count": 787,
         "link_target": null,
         "mode": "100644",
-        "sha256": "be5835cc387a114655f6accccd81b0a2a717ad7401511e7aa582ff24d9f9660f"
+        "sha256": "f8caa17afe8a47aa84002e539ca03e4dcb43a229da1acffbed29d59748da4de7"
       },
       "worktree_state": "unchanged"
     },
@@ -17433,7 +17547,7 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "f4f5648fa545d8985b12f100d593740cb3053ac8",
+        "git_blob_id": "f12dfa9f39c4869842b5ca57c02a3ec2799844aa",
         "independent_reviewer": null,
         "language": "JSON",
         "line_count": 15,
@@ -17444,7 +17558,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "5aa26e67c4ae29b2128a8ea7abb389da49d22100aac6e10e724fd08985407b91",
+        "sha256": "8c4e58cff57169e88c32edc85d7c8b66b93c04a7b812b4782ca836533c4aa3e6",
         "tests": [],
         "updated_at": null
       },
@@ -17454,12 +17568,12 @@
         "oid": "f4f5648fa545d8985b12f100d593740cb3053ac8"
       },
       "index": {
-        "bytes": 605,
-        "content_sha256": "5aa26e67c4ae29b2128a8ea7abb389da49d22100aac6e10e724fd08985407b91",
+        "bytes": 800,
+        "content_sha256": "8c4e58cff57169e88c32edc85d7c8b66b93c04a7b812b4782ca836533c4aa3e6",
         "mode": "100644",
-        "oid": "f4f5648fa545d8985b12f100d593740cb3053ac8"
+        "oid": "f12dfa9f39c4869842b5ca57c02a3ec2799844aa"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -17468,14 +17582,14 @@
       },
       "path": "output/pdf/LeWM_Mathematics_and_Evidence.review.json",
       "working_tree": {
-        "bytes": 605,
+        "bytes": 800,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
         "line_count": 15,
         "link_target": null,
         "mode": "100644",
-        "sha256": "5aa26e67c4ae29b2128a8ea7abb389da49d22100aac6e10e724fd08985407b91"
+        "sha256": "8c4e58cff57169e88c32edc85d7c8b66b93c04a7b812b4782ca836533c4aa3e6"
       },
       "worktree_state": "unchanged"
     },
@@ -32023,14 +32137,18 @@
         "tests": [],
         "updated_at": null
       },
-      "head": null,
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "f32c765d5014b99bb2e51ea889b83d66f606885d"
+      },
       "index": {
         "bytes": 41858,
         "content_sha256": "29a8654902f4066938a13fe2325b3b311b1326deb0063ae1d3b5f8fbf39abe5b",
         "mode": "100644",
         "oid": "f32c765d5014b99bb2e51ea889b83d66f606885d"
       },
-      "index_state": "added",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -32074,14 +32192,18 @@
         "tests": [],
         "updated_at": null
       },
-      "head": null,
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "80fb716730caa7a1050b68690560448da16bb750"
+      },
       "index": {
         "bytes": 11789,
         "content_sha256": "f9ba556e972c4f4d291de9ba1ba818dc81edeb295837805ddba883fc94cbb75d",
         "mode": "100644",
         "oid": "80fb716730caa7a1050b68690560448da16bb750"
       },
-      "index_state": "added",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -32963,12 +33085,12 @@
   "repository": "https://github.com/sepahead/prisoma",
   "schema_version": "prisoma.release-candidate/0.1.0",
   "source": {
-    "candidate_state_sha256": "4b6101976fb4a369b2fa531a2e3261bdd8ed42f98256538017be4c052c54db50",
+    "candidate_state_sha256": "03a05c3624dc9ff2d22394a0e9c5bf388fe90ee8ecdeaac38652eef9d1be264b",
     "clean": false,
     "explicit_source_arguments_required": true,
-    "head_commit": "10bbe03270776b5f322b94961f7c9722a03b8ee7",
-    "head_tree": "52f53b51ad69d6d41b41f4cc3a49e69c0585f304",
-    "index_entries_sha256": "e04c720643a2f945ba97ebdc54d5330a772267b19156284086a5a8dd4a69a2d0",
+    "head_commit": "180d19ad7116a74e77db5f0d07581e3cefa5a970",
+    "head_tree": "43797a4323fff2740150bb0df6ae8c428e758e18",
+    "index_entries_sha256": "ebf53f2bc284b48162073711f84d01c133dfb056be40736dac45d300fffbdf79",
     "recursive_gitlinks": [
       {
         "commit": "796c11e70f009634b853dc4ada6f565563d82f51",
@@ -32979,14 +33101,14 @@
       }
     ],
     "state": "dirty_uncommitted_source_snapshot",
-    "worktree_entries_sha256": "10df60aed108305144828fdf2de5bd5167c84cce5deed3a29984a370ba0484e0"
+    "worktree_entries_sha256": "8613cc950affd326e4d7104161dc35ff5c61c62c2ed3adeedf38e67c5cf9e761"
   },
   "summary": {
     "clean": false,
-    "entry_count": 598,
-    "index_changed_entry_count": 6,
-    "indexed_entry_count": 391,
-    "parent_entry_count": 391,
+    "entry_count": 600,
+    "index_changed_entry_count": 11,
+    "indexed_entry_count": 393,
+    "parent_entry_count": 393,
     "recursive_gitlink_entry_count": 207,
     "untracked_entry_count": 0,
     "worktree_changed_entry_count": 0

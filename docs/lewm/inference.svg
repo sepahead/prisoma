@@ -2,13 +2,12 @@
   <title id="title">LeWM local inference and candidate search</title>
   <desc id="desc">Actual PushT pixels enter a pinned visual encoder. Two separately identified model implementations forecast candidate action sequences. A goal score drives thirty rounds of cross-entropy search. Every proposal and forecast is recorded. Raw action execution remains disabled until a source-bound action scaler is available.</desc>
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#235aa6"/></marker>
     <style>
       text{font-family:system-ui,-apple-system,Segoe UI,sans-serif;fill:#16283d}
       .heading{font-size:38px;font-weight:750}.sub{font-size:22px;fill:#43576d}
       .name{font-size:24px;font-weight:700}.body{font-size:21px}.small{font-size:18px;fill:#43576d}
       .box{fill:#f6f9fd;stroke:#9db3cc;stroke-width:2;rx:16}
-      .edge{fill:none;stroke:#235aa6;stroke-width:3;marker-end:url(#arrow)}
+      .edge{fill:none;stroke:#235aa6;stroke-width:3}
       .audit{fill:none;stroke:#566b81;stroke-width:2;stroke-dasharray:4 7}
     </style>
   </defs>
@@ -49,6 +48,7 @@
   <path class="edge" d="M975 267H1020"/><path class="edge" d="M1265 267H1310"/>
 
   <path class="edge" d="M1425 362V417H840V362"/>
+  <path fill="#235aa6" d="M365 259L380 267L365 275Z M690 259L705 267L690 275Z M1005 259L1020 267L1005 275Z M1295 259L1310 267L1295 275Z M832 377L840 362L848 377Z"/>
   <rect x="974" y="395" width="330" height="42" fill="#fff"/>
   <text class="body" x="994" y="423">Updated mean and sample scale</text>
 
