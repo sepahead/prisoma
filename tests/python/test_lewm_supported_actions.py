@@ -17,6 +17,65 @@ from experiments.lewm.contracts import StandardizedCandidates
 
 
 class AdmissionControls(unittest.TestCase):
+    def test_row_profile_is_closed_before_copy_or_optional_import(self):
+        class Hostile(str):
+            def __eq__(self, _other):
+                raise AssertionError("Caller equality executed")
+
+        rows = np.zeros((2, 2), np.float32)
+        with (
+            patch.object(actions, "_snapshot", side_effect=AssertionError("copied")),
+            patch.object(actions, "_sklearn", side_effect=AssertionError("imported")),
+        ):
+            for profile in (None, True, 64 * 1024**2, {}, "64MiB", Hostile("x")):
+                with (
+                    self.subTest(profile=type(profile)),
+                    self.assertRaisesRegex(
+                        ValueError, "Unknown action-row admission profile"
+                    ),
+                ):
+                    actions.fit_control_scaler(
+                        rows, source_id="profile-control", row_profile=profile
+                    )
+        for profile in (actions.LEGACY_ROW_PROFILE, actions.COMPLETE_ROW_PROFILE):
+            self.assertEqual(
+                actions._admit_row_shape((2, 2), 4, profile)["complete_row_bytes"], 16
+            )
+
+    def test_complete_byte_budget_checks_dtype_before_copy(self):
+        for dtype in (np.float32, np.float64):
+            itemsize = np.dtype(dtype).itemsize
+            maximum = actions.COMPLETE_ROW_BYTES // (2 * itemsize)
+            admitted = actions._admit_row_shape(
+                (maximum, 2), itemsize, actions.COMPLETE_ROW_PROFILE
+            )
+            self.assertEqual(admitted["complete_row_bytes"], 64 * 1024**2)
+            self.assertEqual(admitted["dtype_row_limit"], maximum)
+            rows = np.lib.stride_tricks.as_strided(
+                np.zeros(2, dtype), shape=(maximum + 1, 2), strides=(0, itemsize)
+            )
+            with (
+                self.subTest(dtype=dtype),
+                patch.object(
+                    actions, "_snapshot", side_effect=AssertionError("copied")
+                ),
+                patch.object(
+                    actions, "_sklearn", side_effect=AssertionError("imported")
+                ),
+                self.assertRaisesRegex(ValueError, "byte budget"),
+            ):
+                actions.fit_control_scaler(
+                    rows,
+                    source_id="byte-control",
+                    row_profile=actions.COMPLETE_ROW_PROFILE,
+                )
+        common_rows = actions.COMPLETE_ROW_BYTES // 16 + 1
+        actions._admit_row_shape((common_rows, 2), 4, actions.COMPLETE_ROW_PROFILE)
+        with self.assertRaisesRegex(ValueError, "byte budget"):
+            actions._admit_row_shape((common_rows, 2), 8, actions.COMPLETE_ROW_PROFILE)
+        with self.assertRaisesRegex(ValueError, "byte budget"):
+            actions._admit_row_shape((2**100, 2), 8, actions.COMPLETE_ROW_PROFILE)
+
     def test_invalid_fit_inputs_fail_before_optional_import(self):
         invalid = [
             np.zeros((1, 2), np.float32),
@@ -90,6 +149,56 @@ class QualifiedSklearnControls(unittest.TestCase):
 
     def pool(self):
         return np.linspace(-0.5, 0.5, 100, dtype=np.float32).reshape(2, 25, 2)
+
+    def test_explicit_byte_profile_preserves_fit_bytes_and_synthetic_scope(self):
+        for dtype in (np.float32, np.float64):
+            rows = np.array([[-2, 0], [np.nan, 9], [0, 0], [3, 0]], dtype)
+            legacy = actions.fit_control_scaler(rows, source_id="profile-parity")
+            larger = actions.fit_control_scaler(
+                rows,
+                source_id="profile-parity",
+                row_profile=actions.COMPLETE_ROW_PROFILE,
+            )
+            record = larger.receipt()
+            admission = record.pop("row_admission")
+            self.assertEqual(record, legacy.receipt())
+            self.assertEqual(admission["complete_row_bytes"], rows.nbytes)
+            self.assertEqual(record["scope"], "synthetic_control_only")
+            for name in ("mean", "variance", "scale"):
+                self.assertEqual(
+                    larger.statistics[name].tobytes(), legacy.statistics[name].tobytes()
+                )
+            self.assertEqual(larger.fit_rows.tobytes(), rows.tobytes())
+            np.testing.assert_array_equal(
+                larger.retained_row_mask, [True, False, True, True]
+            )
+            for array in (larger.fit_rows, larger.retained_row_mask):
+                with self.assertRaises(ValueError):
+                    array.setflags(write=True)
+            larger_rows = rows.copy()
+            larger_rows[1, 1] = np.inf
+            with self.assertRaisesRegex(ValueError, "Infinite"):
+                actions.fit_control_scaler(
+                    larger_rows,
+                    source_id="profile-parity",
+                    row_profile=actions.COMPLETE_ROW_PROFILE,
+                )
+
+    def test_explicit_profile_admits_complete_rows_above_legacy_limit(self):
+        rows = np.zeros((actions.MAX_FIT_ROWS + 1, 2), np.float32)
+        rows[0] = [-2, 1]
+        rows[-2] = [np.nan, 9]
+        rows[-1] = [3, -1]
+        with self.assertRaisesRegex(ValueError, "bounded shape"):
+            actions.fit_control_scaler(rows, source_id="larger-control")
+        fitted = actions.fit_control_scaler(
+            rows, source_id="larger-control", row_profile=actions.COMPLETE_ROW_PROFILE
+        )
+        self.assertEqual(fitted.fit_rows.tobytes(), rows.tobytes())
+        self.assertEqual(fitted.receipt()["n_samples_seen"], actions.MAX_FIT_ROWS)
+        self.assertEqual(fitted.receipt()["excluded_nan_rows"], 1)
+        self.assertEqual(fitted.receipt()["scope"], "synthetic_control_only")
+        self.assertFalse(fitted.retained_row_mask[-2])
 
     def test_population_scale_constant_axis_and_nan_rows(self):
         rows = np.array([[-1, 0], [0, 0], [np.nan, 500], [1, 0]], np.float64)

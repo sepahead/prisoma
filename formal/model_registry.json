@@ -41,6 +41,10 @@
       "expected": ["unsat", "unsat", "sat", "sat", "unsat", "sat", "unsat", "sat", "sat"],
       "sha256": "9373bedd027d40a5a693ceec37661059f8a939f8c2941002b788abcb2003d459"
     },
+    "lewm_row_admission.smt2": {
+      "expected": ["unsat", "unsat", "unsat", "sat", "sat", "sat", "sat"],
+      "sha256": "da96cc6f1aa6dfc4756e934fd0ef3ecd1c121e280e56f5fb6b42b1e8dcbcf543"
+    },
     "pid_nonidentification.smt2": {
       "expected": ["sat"],
       "sha256": "9497d35f63fa9a55414224fd6f3364e29a905b019b7c4948c02596a714b12352"

@@ -18,11 +18,51 @@ from .assets import verify_runtime
 from .contracts import StandardizedCandidates
 
 MAX_FIT_ROWS = 1_000_000
+LEGACY_ROW_PROFILE = "legacy-1m-rows-v1"
+COMPLETE_ROW_PROFILE = "complete-rows-64mib-v1"
+COMPLETE_ROW_BYTES = 64 * 1024**2
 EVAL_SOURCE_SHA256 = "9eb68eedc5dd5c22a61c5e17db49b0bbe799f98dae1e629e1f35d5191f2b9226"
 POLICY_SOURCE_SHA256 = (
     "4967e7e3d5b20eb7a1d0b00e5d60fd701cce1c750ae7ec4a9b02529b9366db22"
 )
 _SCALERS: weakref.WeakSet = weakref.WeakSet()
+
+
+def _row_byte_limit(row_profile: str) -> int:
+    if type(row_profile) is str:
+        if row_profile == LEGACY_ROW_PROFILE:
+            return MAX_FIT_ROWS * 2 * 8
+        if row_profile == COMPLETE_ROW_PROFILE:
+            return COMPLETE_ROW_BYTES
+    raise ValueError("Unknown action-row admission profile")
+
+
+def _admit_row_shape(shape: tuple, itemsize: int, row_profile: str) -> dict:
+    limit = _row_byte_limit(row_profile)
+    if (
+        type(shape) is not tuple
+        or len(shape) != 2
+        or any(type(size) is not int for size in shape)
+        or shape[1] != 2
+        or shape[0] < 2
+        or type(itemsize) is not int
+        or itemsize not in (4, 8)
+    ):
+        raise ValueError("Fit rows require bounded shape [N,2] and native floats")
+    row_limit = limit // (2 * itemsize)
+    if row_profile == LEGACY_ROW_PROFILE:
+        row_limit = min(row_limit, MAX_FIT_ROWS)
+    if shape[0] > row_limit:
+        raise ValueError("Fit rows exceed bounded shape or selected byte budget")
+    extent = shape[0] * 2 * itemsize
+    return {
+        "profile": row_profile,
+        "complete_row_bytes": extent,
+        "maximum_complete_row_bytes": limit,
+        "dtype_row_limit": row_limit,
+        "estimated_array_working_bytes": 8 * extent + 32 * shape[0],
+        "estimate_scope": "array_planning_estimate_not_total_process_rss_bound",
+    }
 
 
 def _json(value: dict) -> str:
@@ -100,7 +140,9 @@ class FittedActionScaler:
         return json.loads(self._receipt)
 
 
-def fit_control_scaler(rows: np.ndarray, *, source_id: str) -> FittedActionScaler:
+def fit_control_scaler(
+    rows: np.ndarray, *, source_id: str, row_profile: str = LEGACY_ROW_PROFILE
+) -> FittedActionScaler:
     """Fit actual pinned sklearn on explicit control rows; grant no dataset authority.
 
     Complete-row NaN exclusion follows pinned eval.py. Infinity anywhere rejects,
@@ -119,20 +161,26 @@ def fit_control_scaler(rows: np.ndarray, *, source_id: str) -> FittedActionScale
             "source_id": source_id,
             "row_order": "input_order",
         },
+        row_profile=row_profile,
     )
 
 
-def _fit_owned_rows(rows: np.ndarray, provenance: dict) -> FittedActionScaler:
+def _fit_owned_rows(
+    rows: np.ndarray, provenance: dict, *, row_profile: str = LEGACY_ROW_PROFILE
+) -> FittedActionScaler:
     """Private trusted issuer seam; public receipt or array inputs grant no dataset scope.
 
     Only the dataset transaction supplies dataset provenance. This helper does not
     isolate malicious Python code or turn asserted hashes into verified inputs.
     """
+    _row_byte_limit(row_profile)
     if type(rows) is not np.ndarray:
         raise ValueError("An exact ndarray is required")
-    shape = memoryview(rows).shape
-    if len(shape) != 2 or shape[1] != 2 or not 2 <= shape[0] <= MAX_FIT_ROWS:
-        raise ValueError("Fit rows must have bounded shape [N,2] with N >= 2")
+    view = memoryview(rows)
+    if view.format not in ("f", "d"):
+        raise ValueError("Fit rows require native float32 or float64")
+    shape = view.shape
+    admission = _admit_row_shape(shape, view.itemsize, row_profile)
     data = _snapshot(rows, (shape,), ("f", "d"))
     if np.isinf(data).any():
         raise ValueError("Infinite fit values are not admissible")
@@ -164,6 +212,8 @@ def _fit_owned_rows(rows: np.ndarray, provenance: dict) -> FittedActionScaler:
         "n_samples_seen": int(fitted.n_samples_seen_),
         "n_features_in": int(fitted.n_features_in_),
     }
+    if row_profile != LEGACY_ROW_PROFILE:
+        receipt["row_admission"] = admission
     owner = object.__new__(FittedActionScaler)
     object.__setattr__(
         owner, "_state", tuple(a.astype(np.float64).tobytes() for a in arrays)

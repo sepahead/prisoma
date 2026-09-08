@@ -9,6 +9,8 @@ Small synthetic archives test the transaction mechanics without receiving datase
 The public `fit_pusht_training_scaler(archive, output)` function accepts two local paths.
 It accepts no expected hash, verification flag, statistics, row array, or copied receipt.
 The output directory must be new.
+Its optional `row_profile` keyword selects one of two fixed resource profiles.
+The default preserves `legacy-1m-rows-v1` and its original receipts.
 
 | Field | Frozen value |
 | --- | --- |
@@ -20,6 +22,11 @@ The output directory must be new.
 | Complete decoded bytes | `46300921856` |
 | Action column | Root `/action`, complete original row order |
 | Numeric extent | Native float32 or float64, shape `[N,2]`, with `2 <= N <= 1000000` |
+
+The explicit `complete-rows-64mib-v1` profile replaces only the complete-row capacity with a 64-MiB byte ceiling.
+It does not change the dataset identity, fit population, estimator, or action coordinates.
+Neither profile guarantees that an unobserved archive satisfies its bounds.
+Unknown selectors and caller-supplied numeric capacities reject.
 
 The exact optional LeWM runtime is required before HDF5 or sklearn imports.
 The reader imports neither Torch, the general upstream dataset package, nor HDF5 plugins.
@@ -59,11 +66,29 @@ The admitted filters are built-in shuffle, deflate, and Fletcher32 with checked 
 Scale-offset and plugin filters remain unsupported.
 Other columns are not read, including image arrays and unrelated links.
 
-The action array and each decoded chunk have a 16,000,000-byte extent limit.
+The legacy action array has a 16,000,000-byte extent limit and a separate one-million-row ceiling.
+Each decoded HDF5 chunk retains its 16,000,000-byte limit under both profiles.
 The HDF5 raw chunk cache has a four-MiB bound.
 These limits do not describe total Python, sklearn, or native-parser memory.
 HDF5 metadata parsing occurs before the action shape can be inspected.
 This ordinary trusted workflow does not isolate a malicious native parser or arbitrary Python code.
+
+For the explicit byte profile, let `N` be rows and `d` be bytes per coordinate, either four or eight.
+The complete two-coordinate matrix has `A = 2*N*d` bytes.
+Admission checks `N <= floor(67108864 / (2*d))` before reading or copying rows.
+This permits at most 8,388,608 float32 rows or 4,194,304 float64 rows.
+The fitted receipt records the selected profile, actual matrix bytes, and dtype-specific row limit.
+The archive transaction declares both dtype limits without presenting the float32 limit as float64 admission.
+
+The planning estimate `E = 8*A + 32*N` bytes accounts for row copies, filtered rows, masks, and sklearn scratch.
+Its conditional maximum is 768 MiB for float32 and 640 MiB for float64.
+These estimates do not prove allocator behavior, native-parser memory, or total process RSS.
+The [integer obligations](../../formal/lewm_row_admission.smt2) check these formulas and their admitted and excessive boundaries.
+Separate synthetic process measurements report observed memory under their frozen workload.
+
+Both profiles retain one whole-array sklearn `fit` after the same complete-row NaN exclusion.
+Splitting rows across `partial_fit` calls can change floating-point reduction order and fitted scales.
+The larger resource profile grants no new dataset or execution authority.
 
 The compressed-copy loop has a 900-second deadline checked between bounded file operations.
 The decoder has a 1,800-second watchdog and a 256-MiB window-memory limit.
@@ -112,6 +137,7 @@ Neither file can reconstruct an owner-issued scaler or authorize action executio
 `fit_control_archive_scaler()` exercises the same transaction with a bounded synthetic archive and declared decoded size.
 Its compressed and decoded limits are four MiB and eight MiB.
 It always issues `synthetic_control_only`, regardless of its source identifier or receipt text.
+Both synthetic fit functions accept the same closed `row_profile` selector and preserve synthetic scope.
 
 A successful reader supplies dataset-bound normalization only.
 It supplies no Agent Bridge execution, training-support guarantee, model validation, physical calibration, M2, or W1–W3 completion.

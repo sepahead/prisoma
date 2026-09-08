@@ -72,6 +72,14 @@ transition relation or the impossibility of a forbidden mathematical/publication
   model quality, and execution authority. The raw proposal, standardized tensor, and
   inverse-transformed candidate remain distinct in the implementation.
 
+- `lewm_row_admission.smt2`: checked integer division enforces a 64-MiB complete
+  two-coordinate matrix ceiling for native float32 or float64 rows.
+  For `N` rows and `d` bytes per coordinate, `A = 2*N*d` is matrix storage.
+  The conditional planning estimate `E = 8*A + 32*N` is at most 768 MiB or 640 MiB, respectively.
+  Four concrete witnesses retain both admitted boundaries and one-row excesses.
+  These obligations establish integer arithmetic only. They do not prove allocation behavior,
+  total process RSS, dataset completeness, estimator quality, or execution authority.
+
 The registered `sat` results make transition premises/status tags non-vacuous or require a
 deliberate countermodel. The four scientific countermodels are:
 

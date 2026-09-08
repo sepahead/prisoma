@@ -21,6 +21,31 @@ from experiments.lewm.assets import verify_runtime
 
 
 class AdmissionControls(unittest.TestCase):
+    def test_unknown_row_profile_rejects_before_runtime_or_output(self):
+        with patch.object(
+            reader, "verify_runtime", side_effect=AssertionError("runtime")
+        ):
+            for profile in (None, True, 64 * 1024**2, {}, "complete-rows-64mib-v2"):
+                with (
+                    self.subTest(profile=profile),
+                    self.assertRaisesRegex(
+                        ValueError, "Unknown action-row admission profile"
+                    ),
+                ):
+                    reader.fit_pusht_training_scaler(
+                        Path("absent"), Path("absent-output"), row_profile=profile
+                    )
+                with self.assertRaisesRegex(
+                    ValueError, "Unknown action-row admission profile"
+                ):
+                    reader.fit_control_archive_scaler(
+                        Path("absent"),
+                        Path("absent-output"),
+                        decoded_bytes=1,
+                        source_id="control",
+                        row_profile=profile,
+                    )
+
     def test_invalid_control_budget_rejects_before_optional_import(self):
         with patch.object(
             reader, "verify_runtime", side_effect=AssertionError("imported")
@@ -246,6 +271,117 @@ class QualifiedArchiveControls(unittest.TestCase):
         return reader.fit_control_archive_scaler(
             archive, self.root / name, decoded_bytes=size, source_id="owned-control"
         )
+
+    def test_explicit_row_profile_retains_archive_scope_and_legacy_receipt(self):
+        archive, size = self.archive()
+        legacy = self.fit(archive, size)
+        larger = reader.fit_control_archive_scaler(
+            archive,
+            self.root / "byte-profile",
+            decoded_bytes=size,
+            source_id="owned-control",
+            row_profile=actions.COMPLETE_ROW_PROFILE,
+        )
+        self.assertNotIn("row_admission", legacy.receipt())
+        self.assertNotIn("row_profile", legacy.receipt()["transaction"])
+        record = larger.receipt()
+        self.assertEqual(record["scope"], "synthetic_control_only")
+        self.assertEqual(
+            record["row_admission"],
+            record["transaction"]["action_read"]["row_admission"],
+        )
+        self.assertEqual(record["transaction"]["maximum_chunk_bytes"], 16_000_000)
+        self.assertNotIn("row_limit", record["transaction"])
+        self.assertEqual(
+            record["transaction"]["row_limits_by_dtype"],
+            {"float32": 8_388_608, "float64": 4_194_304},
+        )
+        self.assertEqual(
+            record["transaction"]["numeric_allocation_bytes"], 64 * 1024**2
+        )
+        self.assertEqual(larger.fit_rows.tobytes(), legacy.fit_rows.tobytes())
+        for name in ("mean", "variance", "scale"):
+            self.assertEqual(
+                larger.statistics[name].tobytes(), legacy.statistics[name].tobytes()
+            )
+        with patch.object(reader, "_decode", side_effect=AssertionError("decoded")):
+            with self.assertRaisesRegex(
+                reader.DatasetReadError, "complete frozen compressed extent"
+            ):
+                reader.fit_pusht_training_scaler(
+                    archive,
+                    self.root / "unverified-profile",
+                    row_profile=actions.COMPLETE_ROW_PROFILE,
+                )
+
+    def test_complete_byte_metadata_rejects_before_hdf5_row_read(self):
+        h5py = self.h5py
+        for dtype in (np.float32, np.float64):
+            maximum = actions.COMPLETE_ROW_BYTES // (2 * np.dtype(dtype).itemsize)
+            path = self.root / f"oversized-{np.dtype(dtype).itemsize}.h5"
+            with h5py.File(path, "w") as file:
+                file.create_dataset("action", shape=(maximum + 1, 2), dtype=dtype)
+            descriptor = os.open(path, os.O_RDONLY)
+            try:
+                with (
+                    patch.object(
+                        h5py.Dataset,
+                        "__getitem__",
+                        side_effect=AssertionError("rows read"),
+                    ),
+                    self.assertRaisesRegex(ValueError, "byte budget"),
+                ):
+                    reader._read_rows(
+                        descriptor, row_profile=actions.COMPLETE_ROW_PROFILE
+                    )
+            finally:
+                os.close(descriptor)
+        archive, size = self.archive()
+        reader.fit_control_archive_scaler(
+            archive,
+            self.root / "valid-after-byte-rejection",
+            decoded_bytes=size,
+            source_id="owned-control",
+            row_profile=actions.COMPLETE_ROW_PROFILE,
+        )
+
+    def test_complete_profile_reads_all_rows_above_legacy_without_widening_chunks(self):
+        rows = np.zeros((actions.MAX_FIT_ROWS + 1, 2), np.float32)
+        rows[0] = [-2, 1]
+        rows[-2] = [np.nan, 9]
+        rows[-1] = [3, -1]
+        path = self.root / "complete-column.h5"
+        with self.h5py.File(path, "w") as file:
+            file.create_dataset("action", data=rows)
+        descriptor = os.open(path, os.O_RDONLY)
+        try:
+            with self.assertRaisesRegex(ValueError, "bounded native"):
+                reader._read_rows(descriptor)
+            actual, observation = reader._read_rows(
+                descriptor, row_profile=actions.COMPLETE_ROW_PROFILE
+            )
+            self.assertEqual(actual.tobytes(), rows.tobytes())
+            self.assertEqual(observation["shape"], [actions.MAX_FIT_ROWS + 1, 2])
+            self.assertEqual(
+                observation["row_admission"]["complete_row_bytes"], rows.nbytes
+            )
+        finally:
+            os.close(descriptor)
+        path = self.root / "excessive-chunk.h5"
+        with self.h5py.File(path, "w") as file:
+            file.create_dataset(
+                "action",
+                shape=(2, 2),
+                maxshape=(None, 2),
+                dtype="f8",
+                chunks=(actions.MAX_FIT_ROWS + 1, 2),
+            )
+        descriptor = os.open(path, os.O_RDONLY)
+        try:
+            with self.assertRaisesRegex(ValueError, "chunk exceeds"):
+                reader._read_rows(descriptor, row_profile=actions.COMPLETE_ROW_PROFILE)
+        finally:
+            os.close(descriptor)
 
     def test_actual_archive_rows_fit_mask_and_no_dataset_authority(self):
         from sklearn.preprocessing import StandardScaler
@@ -514,9 +650,9 @@ class QualifiedArchiveControls(unittest.TestCase):
         released = []
         rows_admitted = False
 
-        def read_rows(descriptor):
+        def read_rows(descriptor, **kwargs):
             nonlocal rows_admitted
-            result = real_read(descriptor)
+            result = real_read(descriptor, **kwargs)
             rows_admitted = True
             return result
 
@@ -558,7 +694,7 @@ class QualifiedArchiveControls(unittest.TestCase):
         released = []
         row_read_started = False
 
-        def read_rows(_descriptor):
+        def read_rows(_descriptor, **_kwargs):
             nonlocal row_read_started
             row_read_started = True
             raise ValueError("primary-row-control")

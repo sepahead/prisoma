@@ -11083,7 +11083,7 @@
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "9d3456127f1786bab59b6fd5f5f9c17e531d1dae"
+        "oid": "179d8d1f46f4947ca663befcc58b555b8d12106f"
       },
       "index": {
         "bytes": 11343,
@@ -11091,7 +11091,7 @@
         "mode": "100644",
         "oid": "179d8d1f46f4947ca663befcc58b555b8d12106f"
       },
-      "index_state": "modified",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -11120,10 +11120,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "6e39883e7473842edab86210c9b79a3d768897f8",
+        "git_blob_id": "8799228dee1d40336625c7478c609e85e2fef0f0",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 118,
+        "line_count": 144,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "docs/lewm/OWNED_DATASET_READER.md",
         "public_surface": false,
@@ -11131,7 +11131,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "de99fb1068ec0c3f06cd360de2e0e67a67e6a61b7099d9233d92f81d42f3ca46",
+        "sha256": "285387dfeff368a661aff1bf7d2d5b06a43b562f7a203355d3b8b8faaf9f26aa",
         "tests": [],
         "updated_at": null
       },
@@ -11141,12 +11141,12 @@
         "oid": "6e39883e7473842edab86210c9b79a3d768897f8"
       },
       "index": {
-        "bytes": 7583,
-        "content_sha256": "de99fb1068ec0c3f06cd360de2e0e67a67e6a61b7099d9233d92f81d42f3ca46",
+        "bytes": 9579,
+        "content_sha256": "285387dfeff368a661aff1bf7d2d5b06a43b562f7a203355d3b8b8faaf9f26aa",
         "mode": "100644",
-        "oid": "6e39883e7473842edab86210c9b79a3d768897f8"
+        "oid": "8799228dee1d40336625c7478c609e85e2fef0f0"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -11155,14 +11155,14 @@
       },
       "path": "docs/lewm/OWNED_DATASET_READER.md",
       "working_tree": {
-        "bytes": 7583,
+        "bytes": 9579,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 118,
+        "line_count": 144,
         "link_target": null,
         "mode": "100644",
-        "sha256": "de99fb1068ec0c3f06cd360de2e0e67a67e6a61b7099d9233d92f81d42f3ca46"
+        "sha256": "285387dfeff368a661aff1bf7d2d5b06a43b562f7a203355d3b8b8faaf9f26aa"
       },
       "worktree_state": "unchanged"
     },
@@ -11248,7 +11248,7 @@
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "23c0ffea345a3910a66f6c3771e075c2954a05b9"
+        "oid": "ea387c902b573980384a2215dbae794ab2c1e180"
       },
       "index": {
         "bytes": 9789,
@@ -11256,7 +11256,7 @@
         "mode": "100644",
         "oid": "ea387c902b573980384a2215dbae794ab2c1e180"
       },
-      "index_state": "modified",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -11355,14 +11355,18 @@
         "tests": [],
         "updated_at": null
       },
-      "head": null,
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "5f1ebb424a76066688138ac29b46ce4f85f03424"
+      },
       "index": {
         "bytes": 5334,
         "content_sha256": "5b2cfcab8a5091fba79cc62a61474cbcb1cf3390b5869798ab726b8dea90c812",
         "mode": "100644",
         "oid": "5f1ebb424a76066688138ac29b46ce4f85f03424"
       },
-      "index_state": "added",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -11409,7 +11413,7 @@
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "ee7c4c8cce9b37a5b11546a4006e02b9f2e1a0a5"
+        "oid": "e3a57185726712266f80267d2cfc5c18a936da92"
       },
       "index": {
         "bytes": 5607,
@@ -11417,7 +11421,7 @@
         "mode": "100644",
         "oid": "e3a57185726712266f80267d2cfc5c18a936da92"
       },
-      "index_state": "modified",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -12894,7 +12898,7 @@
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "1408c1344687d0931bff63e96913fd3675f82084"
+        "oid": "42c5a50bfd7d4292f26c0830849d2f24cec498e8"
       },
       "index": {
         "bytes": 8069,
@@ -12902,7 +12906,7 @@
         "mode": "100644",
         "oid": "42c5a50bfd7d4292f26c0830849d2f24cec498e8"
       },
-      "index_state": "modified",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -12986,10 +12990,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "ed388b07b4342f4b347b3337524d3afb3ba69665",
+        "git_blob_id": "f3ec6213dcff8e46f6f72cb02e1daab450f1650d",
         "independent_reviewer": null,
         "language": "Python",
-        "line_count": 849,
+        "line_count": 891,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "experiments/lewm/dataset_actions.py",
         "public_surface": true,
@@ -12997,7 +13001,7 @@
         "reviewer": null,
         "science_critical": true,
         "security_critical": false,
-        "sha256": "70da0bb9f5669165307c3ca0c049f2275d0793e8c9ad4fb7c20d0eb3bd26dc8d",
+        "sha256": "3843bbde7e97008a1af9854bef8e9cf3af11e0ff5b777aa026ea3cef7622d976",
         "tests": [],
         "updated_at": null
       },
@@ -13007,12 +13011,12 @@
         "oid": "ed388b07b4342f4b347b3337524d3afb3ba69665"
       },
       "index": {
-        "bytes": 31905,
-        "content_sha256": "70da0bb9f5669165307c3ca0c049f2275d0793e8c9ad4fb7c20d0eb3bd26dc8d",
+        "bytes": 33153,
+        "content_sha256": "3843bbde7e97008a1af9854bef8e9cf3af11e0ff5b777aa026ea3cef7622d976",
         "mode": "100644",
-        "oid": "ed388b07b4342f4b347b3337524d3afb3ba69665"
+        "oid": "f3ec6213dcff8e46f6f72cb02e1daab450f1650d"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -13021,14 +13025,14 @@
       },
       "path": "experiments/lewm/dataset_actions.py",
       "working_tree": {
-        "bytes": 31905,
+        "bytes": 33153,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 849,
+        "line_count": 891,
         "link_target": null,
         "mode": "100644",
-        "sha256": "70da0bb9f5669165307c3ca0c049f2275d0793e8c9ad4fb7c20d0eb3bd26dc8d"
+        "sha256": "3843bbde7e97008a1af9854bef8e9cf3af11e0ff5b777aa026ea3cef7622d976"
       },
       "worktree_state": "unchanged"
     },
@@ -13426,10 +13430,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "c083fad600a6537791d55eb0990a0ce419b7f67f",
+        "git_blob_id": "8232590f89da39024d82488b659587d06c952e97",
         "independent_reviewer": null,
         "language": "Python",
-        "line_count": 284,
+        "line_count": 334,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "experiments/lewm/supported_actions.py",
         "public_surface": true,
@@ -13437,7 +13441,7 @@
         "reviewer": null,
         "science_critical": true,
         "security_critical": false,
-        "sha256": "e61a73a6ebf1e508adf4b6debf028e694c1afa3c0f30ef3a2e05044d9b4962b8",
+        "sha256": "e700d4e8ed981aaa62d75c94c44774dab5cafe162119eaae6cba67f1d14621a1",
         "tests": [],
         "updated_at": null
       },
@@ -13447,12 +13451,12 @@
         "oid": "c083fad600a6537791d55eb0990a0ce419b7f67f"
       },
       "index": {
-        "bytes": 11154,
-        "content_sha256": "e61a73a6ebf1e508adf4b6debf028e694c1afa3c0f30ef3a2e05044d9b4962b8",
+        "bytes": 12929,
+        "content_sha256": "e700d4e8ed981aaa62d75c94c44774dab5cafe162119eaae6cba67f1d14621a1",
         "mode": "100644",
-        "oid": "c083fad600a6537791d55eb0990a0ce419b7f67f"
+        "oid": "8232590f89da39024d82488b659587d06c952e97"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -13461,14 +13465,14 @@
       },
       "path": "experiments/lewm/supported_actions.py",
       "working_tree": {
-        "bytes": 11154,
+        "bytes": 12929,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 284,
+        "line_count": 334,
         "link_target": null,
         "mode": "100644",
-        "sha256": "e61a73a6ebf1e508adf4b6debf028e694c1afa3c0f30ef3a2e05044d9b4962b8"
+        "sha256": "e700d4e8ed981aaa62d75c94c44774dab5cafe162119eaae6cba67f1d14621a1"
       },
       "worktree_state": "unchanged"
     },
@@ -14196,10 +14200,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "e7d084fc3f62a1f757ccfa171991cec5a0c27b6e",
+        "git_blob_id": "ec97b4f1ec7c059f721acdb5e1621f21dcd46360",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 118,
+        "line_count": 126,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "formal/README.md",
         "public_surface": false,
@@ -14207,20 +14211,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "b90496366e28ca33ea6e476cc62bf15fc23a0a89f24cc6aaf76297207e5e77e7",
+        "sha256": "2461bb018098ea1a6cda6ab41192603f26a6c066250e65ccd05c4c71c5405e6a",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "87d92d81fe96ecb335dcee8e49074fd9694cb4ed"
+        "oid": "e7d084fc3f62a1f757ccfa171991cec5a0c27b6e"
       },
       "index": {
-        "bytes": 9331,
-        "content_sha256": "b90496366e28ca33ea6e476cc62bf15fc23a0a89f24cc6aaf76297207e5e77e7",
+        "bytes": 9915,
+        "content_sha256": "2461bb018098ea1a6cda6ab41192603f26a6c066250e65ccd05c4c71c5405e6a",
         "mode": "100644",
-        "oid": "e7d084fc3f62a1f757ccfa171991cec5a0c27b6e"
+        "oid": "ec97b4f1ec7c059f721acdb5e1621f21dcd46360"
       },
       "index_state": "modified",
       "inventory_origin": {
@@ -14231,14 +14235,14 @@
       },
       "path": "formal/README.md",
       "working_tree": {
-        "bytes": 9331,
+        "bytes": 9915,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 118,
+        "line_count": 126,
         "link_target": null,
         "mode": "100644",
-        "sha256": "b90496366e28ca33ea6e476cc62bf15fc23a0a89f24cc6aaf76297207e5e77e7"
+        "sha256": "2461bb018098ea1a6cda6ab41192603f26a6c066250e65ccd05c4c71c5405e6a"
       },
       "worktree_state": "unchanged"
     },
@@ -14596,14 +14600,18 @@
         "tests": [],
         "updated_at": null
       },
-      "head": null,
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "82451114742b1be9dee2355f8ea64e90f169240d"
+      },
       "index": {
         "bytes": 4136,
         "content_sha256": "9373bedd027d40a5a693ceec37661059f8a939f8c2941002b788abcb2003d459",
         "mode": "100644",
         "oid": "82451114742b1be9dee2355f8ea64e90f169240d"
       },
-      "index_state": "added",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -14632,10 +14640,61 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "a36ab6f738ac17206f7f1be10deb70f332a25a45",
+        "git_blob_id": "6d24ae890f831ae0837be6c1919160c30e3088fc",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 58,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "formal/lewm_row_admission.smt2",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "da96cc6f1aa6dfc4756e934fd0ef3ecd1c121e280e56f5fb6b42b1e8dcbcf543",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": {
+        "bytes": 1742,
+        "content_sha256": "da96cc6f1aa6dfc4756e934fd0ef3ecd1c121e280e56f5fb6b42b1e8dcbcf543",
+        "mode": "100644",
+        "oid": "6d24ae890f831ae0837be6c1919160c30e3088fc"
+      },
+      "index_state": "added",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "formal/lewm_row_admission.smt2",
+      "working_tree": {
+        "bytes": 1742,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 58,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "da96cc6f1aa6dfc4756e934fd0ef3ecd1c121e280e56f5fb6b42b1e8dcbcf543"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "a41b031fb4bc1a4f1bb75bd34f0f058a09e64daa",
         "independent_reviewer": null,
         "language": "JSON",
-        "line_count": 93,
+        "line_count": 97,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "formal/model_registry.json",
         "public_surface": false,
@@ -14643,20 +14702,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "c799d33a3bfb5de4101064216076b460a5d5c1af19385a859af12e7ff3a1f965",
+        "sha256": "6b59629782d307da3fe7689bd181a0d15fc6880b63672d60ae1eda004e7d3e0c",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "6bd1876f1ea7525d7819cd54b7e9ae844c8424c9"
+        "oid": "a36ab6f738ac17206f7f1be10deb70f332a25a45"
       },
       "index": {
-        "bytes": 2651,
-        "content_sha256": "c799d33a3bfb5de4101064216076b460a5d5c1af19385a859af12e7ff3a1f965",
+        "bytes": 2849,
+        "content_sha256": "6b59629782d307da3fe7689bd181a0d15fc6880b63672d60ae1eda004e7d3e0c",
         "mode": "100644",
-        "oid": "a36ab6f738ac17206f7f1be10deb70f332a25a45"
+        "oid": "a41b031fb4bc1a4f1bb75bd34f0f058a09e64daa"
       },
       "index_state": "modified",
       "inventory_origin": {
@@ -14667,14 +14726,14 @@
       },
       "path": "formal/model_registry.json",
       "working_tree": {
-        "bytes": 2651,
+        "bytes": 2849,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 93,
+        "line_count": 97,
         "link_target": null,
         "mode": "100644",
-        "sha256": "c799d33a3bfb5de4101064216076b460a5d5c1af19385a859af12e7ff3a1f965"
+        "sha256": "6b59629782d307da3fe7689bd181a0d15fc6880b63672d60ae1eda004e7d3e0c"
       },
       "worktree_state": "unchanged"
     },
@@ -17455,7 +17514,7 @@
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "7260c429adba7bea45d503ca562fb08c9e4c822c"
+        "oid": "4a7c21e903a236894c8ffc343de7e84334630ef7"
       },
       "index": {
         "bytes": 874,
@@ -17463,7 +17522,7 @@
         "mode": "100644",
         "oid": "4a7c21e903a236894c8ffc343de7e84334630ef7"
       },
-      "index_state": "modified",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -17510,7 +17569,7 @@
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "f1633a24016467bc78e57679eea73c62f0bca676"
+        "oid": "08b3eaff353c825a0d1c62bb14d4028a8518bb91"
       },
       "index": {
         "bytes": 126662,
@@ -17518,7 +17577,7 @@
         "mode": "100644",
         "oid": "08b3eaff353c825a0d1c62bb14d4028a8518bb91"
       },
-      "index_state": "modified",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -17565,7 +17624,7 @@
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "f4f5648fa545d8985b12f100d593740cb3053ac8"
+        "oid": "f12dfa9f39c4869842b5ca57c02a3ec2799844aa"
       },
       "index": {
         "bytes": 800,
@@ -17573,7 +17632,7 @@
         "mode": "100644",
         "oid": "f12dfa9f39c4869842b5ca57c02a3ec2799844aa"
       },
-      "index_state": "modified",
+      "index_state": "unchanged",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -32122,10 +32181,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "f32c765d5014b99bb2e51ea889b83d66f606885d",
+        "git_blob_id": "07df55b653e87ab0474f7b48b259dfe106c59002",
         "independent_reviewer": null,
         "language": "Python",
-        "line_count": 1013,
+        "line_count": 1149,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "tests/python/test_lewm_dataset_actions.py",
         "public_surface": false,
@@ -32133,7 +32192,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "29a8654902f4066938a13fe2325b3b311b1326deb0063ae1d3b5f8fbf39abe5b",
+        "sha256": "1588666e4e624f30f6b7097312466f12dfb57026e1d117438f2c8673083c5b95",
         "tests": [],
         "updated_at": null
       },
@@ -32143,12 +32202,12 @@
         "oid": "f32c765d5014b99bb2e51ea889b83d66f606885d"
       },
       "index": {
-        "bytes": 41858,
-        "content_sha256": "29a8654902f4066938a13fe2325b3b311b1326deb0063ae1d3b5f8fbf39abe5b",
+        "bytes": 47780,
+        "content_sha256": "1588666e4e624f30f6b7097312466f12dfb57026e1d117438f2c8673083c5b95",
         "mode": "100644",
-        "oid": "f32c765d5014b99bb2e51ea889b83d66f606885d"
+        "oid": "07df55b653e87ab0474f7b48b259dfe106c59002"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -32157,14 +32216,14 @@
       },
       "path": "tests/python/test_lewm_dataset_actions.py",
       "working_tree": {
-        "bytes": 41858,
+        "bytes": 47780,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 1013,
+        "line_count": 1149,
         "link_target": null,
         "mode": "100644",
-        "sha256": "29a8654902f4066938a13fe2325b3b311b1326deb0063ae1d3b5f8fbf39abe5b"
+        "sha256": "1588666e4e624f30f6b7097312466f12dfb57026e1d117438f2c8673083c5b95"
       },
       "worktree_state": "unchanged"
     },
@@ -32177,10 +32236,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "80fb716730caa7a1050b68690560448da16bb750",
+        "git_blob_id": "2671183a8f366feb963d04ca7339555e2e79ed1f",
         "independent_reviewer": null,
         "language": "Python",
-        "line_count": 263,
+        "line_count": 372,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "tests/python/test_lewm_supported_actions.py",
         "public_surface": false,
@@ -32188,7 +32247,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "f9ba556e972c4f4d291de9ba1ba818dc81edeb295837805ddba883fc94cbb75d",
+        "sha256": "3d2f380a78d9989c0b4ecb912065386ed8486fb80203a06f72ad89b1fc46da1e",
         "tests": [],
         "updated_at": null
       },
@@ -32198,12 +32257,12 @@
         "oid": "80fb716730caa7a1050b68690560448da16bb750"
       },
       "index": {
-        "bytes": 11789,
-        "content_sha256": "f9ba556e972c4f4d291de9ba1ba818dc81edeb295837805ddba883fc94cbb75d",
+        "bytes": 17150,
+        "content_sha256": "3d2f380a78d9989c0b4ecb912065386ed8486fb80203a06f72ad89b1fc46da1e",
         "mode": "100644",
-        "oid": "80fb716730caa7a1050b68690560448da16bb750"
+        "oid": "2671183a8f366feb963d04ca7339555e2e79ed1f"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -32212,14 +32271,14 @@
       },
       "path": "tests/python/test_lewm_supported_actions.py",
       "working_tree": {
-        "bytes": 11789,
+        "bytes": 17150,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 263,
+        "line_count": 372,
         "link_target": null,
         "mode": "100644",
-        "sha256": "f9ba556e972c4f4d291de9ba1ba818dc81edeb295837805ddba883fc94cbb75d"
+        "sha256": "3d2f380a78d9989c0b4ecb912065386ed8486fb80203a06f72ad89b1fc46da1e"
       },
       "worktree_state": "unchanged"
     },
@@ -33085,12 +33144,12 @@
   "repository": "https://github.com/sepahead/prisoma",
   "schema_version": "prisoma.release-candidate/0.1.0",
   "source": {
-    "candidate_state_sha256": "03a05c3624dc9ff2d22394a0e9c5bf388fe90ee8ecdeaac38652eef9d1be264b",
+    "candidate_state_sha256": "c18a25b93587c44be8ef468482dbcd6c0207e8cdf1440a6ee92a3dacfeb7a715",
     "clean": false,
     "explicit_source_arguments_required": true,
-    "head_commit": "180d19ad7116a74e77db5f0d07581e3cefa5a970",
-    "head_tree": "43797a4323fff2740150bb0df6ae8c428e758e18",
-    "index_entries_sha256": "ebf53f2bc284b48162073711f84d01c133dfb056be40736dac45d300fffbdf79",
+    "head_commit": "676e56a1cf954fdfc7b3eda5a15848e7f115c651",
+    "head_tree": "5f4608ec0d36e7d31be8ddf25398fd9f0db0d063",
+    "index_entries_sha256": "d490977ef9b3079359a51f15aefa93ffc38fbdd67b373ca03e64708aa38a3145",
     "recursive_gitlinks": [
       {
         "commit": "796c11e70f009634b853dc4ada6f565563d82f51",
@@ -33101,14 +33160,14 @@
       }
     ],
     "state": "dirty_uncommitted_source_snapshot",
-    "worktree_entries_sha256": "8613cc950affd326e4d7104161dc35ff5c61c62c2ed3adeedf38e67c5cf9e761"
+    "worktree_entries_sha256": "9d760560cbebad757fc196afb70e02ffac1ab0875141b0633a89c505bd503575"
   },
   "summary": {
     "clean": false,
-    "entry_count": 600,
-    "index_changed_entry_count": 11,
-    "indexed_entry_count": 393,
-    "parent_entry_count": 393,
+    "entry_count": 601,
+    "index_changed_entry_count": 8,
+    "indexed_entry_count": 394,
+    "parent_entry_count": 394,
     "recursive_gitlink_entry_count": 207,
     "untracked_entry_count": 0,
     "worktree_changed_entry_count": 0

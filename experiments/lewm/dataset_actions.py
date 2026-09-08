@@ -28,7 +28,14 @@ from typing import Callable
 import numpy as np
 
 from .assets import verify_runtime
-from .supported_actions import MAX_FIT_ROWS, FittedActionScaler, _fit_owned_rows
+from .supported_actions import (
+    MAX_FIT_ROWS,
+    LEGACY_ROW_PROFILE,
+    FittedActionScaler,
+    _admit_row_shape,
+    _fit_owned_rows,
+    _row_byte_limit,
+)
 
 CHUNK_BYTES = 1024 * 1024
 ACTION_BYTES = MAX_FIT_ROWS * 2 * 8
@@ -613,7 +620,10 @@ def _decode(compressed: int, output: Path, expected_bytes: int, receipt: dict) -
     return retained
 
 
-def _read_rows(descriptor: int) -> tuple[np.ndarray, dict]:
+def _read_rows(
+    descriptor: int, *, row_profile: str = LEGACY_ROW_PROFILE
+) -> tuple[np.ndarray, dict]:
+    _row_byte_limit(row_profile)
     # This imports neither the general stable-worldmodel reader nor hdf5plugin/Torch.
     import h5py
 
@@ -633,7 +643,6 @@ def _read_rows(descriptor: int) -> tuple[np.ndarray, dict]:
                 shape is None
                 or len(shape) != 2
                 or shape[1] != 2
-                or not 2 <= shape[0] <= MAX_FIT_ROWS
                 or dtype.kind != "f"
                 or dtype.itemsize not in (4, 8)
                 or not dtype.isnative
@@ -644,6 +653,12 @@ def _read_rows(descriptor: int) -> tuple[np.ndarray, dict]:
                 raise ValueError(
                     "Action requires bounded native float32/float64 shape [N,2]"
                 )
+            try:
+                admission = _admit_row_shape(shape, dtype.itemsize, row_profile)
+            except ValueError as error:
+                raise ValueError(
+                    f"Action requires bounded native float32/float64 rows: {error}"
+                ) from error
             properties = dataset.id.get_create_plist()
             if (
                 dataset.is_virtual
@@ -706,6 +721,8 @@ def _read_rows(descriptor: int) -> tuple[np.ndarray, dict]:
                 "hdf5_version": h5py.version.hdf5_version,
                 "reader_source_sha256": HDF5_READER_SHA256,
             }
+            if row_profile != LEGACY_ROW_PROFILE:
+                observation["row_admission"] = admission
     if _identity(os.fstat(descriptor)) != before:
         raise ValueError("Decoded HDF5 changed while reading action rows")
     return owned, observation
@@ -724,8 +741,13 @@ def _close_descriptors(descriptors: tuple) -> list[BaseException]:
 
 
 def _fit_archive(
-    archive: Path, output: Path, profile: _ArchiveProfile
+    archive: Path,
+    output: Path,
+    profile: _ArchiveProfile,
+    *,
+    row_profile: str = LEGACY_ROW_PROFILE,
 ) -> FittedActionScaler:
+    row_bytes = _row_byte_limit(row_profile)
     runtime = verify_runtime()
     decoder = _decoder_identity()
     output.mkdir(mode=0o700)
@@ -741,6 +763,17 @@ def _fit_archive(
         "row_limit": MAX_FIT_ROWS,
         "numeric_allocation_bytes": ACTION_BYTES,
     }
+    if row_profile != LEGACY_ROW_PROFILE:
+        del receipt["row_limit"]
+        receipt.update(
+            row_profile=row_profile,
+            row_limits_by_dtype={
+                "float32": row_bytes // (2 * 4),
+                "float64": row_bytes // (2 * 8),
+            },
+            numeric_allocation_bytes=row_bytes,
+            maximum_chunk_bytes=ACTION_BYTES,
+        )
     try:
         _space(output, profile.compressed_bytes + profile.decoded_bytes)
         receipt["compressed_snapshot"] = {}
@@ -759,7 +792,7 @@ def _fit_archive(
         ):
             raise ValueError("Compressed private snapshot changed during decode")
         decoded_identity = _identity(os.fstat(decoded))
-        rows, row_observation = _read_rows(decoded)
+        rows, row_observation = _read_rows(decoded, row_profile=row_profile)
         receipt["action_read"] = row_observation
         if (
             _identity(os.fstat(decoded)) != decoded_identity
@@ -787,6 +820,7 @@ def _fit_archive(
                 "row_order": row_observation["row_order"],
                 "transaction": receipt,
             },
+            row_profile=row_profile,
         )
         _save(output / "scaler.json", fitted.receipt())
         _save(
@@ -819,15 +853,23 @@ def _fit_archive(
         raise DatasetReadError(error, receipt) from error
 
 
-def fit_pusht_training_scaler(archive: Path, output: Path) -> FittedActionScaler:
+def fit_pusht_training_scaler(
+    archive: Path, output: Path, *, row_profile: str = LEGACY_ROW_PROFILE
+) -> FittedActionScaler:
     """Fit only the fixed complete 655cd446 training archive; never a caller hash."""
-    return _fit_archive(Path(archive), Path(output), _TRAINING)
+    return _fit_archive(Path(archive), Path(output), _TRAINING, row_profile=row_profile)
 
 
 def fit_control_archive_scaler(
-    archive: Path, output: Path, *, decoded_bytes: int, source_id: str
+    archive: Path,
+    output: Path,
+    *,
+    decoded_bytes: int,
+    source_id: str,
+    row_profile: str = LEGACY_ROW_PROFILE,
 ) -> FittedActionScaler:
     """Exercise the same transaction on a tiny archive, always with control scope."""
+    _row_byte_limit(row_profile)
     if (
         type(decoded_bytes) is not int
         or not 1 <= decoded_bytes <= CONTROL_DECODED_BYTES
@@ -846,4 +888,4 @@ def fit_control_archive_scaler(
     profile = _ArchiveProfile(
         "synthetic_control_only", source_id, before.st_size, digest, decoded_bytes
     )
-    return _fit_archive(Path(archive), Path(output), profile)
+    return _fit_archive(Path(archive), Path(output), profile, row_profile=row_profile)
