@@ -56,11 +56,11 @@
     }
   ],
   "component_semantic_sha256": {
-    "claim_evidence_ledger.json": "b891d6da4e8f248497d0d9bc86db2050493d63c13afe1c251ae85d5c58888b05",
-    "defect_register.json": "be5fdca14ad9bcc2952bcb8575db225674006698a8c6cf725bc640296abb1b39",
-    "evidence_receipts.json": "a8ac478f89fcbc12b6920a2e540f3a51aca4ec9e0866a64f7d403d9fad6817a6",
-    "source_inventory.json": "d39bde7302b80876c1f135a64c07ae73a023d28bb107092f7b6d27fd7bef4132",
-    "task_lens_ledger.json": "bc921fe662d74a8fe0d7028df349dde3a8e33978ff0da773b32494c52602efa8"
+    "claim_evidence_ledger.json": "f84322fd6277e1587f6db6b1d2fff25cc75d69aea483283a5327233c15e34c7f",
+    "defect_register.json": "c965419c8c4f0b55689d6be658cad9fb76f40bc50db3db6a7bbc5fa07814109d",
+    "evidence_receipts.json": "1f3e28348f4fd850c005e98db87c7d17c50267706788d9d2d84d0003ce3e9098",
+    "source_inventory.json": "cf4f00c65e5cb9a182441046654237ae6d2428bf8a704d73986273708e44dcad",
+    "task_lens_ledger.json": "6fd373423f1153aa0dc83b6337edbf7bd0b0c0ebe1059c49db860681ddf5e01d"
   },
   "cross_repository_qualification": [],
   "datasets": [],
@@ -171,8 +171,8 @@
   },
   "signatures": [],
   "source": {
-    "candidate_state_sha256": "c18a25b93587c44be8ef468482dbcd6c0207e8cdf1440a6ee92a3dacfeb7a715",
-    "commit": "676e56a1cf954fdfc7b3eda5a15848e7f115c651",
+    "candidate_state_sha256": "3a5ca07f79480d1af9282cbfa46e1c81c852adaa1b527ee365a51e390a215877",
+    "commit": "a64ba1b204b0070beabd69711864b8aa41729adb",
     "commit_role": "parent_HEAD_at_dirty_candidate_capture_not_release_commit",
     "repository": "https://github.com/sepahead/prisoma",
     "tree_clean": false
@@ -180,9 +180,9 @@
   "source_candidate": {
     "clean": false,
     "exact_pushed_commit": null,
-    "head_commit_at_capture": "676e56a1cf954fdfc7b3eda5a15848e7f115c651",
+    "head_commit_at_capture": "a64ba1b204b0070beabd69711864b8aa41729adb",
     "state": "dirty_uncommitted_source_snapshot",
-    "state_sha256": "c18a25b93587c44be8ef468482dbcd6c0207e8cdf1440a6ee92a3dacfeb7a715"
+    "state_sha256": "3a5ca07f79480d1af9282cbfa46e1c81c852adaa1b527ee365a51e390a215877"
   },
   "submodules": [
     {

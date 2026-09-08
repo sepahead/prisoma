@@ -103,7 +103,8 @@ The optional runtime verifies exact source, wheel, checkpoint, and input identit
 
 Candidate values are **standardized model inputs**, not raw PushT commands.
 The current adapter executes no raw action and obtains no future branch label.
-Dataset-bound scaling, supported raw actions, multiple replans, and resource qualification remain open.
+The [Lance snapshot reader](docs/lewm/LANCE_ACTION_SNAPSHOT.md) fits all 2.34 million observed action rows through the existing scaler.
+Checkpoint-matched normalization, supported raw actions, multiple replans, and resource qualification remain open.
 The adapter remains an **MPS candidate**, not completed M2 or W1–W3 evidence.
 
 Read the [mathematics](docs/lewm/MATHEMATICS.md),

@@ -151,11 +151,13 @@ The structural helper rejects a candidate-conditioned source whose target is tha
 It requires an exact matched proposal and a valid declared prediction landmark for a downstream target.
 It does not produce an H3 ancestry attestation, a language source, or a PID estimate.
 
-Dataset-bound normalization, supported raw actions, multiple replans, complete checkpoints, and matched-baseline outcome comparisons remain separate milestones.
+Checkpoint-matched normalization, supported raw actions, multiple replans, complete checkpoints, and matched-baseline outcome comparisons remain separate milestones.
 The current one-input result does not validate a population law or learned model quality.
 
 The [owned training-action reader](OWNED_DATASET_READER.md) supplies a separate source interface for exact archive-to-scaler fitting.
 Its synthetic controls do not qualify the actual training archive or grant raw execution authority.
+The [Lance snapshot reader](LANCE_ACTION_SNAPSHOT.md) passed a complete 2,336,736-row fit with independent numerical checks.
+Its source identity remains separate from the original HDF5 archive and the checkpoint's training normalizer.
 The [action-conversion diagram](action-conversion.svg) separates raw proposals, model blocks, and checked inverse values.
 The mathematics guide explains the float32 rounding controls and the registered integer and real-arithmetic obligations.
 

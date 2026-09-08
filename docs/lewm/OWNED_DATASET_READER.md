@@ -4,6 +4,9 @@
 Actual training-archive qualification remains `NOT RUN`.
 Small synthetic archives test the transaction mechanics without receiving dataset authority.
 
+The [Lance action-snapshot reader](LANCE_ACTION_SNAPSHOT.md) has a separate source identity.
+Its fitted rows cannot establish original-HDF5 equivalence or training-normalizer compatibility.
+
 ## Exact dataset profile
 
 The public `fit_pusht_training_scaler(archive, output)` function accepts two local paths.

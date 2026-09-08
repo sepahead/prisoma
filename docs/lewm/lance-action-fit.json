@@ -1,0 +1,72 @@
+{
+  "schema": "prisoma.lewm.lance-action-fit-observation.v1",
+  "source": {
+    "repository": "galilai-group/lewm-pusht",
+    "revision": "ea321e392348e3c65a18ab0d685f00e57be2c3e0",
+    "dataset": "pusht_expert_train.lance",
+    "version": 1,
+    "column": "action",
+    "rows": 2336736,
+    "dtype": "<f4",
+    "shape": [
+      2336736,
+      2
+    ],
+    "bytes": 18693888,
+    "sha256": "db62c4b5317b53e1e256140146b512419a79f27f805f411637a18be8bcc18011"
+  },
+  "statistics": {
+    "mean": [
+      -0.007812564379916172,
+      0.006860687229453032
+    ],
+    "variance": [
+      0.043458674726340484,
+      0.04274499450737964
+    ],
+    "scale": [
+      0.20846744284501714,
+      0.20674862637362224
+    ]
+  },
+  "independent_fsum_mean": [
+    -0.007812564379916167,
+    0.006860687229453028
+  ],
+  "independent_fsum_population_variance": [
+    0.043458674726339803,
+    0.04274499450737985
+  ],
+  "rtol": 1e-12,
+  "atol": 1e-12,
+  "fit_seconds": 1.268530541099608,
+  "observed_leader_peak_rss_bytes": 340312064,
+  "host": "M4 Max, Darwin arm64",
+  "python": "3.11.15",
+  "numpy": "2.4.6",
+  "scikit_learn": "1.9.0",
+  "source_files": {
+    "experiments/lewm/__init__.py": "7b7587286010476acd1b9d43611420864ad5d3d9985701ceb53f65eb2c4412ba",
+    "experiments/lewm/__main__.py": "89a402f6ea0fa9a05a3a81be88b6744647f12b6bb3580a45a176a9fd823c53ea",
+    "experiments/lewm/assets.py": "778839b5467f3247a4da9ab4e53a03acd07d9a0a01d35bf3525e57cee60311b3",
+    "experiments/lewm/build_pdf.py": "7ad722f68e253afc0edcb49549d6847b24dbe59c4ea0ca2b8c30a1cb2afc1cd0",
+    "experiments/lewm/contracts.py": "e502444e011cbe3ee93078d893768018672c05817afe65c2d1008d358842a545",
+    "experiments/lewm/dataset_actions.py": "3843bbde7e97008a1af9854bef8e9cf3af11e0ff5b777aa026ea3cef7622d976",
+    "experiments/lewm/lance_actions.py": "692ed102d3f8e22d98b8655ac1e19d585e8511421d628791ed2397bf41cac2cc",
+    "experiments/lewm/model.py": "33fec2fa5508094c7d4f913cb9965fdf0923e94fe2fb6331e6ca0c85b28bdbe8",
+    "experiments/lewm/projection.json": "13ada2a4c093f1ab279b0c1e7c6d8b3987d6eab217e5a69bddfec92083daecd9",
+    "experiments/lewm/qualification-plan.json": "bb1dfd4dbbddbc05d88f903aebc0160cd67aee357855ca4239b380a4ce29d709",
+    "experiments/lewm/runtime-profile.json": "70ebf195b4e91e2afe7f59a29173fd39cf413567cc030281b1e84947aacecf72",
+    "experiments/lewm/runtime.py": "d641935aa019caa3acaf7336f9a7f3b89759bddc7aa33c82611a2bbbd101fece",
+    "experiments/lewm/supported_actions.py": "e700d4e8ed981aaa62d75c94c44774dab5cafe162119eaae6cba67f1d14621a1",
+    "experiments/lewm/verify.py": "9ed93ca44f41bcd8aa65b59682325499052cfac0384313e826be788338d2138b",
+    "tests/python/test_lewm_lance_actions.py": "b958e242f5a71d7e0d8b3248f566ac8292b56778cddc562849bf3330096f429c"
+  },
+  "root_review_sha256": "556eaf0da03d0d7a8874573c67bd931c17551f6cca704405eea34234c438d1e2",
+  "scope": "verified_frozen_lance_action_snapshot",
+  "original_hdf5_equivalence": false,
+  "training_normalization_qualified": false,
+  "raw_actions_executed": false,
+  "model_quality_qualified": false,
+  "release_complete": false
+}
