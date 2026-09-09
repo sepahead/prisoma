@@ -4,6 +4,11 @@ Capture original NCP exchanges in one bounded file, with one to sixteen selected
 No body, neural, or monitor role is mandatory.
 Large sensor payloads remain sequences of bounded NCP frames.
 
+Peer count and sensor count are different.
+One CREBAIN peer can expose several identified cameras or microphones.
+The installed application validates the selected roster; the transcript does not require every modality or convert streams into PID variables.
+Prisoma's [experiment contract](../../README.md#pid-remains-substantive-and-gated) owns source grouping, timing, features, targets, and statistical assumptions.
+
 ![Request capture, dispatch, response capture, and acknowledgement](capture.svg)
 
 [Direct SVG for browser zoom](https://raw.githubusercontent.com/sepahead/prisoma/main/integrations/ncp-transcript/capture.svg)

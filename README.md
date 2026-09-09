@@ -167,6 +167,20 @@ Prisoma owns variable definitions, sampling, transform lineage, eligibility, and
 `pid-rs` owns the estimator and run-log implementation.
 The same estimator used by two projects is shared evidence, not independent replication.
 
+The first planned embodied PID case uses RGB and acoustic observations, with thermal optional.
+Start with two through four declared source variables; a larger count requires a supported estimator and separate statistical bounds.
+These counts constrain the experiment, not the NCP protocol.
+Neither capture nor estimation requires every ecosystem project or sensor modality.
+
+A sensor instance is distinct from a modality and an experimental variable.
+Two cameras or microphones retain separate identities, even when they share a modality.
+Prisoma must record whether their features form separate variables or one joint source.
+Each case must bind the target, prediction landmark, timing, feature encoding, sampling assumptions, and statistical bounds before evaluation.
+Acoustic pressure samples require an explicit time window and transform; arrival order does not establish synchronization.
+The planned comparison tests whether the full MGW decomposition adds information beyond MI, CMI, and task loss.
+Keep its exact functional, source count, and statistical bounds fixed.
+This is a design requirement, not a completed PID result or a change to the pinned PID-rs implementation.
+
 PID interpretation requires four separate gates: population, measure, estimator, and application.
 High-dimensional MI/coherence remains **NO-GO**.
 Continuous shared-exclusions analysis of the intended VLA embeddings remains **BLOCKED / NOT APPLICATION-VALIDATED**.
