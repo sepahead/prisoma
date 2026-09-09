@@ -142,6 +142,10 @@ excluded. NCP and Zenoh therefore stay outside the default dependency graph.
 Crashes and storage failures can still leave incomplete provenance. Prisoma does not claim a
 cross-file transaction or power-loss atomicity.
 
+For generic external handlers, `LocalBridge::dispatch` flushes on both sides of handler execution.
+An append or flush failure permanently blocks that bridge instance.
+The [runtime contract](pidsplatspecs.md#46-generic-handler-failures) defines admission errors, response failures, and sink recovery boundaries.
+
 ### 4.2 Offline analysis path
 
 ```mermaid

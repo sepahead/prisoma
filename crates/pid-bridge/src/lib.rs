@@ -661,6 +661,7 @@ impl BridgeResponse {
 pub struct LocalBridge<W> {
     writer: RunLogWriter<W>,
     safe_mode: bool,
+    poisoned: bool,
     run_log_limits: Option<BridgeRunLogLimits>,
     run_log_usage: BridgeRunLogUsage,
 }
@@ -705,6 +706,7 @@ impl<W: Write> LocalBridge<W> {
         Self {
             writer,
             safe_mode: false,
+            poisoned: false,
             run_log_limits: None,
             run_log_usage: BridgeRunLogUsage::default(),
         }
@@ -714,6 +716,7 @@ impl<W: Write> LocalBridge<W> {
         Self {
             writer,
             safe_mode,
+            poisoned: false,
             run_log_limits: None,
             run_log_usage: BridgeRunLogUsage::default(),
         }
@@ -727,6 +730,7 @@ impl<W: Write> LocalBridge<W> {
         Self {
             writer,
             safe_mode,
+            poisoned: false,
             run_log_limits: Some(run_log_limits),
             run_log_usage: BridgeRunLogUsage::default(),
         }
@@ -734,6 +738,21 @@ impl<W: Write> LocalBridge<W> {
 
     pub fn safe_mode(&self) -> bool {
         self.safe_mode
+    }
+
+    /// Reports a failed log append, flush, or dispatch-response commitment.
+    ///
+    /// A poisoned bridge rejects further recording, flushing, and dispatch.
+    /// [`Self::into_inner`] remains available to retain the incomplete output.
+    pub fn poisoned(&self) -> bool {
+        self.poisoned
+    }
+
+    fn require_active(&self) -> Result<()> {
+        if self.poisoned {
+            bail!("bridge is poisoned by an earlier provenance failure");
+        }
+        Ok(())
     }
 
     pub fn run_log_limits(&self) -> Option<BridgeRunLogLimits> {
@@ -753,6 +772,7 @@ impl<W: Write> LocalBridge<W> {
     }
 
     pub fn record_event(&mut self, event: &RunLogEvent) -> Result<()> {
+        self.require_active()?;
         let mut counter = ByteCounter::default();
         serde_json::to_writer(&mut counter, event)
             .context("failed to size bridge run-log event")?;
@@ -784,7 +804,9 @@ impl<W: Write> LocalBridge<W> {
                 );
             }
         }
-        self.writer.append(event)?;
+        self.writer
+            .append(event)
+            .inspect_err(|_| self.poisoned = true)?;
         self.run_log_usage = BridgeRunLogUsage {
             bytes: next_bytes,
             events: next_events,
@@ -792,6 +814,11 @@ impl<W: Write> LocalBridge<W> {
         Ok(())
     }
 
+    /// Flush the request before dispatch and the response before returning it.
+    ///
+    /// A failed response commitment poisons the bridge even when its handler
+    /// already changed the environment. This API supplies no rollback or retry.
+    /// The supplied sink defines flush semantics; flushing is not disk fsync.
     pub fn dispatch<H: BridgeHandler>(
         &mut self,
         request: &BridgeRequest,
@@ -799,9 +826,10 @@ impl<W: Write> LocalBridge<W> {
         response_timestamp_ns: u64,
     ) -> Result<BridgeResponse> {
         self.record_request(request)?;
+        self.flush()?;
         if self.safe_mode && !request.safe_mode_allowed() {
             let response = BridgeResponse::blocked_by_safe_mode(request, response_timestamp_ns);
-            self.record_response(&response)?;
+            self.commit_dispatch_response(&response)?;
             return Ok(response);
         }
         let handled = handler.handle(request);
@@ -831,12 +859,19 @@ impl<W: Write> LocalBridge<W> {
                 }
             }
         };
-        self.record_response(&response)?;
+        self.commit_dispatch_response(&response)?;
         Ok(response)
     }
 
+    fn commit_dispatch_response(&mut self, response: &BridgeResponse) -> Result<()> {
+        self.record_response(response)
+            .and_then(|()| self.flush())
+            .inspect_err(|_| self.poisoned = true)
+    }
+
     pub fn flush(&mut self) -> Result<()> {
-        self.writer.flush()
+        self.require_active()?;
+        self.writer.flush().inspect_err(|_| self.poisoned = true)
     }
 
     pub fn into_inner(self) -> W {

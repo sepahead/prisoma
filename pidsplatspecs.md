@@ -114,6 +114,25 @@ profile caps pairing attempts, requests, aggregate input, events, and run-log by
 
 Pairing proves startup-secret possession only. It is not process, binary, build, or host attestation.
 
+### 4.6 Generic handler failures
+
+`LocalBridge::dispatch` flushes the recorded request before calling its handler.
+It flushes the recorded response before returning it.
+The supplied writer defines flush behavior. Generic flushing does not call disk `fsync`.
+
+A failed append attempt or flush poisons the bridge.
+A response admission failure after dispatch also poisons it.
+Further recording, flushing, and dispatch then fail without invoking the writer or handler.
+`into_inner` remains available to retain the incomplete output.
+
+For example, a failed response flush can follow an executed environment action.
+The caller receives an error and must retire that bridge instance.
+The error grants no rollback or retry authority.
+
+Identity and bridge-budget rejection before a request append leave a healthy bridge usable.
+A recorded handler domain error also permits the next request.
+The bridge does not infer whether that application error changed external state.
+
 ## 5. Environment adapter contract
 
 An environment adapter receives only validated bridge operations. It returns a typed result or an
