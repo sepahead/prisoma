@@ -4,6 +4,9 @@
 Its exact application profile is `prisoma.local-causal-capture.v1`.
 It has no command, Agent Bridge, estimator, Host API, or network capability.
 
+For modular peers and bounded sensor-frame sequences, use the separate [modular transcript](../../integrations/ncp-transcript/README.md).
+This compatibility journal retains its three-producer causal contract and 64-KiB step limit.
+
 ![Native causal capture and terminal verification](../../assets/native-ncp-capture.svg)
 
 Text alternative: Preparation binds the complete plan, initial snapshot, and three producer generations.

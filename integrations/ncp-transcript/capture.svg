@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="890" viewBox="0 0 640 890" role="img" aria-labelledby="title desc">
+  <title id="title">Durable modular NCP capture</title>
+  <desc id="desc">The host selects one to sixteen peers. Save and synchronize a request before dispatch. Save and synchronize its response before the caller receives it. Retain source buffers until captured reads succeed. A bounded request and response reserve 131164 bytes. The observed NEST file contained 408 original frames.</desc>
+  <defs>
+    <linearGradient id="background" x2="1" y2="1"><stop stop-color="#102837"/><stop offset="1" stop-color="#09131f"/></linearGradient>
+    <linearGradient id="panel" x2="1" y2="1"><stop stop-color="#173243"/><stop offset="1" stop-color="#112331"/></linearGradient>
+    <linearGradient id="flow" gradientUnits="userSpaceOnUse" x1="320" y1="200" x2="320" y2="570"><stop stop-color="#65d9cb"/><stop offset="1" stop-color="#b5fff0"/></linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L8 5 L1 9" fill="none" stroke="#86e5d3" stroke-width="1.8" stroke-linejoin="round"/></marker>
+  </defs>
+  <rect width="640" height="890" rx="24" fill="url(#background)"/>
+  <rect x="1" y="1" width="638" height="888" rx="23" fill="none" stroke="#35536a"/>
+  <g font-family="system-ui, sans-serif" fill="#edf5fa">
+    <text x="40" y="52" font-size="27" font-weight="700">DURABLE NCP CAPTURE</text>
+    <text x="40" y="88" font-size="22" fill="#b3cbd9">One to sixteen explicitly selected peers</text>
+    <g fill="url(#panel)" stroke="#426276" stroke-width="1.5">
+      <rect x="40" y="126" width="560" height="100" rx="16"/>
+      <rect x="40" y="273" width="560" height="100" rx="16"/>
+      <rect x="40" y="420" width="560" height="100" rx="16"/>
+      <rect x="40" y="567" width="560" height="100" rx="16"/>
+    </g>
+    <g stroke="url(#flow)" stroke-width="3" marker-end="url(#arrow)" fill="none">
+      <path d="M320 235 V262"/>
+      <path d="M320 382 V409"/>
+      <path d="M320 529 V556"/>
+    </g>
+    <path d="M41 149 V203 M41 443 V497" stroke="#eac584" stroke-width="5" stroke-linecap="round"/>
+    <g font-size="25" font-weight="650">
+      <text x="65" y="166">1 · Save the request</text>
+      <text x="65" y="313">2 · Dispatch once</text>
+      <text x="65" y="460">3 · Save the response</text>
+      <text x="65" y="607">4 · Acknowledge or continue</text>
+    </g>
+    <g font-size="20" fill="#cadde7">
+      <text x="65" y="200">Write the original frame, then synchronize.</text>
+      <text x="65" y="347">NCP checks the selected peer and operation.</text>
+      <text x="65" y="494">Synchronize before the caller receives it.</text>
+      <text x="65" y="641">Keep buffers until their capture succeeds.</text>
+    </g>
+    <path d="M42 709 H75" stroke="#86e5d3" stroke-width="3"/>
+    <text x="85" y="716" font-size="18" fill="#c4dbe6">Exchange order</text>
+    <path d="M344 698 V717" stroke="#eac584" stroke-width="5" stroke-linecap="round"/>
+    <text x="359" y="716" font-size="18" fill="#c4dbe6">Storage barrier</text>
+    <path d="M40 742 H600" stroke="#35536a"/>
+    <text x="40" y="782" font-size="24" font-weight="650">2 × (65,536 + 46) = 131,164 B</text>
+    <text x="40" y="815" font-size="20" fill="#cadde7">Maximum bytes per request/response pair.</text>
+    <text x="40" y="853" font-size="19" fill="#9dbcca">NEST observation: 408 frames · 346,779 bytes</text>
+  </g>
+</svg>

@@ -154,6 +154,10 @@ ncp-fault-observatory out="outputs/ncp_fault_observatory":
 ncp-observer-test:
     cargo test --locked --manifest-path crates/ncp-observer/Cargo.toml
 
+# Check the optional installed transcript with the caller's isolated Python.
+ncp-transcript-check python_path:
+    {{ quote(python_path) }} -B -I -m unittest discover -s integrations/ncp-transcript/tests -v
+
 # Explicit native local NCP capture gate. Root PID builds remain independent.
 ncp-local-capture-check:
     cargo fmt --manifest-path crates/ncp-local-capture/Cargo.toml -- --check

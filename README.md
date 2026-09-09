@@ -55,7 +55,7 @@ See the [adapter boundaries](ARCHITECTURE.md#34-viewer-layer-pid-rerun).
 | Exact-fork decision reference | Compare a fixed action pool, execute the selection, label restored branches, and verify replay | Deterministic affine software control, not W1 or W2 |
 | [LeWM engineering adapter](docs/lewm/README.md) | Run verified pretrained weights on real PushT images and inspect complete CPU/MPS search traces | One frozen input, no raw action execution or outcome labels |
 | [Offline analysis](EXPERIMENTS.md) | Evaluate strict artifacts with simple baselines and optional named PID routes | Support, split, measure, estimator, and application limits remain explicit |
-| [Native NCP capture](crates/ncp-local-capture/README.md) | Record and verify complete bounded local causal exchanges | Separate journal, no command or estimator authority |
+| [NCP capture](integrations/ncp-transcript/README.md) | Preserve original exchanges for independently selected peers, including large frame sequences | One source NEST capture case; application and experiment completion remain separate |
 | [Agent Bridge](ARCHITECTURE.md#32-contract-layer-pid-bridge) | Dispatch typed local operations and record accepted requests and responses | Local profiles, not a qualified remote-security system |
 | [Rerun export](ARCHITECTURE.md#34-viewer-layer-pid-rerun) | Inspect schema-checked run-log projections | Derived inspection, not scientific validation |
 
@@ -124,9 +124,10 @@ This preserves the [dependency firebreak](grandplan.md#893-dependency-firebreak)
 Each future environment path must bind units, frames, clocks, action application, missingness, and checkpoint semantics.
 Simulator reference outcomes must remain distinct from measured physical outcomes.
 
-Native NCP capture is a separate optional component.
+NCP capture is a separate optional component.
+Its modular transcript preserves original frames and checks exchange order and terminal acknowledgements.
 Its standalone manifest pins the `ncp-local` SDK to immutable public Git source, with no sibling checkout requirement.
-It records supplied causal exchanges and terminal completeness.
+Application completion and scientific validity remain separate checks.
 Installed ecosystem qualification remains a separate gate.
 It does not turn NCP into a broker or grant Prisoma command authority.
 

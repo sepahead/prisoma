@@ -19,6 +19,7 @@ The canonical research and engineering specification is [grandplan.md](grandplan
 | PID method, route, support, or interpretation | [PID method contract](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md), grandplan section 7, and [findings](findings.md) |
 | PID data from world-model outputs | [PID handoff](docs/lewm/PID_HANDOFF.md) and the target-specific ancestry rules |
 | Native local NCP capture | [Capture contract](crates/ncp-local-capture/README.md) |
+| Modular NCP transcript | [Transcript contract](integrations/ncp-transcript/README.md) and [design](integrations/ncp-transcript/DESIGN.md) |
 | Legacy NCP wire observer | [Observer contract](crates/ncp-observer/README.md) and [NCP development notes](NCP_DEV_PROMPT.md) |
 | Engram Host API receipt observation | [Integration contract](integrations/engram/README.md) and [managed observer](integrations/engram/managed-observer/README.md) |
 | Rerun or other visualizations | [UI specification](uidesigner/UI.md), [diagrams](DIAGRAMS.md), and grandplan section 16 |
@@ -229,6 +230,7 @@ Use these additional gates when their surfaces change:
 | Documentation | `just docs-audit` |
 | Candidate artifacts | `just release-candidate-audit`, after exact source capture and regeneration |
 | Native NCP capture | `just ncp-local-capture-check` |
+| Modular NCP transcript | `just ncp-transcript-check <isolated-python>` after package installation, and its exact Z3 quota check |
 | Legacy wire observer | `just ncp-observer-test` |
 | Engram managed observer | `just engram-managed-observer-check` |
 | LeWM default admission and arithmetic | Existing `tests/python/test_lewm_*.py` tests |
