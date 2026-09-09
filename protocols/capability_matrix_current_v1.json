@@ -130,7 +130,7 @@
       "feature_id": "bridge.engram_pairing",
       "feature": "Engram operator-paste startup-secret pairing",
       "status": "tested",
-      "exact_revision": "local-sha256:0fcce1b9085c644aea099c582391dc5c8a95ee56f5fd2ef71a7931856f72e807",
+      "exact_revision": "local-sha256:e13875c25d63b5ec79882e3765d2fe351ece56c88277fb7ffb3bc6d66cb18755",
       "revision_inputs": [
         "crates/pid-sim",
         "integrations/engram",
@@ -799,7 +799,7 @@
       "feature_id": "observer.engram_managed_read_only",
       "feature": "Read-only Engram Host API 2 managed observer",
       "status": "tested",
-      "exact_revision": "local-sha256:75e2b184303bc0f68b603b644c9a311f66f0358eb9fd6eac18dec379633cfd45",
+      "exact_revision": "local-sha256:fb91bd4f630d752016a8f2508b56753e8b534822e1ace8dfda206b5e684deacf",
       "revision_inputs": [
         "crates/engram-managed-observer",
         "integrations/engram/managed-observer",
@@ -1147,7 +1147,7 @@
         },
         {
           "path": "README.md",
-          "sha256": "499569a1fd112ad156041433ed6873146c48bb1a7a50ffe2b8788943ea85a20c"
+          "sha256": "40c18be815786b78dfcc81a2a8bf5c133e4619d18bde9c9d37fb30f49eac24e2"
         }
       ],
       "known_limitations": "The scripted push-to-goal fixture is a deterministic software cross-check, not a real VLA policy/environment choice, external adapter, validated simulator, or physical repeatability study.",

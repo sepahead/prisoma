@@ -32,8 +32,9 @@ EVIDENCE_PATHS = tuple(
 
 
 def git(root: Path, *arguments: str) -> str:
+    # Fixture commits must not depend on the caller's signing configuration.
     completed = subprocess.run(
-        ["git", *arguments],
+        ["git", "-c", "commit.gpgsign=false", *arguments],
         cwd=root,
         check=True,
         stdin=subprocess.DEVNULL,

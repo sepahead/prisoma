@@ -52,5 +52,7 @@ File synchronization does not promise power-loss behavior for every filesystem o
 Logical quota admission does not allocate disk blocks or guarantee future free space.
 This sequential local package establishes no remote security or real-time guarantee.
 
+The separate [native CREBAIN run](README.md#crebain-sensor-capture) verifies payload reconstruction and capture before source-buffer release for one fixed workload.
+It uses the ordinary host exchange hook and requires no NEST or monitor peer.
 An embodied experiment must additionally bind Agent Bridge events to this transcript.
-Its source-buffer release, payload reconstruction, and application completion require separate integration evidence.
+Combined execution, native lifetime faults, installed-host qualification, and scientific interpretation retain separate gates.
