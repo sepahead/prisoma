@@ -40,7 +40,7 @@ Install this optional package in its own Python environment:
 python -m pip install ./integrations/ncp-transcript
 ```
 
-The manifest pins the public NCP SDK to immutable Git source `9ae64ac1a77c9cd0612284992a8711220428a6e3`.
+The manifest pins the public NCP SDK to immutable Git source `233de821a5b67a34aa7721f900c09ab73a61ba88`.
 Python 3.11 or newer on a POSIX host is required.
 The root Prisoma environment and PID dependency remain independent of this package.
 
@@ -211,6 +211,8 @@ Neither format replaces the canonical schema-2 Agent Bridge run log.
 
 ## Observed evidence
 
+The following historical studies used NCP `9ae64ac1a77c9cd0612284992a8711220428a6e3`.
+
 The earlier source suite passed 29 tests on Python 3.11 and 3.14.
 The same 29 tests passed after a fresh Python 3.14 installation from the pinned public Git dependency.
 That cold installation took 353 seconds; it does not establish a fast installation path.
@@ -263,7 +265,7 @@ All 44 payloads also matched the previous uncaptured run of this fixed workload.
 This comparison establishes repeatability for one workload, not independent physical validation or a statistical performance result.
 All thirteen observed process identities retired.
 
-The run used CREBAIN source `04edafc6aa5eaf81bd2411a21552325f74e6fabc`, Prisoma source `3282a1734d353f3f915f3c9c679dfce4fc930a58`, and the unchanged NCP SDK pin above.
+The run used CREBAIN `04edafc6aa5eaf81bd2411a21552325f74e6fabc`, Prisoma `3282a1734d353f3f915f3c9c679dfce4fc930a58`, and NCP `9ae64ac1a77c9cd0612284992a8711220428a6e3`.
 These NEST and CREBAIN runs were separate experiments.
 They do not establish a coupled neural-body experiment, installed host qualification, native lifetime-fault coverage, world-model quality, or real-time operation.
 Canonical Agent Bridge event binding remains open.

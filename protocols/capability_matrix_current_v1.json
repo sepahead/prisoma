@@ -130,7 +130,7 @@
       "feature_id": "bridge.crebain_sensor_execution",
       "feature": "Optional canonical CREBAIN sensor execution",
       "status": "tested",
-      "exact_revision": "local-sha256:bcc853222ea93fa818f4bd8bdef208dba5fdc24f8758f5f9c3abdfabd65b06c0",
+      "exact_revision": "local-sha256:b76be7d7dde6c7d5b0bc19d544557a82aacb5201f690a69f41b9393ca8308d8c",
       "revision_inputs": [
         "crates/agent-bridge-python",
         "crates/pid-bridge",
@@ -1197,7 +1197,7 @@
         },
         {
           "path": "README.md",
-          "sha256": "7b78dbadba5d4383eb44eb42e32aac55de37abca5120b0352e69f4718ee597cd"
+          "sha256": "73efa0466ac182c859e80f98f7aed8d2328c66c2cd1f895342c19b704b9bd46c"
         }
       ],
       "known_limitations": "The scripted push-to-goal fixture is a deterministic software cross-check, not a real VLA policy/environment choice, external adapter, validated simulator, or physical repeatability study.",

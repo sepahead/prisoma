@@ -121,7 +121,7 @@ The complete Prisoma-to-CREBAIN embodied experiment remains under qualification.
 A working environment component alone does not establish that integration.
 
 The [sensor-session adapter](integrations/agent-bridge/README.md) now joins canonical commands, execution receipts, NCP exchanges, and original payload bytes.
-One native M4 Max case used two independently sampled RGB cameras and one microphone.
+One native M4 Max case used two RGB cameras with different sampling periods and one microphone.
 It reconstructed eight commands, 150 exchanges, and 11 payloads totaling 1,542,400 bytes.
 Separate camera instances remain distinct even when they share a modality or payload digest.
 This is an execution path. Forecasts, independent restored labels, and scientific comparison remain separate work.
