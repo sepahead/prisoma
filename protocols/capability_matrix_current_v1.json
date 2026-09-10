@@ -14,7 +14,7 @@
   "scope": "current repository capability and evidence state; software fixtures are not scientific validation",
   "source_catalog": {
     "path": "protocols/capability_catalog_v1.json",
-    "sha256": "febbfb3bc87df52d2b66ca49095ca45d2616ff04441f0acef97d3bcb9046c6e4"
+    "sha256": "73f2a0676a3192d38720373c24e33ea84e96839284aefdee3ebbc62c1a2e31bb"
   },
   "hash_contract": "SHA-256 over domain tag plus sorted repository-relative path and byte-length framed file contents; excluded tree parts are .git, target, __pycache__, .pytest_cache, and .ruff_cache; justfile is an implicit revision input for every advertised just recipe",
   "row_count": 34,
@@ -130,15 +130,22 @@
       "feature_id": "bridge.crebain_sensor_execution",
       "feature": "Optional canonical CREBAIN sensor execution",
       "status": "tested",
-      "exact_revision": "local-sha256:a1a5c94c987fcbd85ef4d47a677046d68027377069669c0808d3f05831dc9622",
+      "exact_revision": "local-sha256:d4126fc06792165df53bd412e2f6ab7975b2bd0ff0f45e632c12fcf6f11b63b7",
       "revision_inputs": [
         "crates/agent-bridge-python",
         "crates/pid-bridge",
         "integrations/agent-bridge",
-        "integrations/ncp-transcript",
         "formal/crebain_sensor_capacity.smt2",
         "formal/ncp_transcript_quota.smt2",
-        "justfile"
+        "justfile",
+        "integrations/ncp-transcript/DESIGN.md",
+        "integrations/ncp-transcript/README.md",
+        "integrations/ncp-transcript/capture.svg",
+        "integrations/ncp-transcript/evidence.json",
+        "integrations/ncp-transcript/observations.csv",
+        "integrations/ncp-transcript/pyproject.toml",
+        "integrations/ncp-transcript/src/prisoma_ncp_transcript",
+        "integrations/ncp-transcript/tests"
       ],
       "test_command": "just application-bridge-check",
       "evidence_artifacts": [
@@ -288,7 +295,7 @@
       "feature_id": "docs.capability_matrix",
       "feature": "Generated content-bound capability matrix",
       "status": "tested",
-      "exact_revision": "local-sha256:66eb18b44be01128ebebd896215a13b752be37aca6828721a28083ce454ce208",
+      "exact_revision": "local-sha256:74ef648e23663b6da84235fadc077acdcaf34f5ded4d768e8644df1a7c17ae30",
       "revision_inputs": [
         "protocols/capability_catalog_v1.json",
         "scripts/generate_capability_matrix.py",
@@ -299,7 +306,7 @@
       "evidence_artifacts": [
         {
           "path": "protocols/capability_catalog_v1.json",
-          "sha256": "405b3690e36a12fbfa1f9cc4fc7ad11b5e608db819940aece0d983d37811a732"
+          "sha256": "0e50772c1d4499c6ba4b858a60a833e26067c599b6f0e03d591b5988c057150f"
         },
         {
           "path": "scripts/generate_capability_matrix.py",

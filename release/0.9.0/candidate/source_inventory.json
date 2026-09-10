@@ -10680,7 +10680,7 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": true,
-        "git_blob_id": "0929788a5fc4035c12a8bbb2c91bc98d50fb4519",
+        "git_blob_id": "acc12f626e7d33e4b40261133b7449984552c422",
         "independent_reviewer": null,
         "language": "Markdown",
         "line_count": 46,
@@ -10691,7 +10691,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "6e5f09515a1473b77728c9737e24951c89f3fb8dd8401a3f798358e65556866b",
+        "sha256": "cd1af8738973162e0327eca503cfb4b819b2f4bf055235db9305bcc42b4479b8",
         "tests": [],
         "updated_at": null
       },
@@ -10702,11 +10702,11 @@
       },
       "index": {
         "bytes": 37285,
-        "content_sha256": "6e5f09515a1473b77728c9737e24951c89f3fb8dd8401a3f798358e65556866b",
+        "content_sha256": "cd1af8738973162e0327eca503cfb4b819b2f4bf055235db9305bcc42b4479b8",
         "mode": "100644",
-        "oid": "0929788a5fc4035c12a8bbb2c91bc98d50fb4519"
+        "oid": "acc12f626e7d33e4b40261133b7449984552c422"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -10722,7 +10722,7 @@
         "line_count": 46,
         "link_target": null,
         "mode": "100644",
-        "sha256": "6e5f09515a1473b77728c9737e24951c89f3fb8dd8401a3f798358e65556866b"
+        "sha256": "cd1af8738973162e0327eca503cfb4b819b2f4bf055235db9305bcc42b4479b8"
       },
       "worktree_state": "unchanged"
     },
@@ -31415,10 +31415,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "5021f999d3a490e638b4e7cecb896b52d0b36db4",
+        "git_blob_id": "2d70a5bb552703305cf6710fc3c4733f51953929",
         "independent_reviewer": null,
         "language": "JSON",
-        "line_count": 940,
+        "line_count": 947,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "protocols/capability_catalog_v1.json",
         "public_surface": true,
@@ -31426,7 +31426,7 @@
         "reviewer": null,
         "science_critical": true,
         "security_critical": false,
-        "sha256": "febbfb3bc87df52d2b66ca49095ca45d2616ff04441f0acef97d3bcb9046c6e4",
+        "sha256": "73f2a0676a3192d38720373c24e33ea84e96839284aefdee3ebbc62c1a2e31bb",
         "tests": [],
         "updated_at": null
       },
@@ -31436,12 +31436,12 @@
         "oid": "5021f999d3a490e638b4e7cecb896b52d0b36db4"
       },
       "index": {
-        "bytes": 44925,
-        "content_sha256": "febbfb3bc87df52d2b66ca49095ca45d2616ff04441f0acef97d3bcb9046c6e4",
+        "bytes": 45309,
+        "content_sha256": "73f2a0676a3192d38720373c24e33ea84e96839284aefdee3ebbc62c1a2e31bb",
         "mode": "100644",
-        "oid": "5021f999d3a490e638b4e7cecb896b52d0b36db4"
+        "oid": "2d70a5bb552703305cf6710fc3c4733f51953929"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -31450,14 +31450,14 @@
       },
       "path": "protocols/capability_catalog_v1.json",
       "working_tree": {
-        "bytes": 44925,
+        "bytes": 45309,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 940,
+        "line_count": 947,
         "link_target": null,
         "mode": "100644",
-        "sha256": "febbfb3bc87df52d2b66ca49095ca45d2616ff04441f0acef97d3bcb9046c6e4"
+        "sha256": "73f2a0676a3192d38720373c24e33ea84e96839284aefdee3ebbc62c1a2e31bb"
       },
       "worktree_state": "unchanged"
     },
@@ -31470,10 +31470,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": true,
-        "git_blob_id": "83bdd73e33ee2433a3ef0ef0a9c60c0ccdf7fd87",
+        "git_blob_id": "cc84fb6ac6c3b66d49e55e2bd4c0c0cfaf382f5c",
         "independent_reviewer": null,
         "language": "JSON",
-        "line_count": 1309,
+        "line_count": 1316,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "protocols/capability_matrix_current_v1.json",
         "public_surface": true,
@@ -31481,7 +31481,7 @@
         "reviewer": null,
         "science_critical": true,
         "security_critical": false,
-        "sha256": "5047271e47319b50c9494968f16395e14a627ed6e8d30b068a307a8cb232646e",
+        "sha256": "6ce1b9502b37bc5e5fdf91a1d769f7a8dd919a87746dfe5e1fa13716278a37bc",
         "tests": [],
         "updated_at": null
       },
@@ -31491,12 +31491,12 @@
         "oid": "83bdd73e33ee2433a3ef0ef0a9c60c0ccdf7fd87"
       },
       "index": {
-        "bytes": 61503,
-        "content_sha256": "5047271e47319b50c9494968f16395e14a627ed6e8d30b068a307a8cb232646e",
+        "bytes": 61887,
+        "content_sha256": "6ce1b9502b37bc5e5fdf91a1d769f7a8dd919a87746dfe5e1fa13716278a37bc",
         "mode": "100644",
-        "oid": "83bdd73e33ee2433a3ef0ef0a9c60c0ccdf7fd87"
+        "oid": "cc84fb6ac6c3b66d49e55e2bd4c0c0cfaf382f5c"
       },
-      "index_state": "unchanged",
+      "index_state": "modified",
       "inventory_origin": {
         "gitlink_commit": null,
         "gitlink_path": null,
@@ -31505,14 +31505,14 @@
       },
       "path": "protocols/capability_matrix_current_v1.json",
       "working_tree": {
-        "bytes": 61503,
+        "bytes": 61887,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 1309,
+        "line_count": 1316,
         "link_target": null,
         "mode": "100644",
-        "sha256": "5047271e47319b50c9494968f16395e14a627ed6e8d30b068a307a8cb232646e"
+        "sha256": "6ce1b9502b37bc5e5fdf91a1d769f7a8dd919a87746dfe5e1fa13716278a37bc"
       },
       "worktree_state": "unchanged"
     },
@@ -35293,12 +35293,12 @@
   "repository": "https://github.com/sepahead/prisoma",
   "schema_version": "prisoma.release-candidate/0.1.0",
   "source": {
-    "candidate_state_sha256": "e6274746a71ad61cdd818c5a3aa17b9ea8b828ba426cc0521b1fa17a3edf30d3",
-    "clean": true,
+    "candidate_state_sha256": "6492fb61964aaae2085a08da9c3d9d4ffde87ccdafe364f2a1c96f65d36983f2",
+    "clean": false,
     "explicit_source_arguments_required": true,
-    "head_commit": "dbbc9825c4a22caafcda74a8b94709fe4e20c495",
-    "head_tree": "d0ae88d25cb6d664814d0c4193a4c047260963cb",
-    "index_entries_sha256": "efa3c12443d3c994e5792a919c45a343d9c4a01646665e2002c9bf5e03f6fbae",
+    "head_commit": "f307a482d30299fa03778369e571c9b6b9e50397",
+    "head_tree": "3b8c5a37c032c42278b3e678fa561a0208c87e97",
+    "index_entries_sha256": "27503c47efcabc88efc68436e0da0f8bece42fece1f4b408a23e8e264a818e51",
     "recursive_gitlinks": [
       {
         "commit": "796c11e70f009634b853dc4ada6f565563d82f51",
@@ -35308,13 +35308,13 @@
         "tree": "d5d830e3196696d7fa23d3a0e8246a70010ab026"
       }
     ],
-    "state": "clean_source_snapshot",
-    "worktree_entries_sha256": "0bc81314fe498155f73312f8b6fdf4186b4ce17d7cdcbb392011004c51082d3b"
+    "state": "dirty_uncommitted_source_snapshot",
+    "worktree_entries_sha256": "9975fd33ab65beb166f925824b65f7d6c7d52f6a958a237c135d81d279289655"
   },
   "summary": {
-    "clean": true,
+    "clean": false,
     "entry_count": 640,
-    "index_changed_entry_count": 0,
+    "index_changed_entry_count": 3,
     "indexed_entry_count": 433,
     "parent_entry_count": 433,
     "recursive_gitlink_entry_count": 207,
