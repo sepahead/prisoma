@@ -74,6 +74,33 @@ Readback starts no producer and selects no action.
 It reports `sensor_session_replayed=true`, with `scientific_validation=false` and `producer_process_retirement_verified=false`.
 The host must establish process retirement separately.
 
+`inspect_sensor_run` exposes the same reconstructed observations through a streaming visitor.
+Each frozen `SensorStep` includes the binding, preparation, returned catalog, requested target or hold, sensor batch, and exact transcript span.
+The requested target is the recorded command. It is not a new action or an independent outcome label.
+All source identities, tensor declarations, original payload bytes, and not-due slots remain available.
+
+```python
+from prisoma_agent_bridge.crebain import inspect_sensor_run
+
+bytes_by_sensor = {}
+
+def count_bytes(step):
+    for reading in step.observation.readings:
+        sensor_id = reading.manifest.sensor_id
+        bytes_by_sensor[sensor_id] = (
+            bytes_by_sensor.get(sensor_id, 0) + len(reading.payload)
+        )
+
+report = inspect_sensor_run("run.jsonl", count_bytes)
+print(bytes_by_sensor)  # Use derived output only after successful return.
+```
+
+Visitor effects remain provisional until the complete inspection returns successfully.
+A later malformed record, failed terminal join, or canonical-file mutation rejects the inspection.
+Visitor exceptions propagate and stop further visits. Local replay resources close on every path.
+The caller owns any retained observations, derived-output memory, and final publication transaction.
+This interface supplies no feature transform, source grouping, target, PID estimate, or model-quality verdict.
+
 One call's captured frames are retained during readback.
 Its memory admission follows the selected scene's maximum exchange count and NCP's frame limit.
 The current native example reserves 6,553,600 frame bytes for its largest call.

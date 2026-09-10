@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 import threading
 import time
-from typing import BinaryIO
+from typing import BinaryIO, Callable
 
 from crebain_ncp_sensors import SensorContract, SensorSession, codec as c, types as t
 from ncp_local import modular_wire as w
@@ -545,8 +545,58 @@ def _read_log(path: Path):
     return canonical, binding, prepare, budget, capture["name"], identity, calls
 
 
+@dataclass(frozen=True, slots=True)
+class SensorStep:
+    """Reconstructed data; inspection remains provisional until its final return."""
+
+    binding: BufferBinding
+    prepare: t.Prepare
+    prepared: t.Prepared
+    requested_target: t.SetTarget | None
+    observation: t.BatchObservation
+    capture_before: Position
+    capture_after: Position
+
+
 def verify_sensor_run(log_path: str | Path) -> dict:
     """Reconstruct commands and sensor bytes without starting or contacting a producer."""
+    return _replay_sensor_run(log_path, None)
+
+
+def inspect_sensor_run(
+    log_path: str | Path, visit: Callable[[SensorStep], None]
+) -> dict:
+    """Visit typed sensor steps while verifying the complete recorded execution.
+
+    Publish visitor output only after this function returns successfully.
+    The caller owns retained payloads and derived-output resource bounds.
+    Visitor exceptions propagate. No producer is started or contacted.
+    """
+    _require(callable(visit), "sensor visitor must be callable")
+    path = Path(log_path).absolute()
+
+    def identity():
+        metadata = path.lstat()
+        return (
+            metadata.st_dev,
+            metadata.st_ino,
+            metadata.st_mode,
+            metadata.st_uid,
+            metadata.st_nlink,
+            metadata.st_size,
+            metadata.st_mtime_ns,
+            metadata.st_ctime_ns,
+        )
+
+    initial = identity()
+    result = _replay_sensor_run(path, visit)
+    _require(identity() == initial, "canonical log changed during sensor inspection")
+    return result
+
+
+def _replay_sensor_run(
+    log_path: str | Path, visit_step: Callable[[SensorStep], None] | None
+) -> dict:
     path = Path(log_path).absolute()
     canonical, binding, prepare, budget, capture_name, identity, calls = _read_log(path)
     tape = _Tape(binding)
@@ -561,10 +611,10 @@ def verify_sensor_run(log_path: str | Path) -> dict:
     )
     pending: list[Exchange] = []
     frame_bytes, cursor = 0, 0
-    completed = None
+    prepared = completed = None
 
     def visit(row: Exchange):
-        nonlocal cursor, frame_bytes, completed
+        nonlocal cursor, frame_bytes, prepared, completed
         _require(cursor < len(calls), "unassigned NCP exchange")
         method, payload, recorded, before, after = calls[cursor]
         _require(row.peer.binding == binding, "captured peer mismatch")
@@ -588,6 +638,7 @@ def verify_sensor_run(log_path: str | Path) -> dict:
                 _same(c.raw(decoded), c.raw(prepare)), "recorded preparation mismatch"
             )
             observed = session.prepare()
+            prepared = observed
         elif method == METHODS[1]:
             target = _target(payload, prepare, session.next_tick)
             with session.advance(target) as batch:
@@ -604,6 +655,11 @@ def verify_sensor_run(log_path: str | Path) -> dict:
         _require(not tape.rows, "captured call has unexplained exchanges")
         expected = _receipt(before, after, tape.primary, observed)
         _require(_same(expected, recorded), "reconstructed execution receipt mismatch")
+        if method == METHODS[1] and visit_step is not None:
+            _require(prepared is not None, "sensor preparation is missing")
+            visit_step(
+                SensorStep(binding, prepare, prepared, target, observed, before, after)
+            )
         cursor += 1
         pending.clear()
         frame_bytes = 0

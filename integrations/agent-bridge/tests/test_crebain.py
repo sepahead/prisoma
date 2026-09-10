@@ -1,7 +1,7 @@
 """Application joins on bounded synthetic NCP peers, separate from native evidence."""
 
 from contextlib import contextmanager
-from dataclasses import replace
+from dataclasses import FrozenInstanceError, replace
 import hashlib
 import json
 from pathlib import Path
@@ -20,6 +20,7 @@ from prisoma_agent_bridge.crebain import (
     ExperimentError,
     SensorExperiment,
     capture_budget,
+    inspect_sensor_run,
     verify_sensor_run,
 )
 
@@ -311,6 +312,181 @@ class SensorBridgeTests(unittest.TestCase):
         write_events(self.log, events)
         with self.assertRaisesRegex(ValueError, "record_digest"):
             verify_sensor_run(self.log)
+
+    def test_inspection_returns_exact_observations_with_targets_and_capture_joins(self):
+        observations, verified = self.execute()
+        steps = []
+        with (
+            patch(
+                "socket.socket", side_effect=AssertionError("replay opened a socket")
+            ),
+            patch(
+                "subprocess.Popen", side_effect=AssertionError("replay started a child")
+            ),
+        ):
+            inspected = inspect_sensor_run(self.log, steps.append)
+        self.assertEqual(inspected, verified)
+        self.assertEqual(repr([step.observation for step in steps]), repr(observations))
+        self.assertEqual(
+            [step.observation.batch.body_tick for step in steps], list(range(1, 7))
+        )
+        self.assertEqual(steps[0].requested_target, target())
+        self.assertTrue(all(step.requested_target is None for step in steps[1:]))
+        for step in steps:
+            self.assertEqual(step.binding, binding())
+            self.assertEqual(step.prepare, selected_plan())
+            self.assertEqual(
+                step.prepared.source_identity, step.observation.batch.source_identity
+            )
+            self.assertLess(step.capture_before.records, step.capture_after.records)
+            self.assertTrue(
+                all(type(row.payload) is bytes for row in step.observation.readings)
+            )
+        for left, right in zip(steps, steps[1:]):
+            self.assertEqual(left.capture_after, right.capture_before)
+        with self.assertRaises(FrozenInstanceError):
+            steps[0].requested_target = None
+        with self.assertRaises(FrozenInstanceError):
+            steps[0].observation.batch.body_tick = 7
+
+    def test_inspection_preserves_equal_byte_cameras_and_not_due_slots(self):
+        self.execute()
+        steps = []
+        inspect_sensor_run(self.log, steps.append)
+        final_rgb = [
+            row
+            for row in steps[-1].observation.readings
+            if row.manifest.tensor.kind == "rgba8"
+        ]
+        self.assertEqual(final_rgb[0].payload, final_rgb[1].payload)
+        self.assertNotEqual(
+            final_rgb[0].manifest.sensor_id, final_rgb[1].manifest.sensor_id
+        )
+        self.assertEqual(
+            [
+                [
+                    slot.sensor_id
+                    for slot in step.observation.batch.slots
+                    if slot.kind == "not_due"
+                ]
+                for step in steps
+            ],
+            [
+                ["rgb:camera-0", "rgb:camera-1"],
+                ["rgb:camera-1"],
+                ["rgb:camera-0"],
+                ["rgb:camera-1"],
+                ["rgb:camera-0", "rgb:camera-1"],
+                [],
+            ],
+        )
+
+    def test_inspection_keeps_camera_only_empty_batches(self):
+        observations, _ = self.execute(selected_plan(rgb=1, acoustic=0))
+        steps = []
+        inspect_sensor_run(self.log, steps.append)
+        self.assertEqual([step.observation for step in steps], observations)
+        self.assertEqual(
+            [
+                step.observation.batch.body_tick
+                for step in steps
+                if not step.observation.readings
+            ],
+            [1, 3, 5],
+        )
+
+    def test_inspection_keeps_multiple_microphones_and_thermal(self):
+        observations, _ = self.execute(selected_plan(rgb=1, acoustic=2, thermal=1))
+        steps = []
+        inspect_sensor_run(self.log, steps.append)
+        self.assertEqual(repr([step.observation for step in steps]), repr(observations))
+        self.assertEqual(sum(len(step.observation.readings) for step in steps), 17)
+
+    def test_inspection_requires_a_callable_before_reading(self):
+        with patch("prisoma_agent_bridge.crebain._read_log") as read:
+            with self.assertRaisesRegex(ExperimentError, "visitor must be callable"):
+                inspect_sensor_run(self.log, None)
+            read.assert_not_called()
+
+    def test_inspection_callback_exception_propagates_and_stops_visits(self):
+        _, verified = self.execute()
+        failure = RuntimeError("derived output failed")
+        visited = []
+
+        def stop(step):
+            visited.append(step.observation.batch.body_tick)
+            raise failure
+
+        with self.assertRaises(RuntimeError) as caught:
+            inspect_sensor_run(self.log, stop)
+        self.assertIs(caught.exception, failure)
+        self.assertEqual(visited, [1])
+        self.assertEqual(inspect_sensor_run(self.log, lambda _: None), verified)
+
+    def test_inspection_rejects_a_rehashed_false_receipt_before_visiting_that_step(
+        self,
+    ):
+        self.execute()
+        events = [json.loads(line) for line in self.log.read_text().splitlines()]
+        result = events[6]["value"]["result"]
+        result["observation"]["readings"][0]["bytes"] += 8
+        events[7]["result_hash"] = hash_object(json.dumps(result))
+        write_events(self.log, events)
+        visited = []
+        with self.assertRaisesRegex(
+            ExperimentError, "reconstructed execution receipt mismatch"
+        ):
+            inspect_sensor_run(self.log, visited.append)
+        self.assertEqual(visited, [])
+
+    def test_inspection_visits_remain_provisional_when_terminal_capture_is_corrupt(
+        self,
+    ):
+        self.execute()
+        original = self.capture.read_bytes()
+        changed = bytearray(original)
+        changed[-1] ^= 1
+        self.capture.write_bytes(changed)
+        events = [json.loads(line) for line in self.log.read_text().splitlines()]
+        events[-2]["sha256"] = hashlib.sha256(changed).hexdigest()
+        write_events(self.log, events)
+        visited = []
+        with self.assertRaisesRegex(ValueError, "record_digest"):
+            inspect_sensor_run(self.log, visited.append)
+        self.assertEqual(len(visited), 6)
+
+    def test_inspection_rejects_canonical_mutation_during_a_callback(self):
+        self.execute()
+        original = self.log.read_bytes()
+
+        def change(step):
+            if step.observation.batch.body_tick == 1:
+                self.log.write_bytes(original + b"\n")
+
+        with self.assertRaisesRegex(ExperimentError, "canonical log changed"):
+            inspect_sensor_run(self.log, change)
+        self.log.write_bytes(original)
+        self.assertTrue(
+            inspect_sensor_run(self.log, lambda _: None)["sensor_session_replayed"]
+        )
+
+    def test_inspection_rejects_byte_identical_canonical_replacement(self):
+        self.execute()
+        original = self.log.read_bytes()
+
+        def replace_file(step):
+            if step.observation.batch.body_tick == 1:
+                replacement = self.log.with_name("replacement.jsonl")
+                replacement.write_bytes(original)
+                replacement.chmod(0o600)
+                replacement.replace(self.log)
+
+        with self.assertRaisesRegex(ExperimentError, "canonical log changed"):
+            inspect_sensor_run(self.log, replace_file)
+        self.assertEqual(self.log.read_bytes(), original)
+        self.assertTrue(
+            inspect_sensor_run(self.log, lambda _: None)["sensor_session_replayed"]
+        )
 
 
 if __name__ == "__main__":

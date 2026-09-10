@@ -130,7 +130,7 @@
       "feature_id": "bridge.crebain_sensor_execution",
       "feature": "Optional canonical CREBAIN sensor execution",
       "status": "tested",
-      "exact_revision": "local-sha256:d4126fc06792165df53bd412e2f6ab7975b2bd0ff0f45e632c12fcf6f11b63b7",
+      "exact_revision": "local-sha256:bcc853222ea93fa818f4bd8bdef208dba5fdc24f8758f5f9c3abdfabd65b06c0",
       "revision_inputs": [
         "crates/agent-bridge-python",
         "crates/pid-bridge",
@@ -155,7 +155,7 @@
         },
         {
           "path": "integrations/agent-bridge/tests",
-          "sha256": "b7967649d30d5b451dcdc684ded561947fe352a9bd02c741b75b0f911f0fd2c0"
+          "sha256": "5946e2d06fbafc9a4d965ace843e3ecee88de3b107621e25011560efa6308d08"
         },
         {
           "path": "integrations/agent-bridge/GUIDE.md",
