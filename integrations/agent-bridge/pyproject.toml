@@ -1,0 +1,33 @@
+[build-system]
+requires = ["maturin==1.13.1"]
+build-backend = "maturin"
+
+[project]
+name = "prisoma-agent-bridge"
+version = "0.1.0"
+description = "Canonical Prisoma application execution through the Rust Agent Bridge"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
+dependencies = []
+
+[project.optional-dependencies]
+crebain = [
+    "prisoma-ncp-transcript==0.1.0",
+    "crebain-ncp-sensors @ git+https://github.com/sepahead/crebain.git@0e16f30f4970066e30c15f079b29c0e18f00cb25#subdirectory=integrations/ncp-force-ground-sensors/python",
+]
+
+[project.urls]
+Repository = "https://github.com/sepahead/prisoma"
+Issues = "https://github.com/sepahead/prisoma/issues"
+
+[tool.maturin]
+manifest-path = "../../crates/agent-bridge-python/Cargo.toml"
+python-source = "python"
+module-name = "prisoma_agent_bridge._native"
+features = ["extension-module"]
+include = [
+    { path = "GUIDE.md", format = "sdist" },
+    { path = "*.svg", format = "sdist" },
+]

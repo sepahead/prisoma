@@ -11,6 +11,7 @@ import struct
 import threading
 import time
 from dataclasses import dataclass
+from collections.abc import Callable
 from typing import BinaryIO
 
 from ncp_local import modular_wire as w
@@ -65,6 +66,27 @@ class Verification:
     journal_digest: str
     application_completion_validated: bool = False
     scientific_validation: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class Position:
+    """One synchronized exchange boundary, without application-completion authority."""
+
+    records: int
+    journal_bytes: int
+    chain_digest: str
+    exchange_pairs: int
+
+
+@dataclass(frozen=True, slots=True)
+class Exchange:
+    """Original frame pair; inspection remains provisional until it returns."""
+
+    peer: Peer
+    request: bytes
+    response: bytes
+    before: Position
+    after: Position
 
 
 class _Replay:
@@ -178,6 +200,19 @@ def _seal(
     prefix = PREFIX.pack(kind, ordinal, len(payload))
     digest = hashlib.sha256(DOMAIN + previous + prefix + payload).digest()
     return prefix + payload + digest, digest
+
+
+def capacity_bytes(peers: tuple[Peer, ...], *, max_exchanges: int) -> int:
+    """Return an admitted worst-case file capacity for this exact peer roster."""
+    header = _header(_Replay(peers), max_exchanges, MAX_BYTES)
+    # MAX_BYTES uses the longest permitted decimal quota representation.
+    return (
+        len(MAGIC)
+        + 2 * RECORD_OVERHEAD
+        + len(header)
+        + max_exchanges * PAIR_BYTES
+        + TERMINAL_BYTES
+    )
 
 
 def _metadata(info: os.stat_result) -> tuple[int, ...]:
@@ -315,6 +350,14 @@ class Journal:
             self.close()
             raise
 
+    def position(self) -> Position:
+        """Read the current synchronized boundary of this active journal."""
+        self._active()
+        _require(self._replay.pending is None, "exchange_boundary")
+        return Position(
+            self._ordinal, self._bytes, self._previous.hex(), self._replay.pairs
+        )
+
     def _terminal(self, kind: int) -> Verification:
         self._active()
         try:
@@ -373,6 +416,29 @@ def verify(path: str | Path, peers: tuple[Peer, ...]) -> Verification:
     This function dispatches nothing and never repairs an incomplete journal.
     A contract supplied by an untrusted caller is not an authority boundary.
     """
+    return _verify(path, peers, None)
+
+
+def inspect(
+    path: str | Path,
+    peers: tuple[Peer, ...],
+    visit: Callable[[Exchange], None],
+) -> Verification:
+    """Inspect validated pairs while verifying the complete unchanged transcript.
+
+    The caller supplies a read-only visitor and owns any retained frame bytes.
+    Visitor output is provisional until this function returns successfully.
+    Missing terminal records, later corruption, and source mutation still fail.
+    """
+    _require(callable(visit), "visitor")
+    return _verify(path, peers, visit)
+
+
+def _verify(
+    path: str | Path,
+    peers: tuple[Peer, ...],
+    visit: Callable[[Exchange], None] | None,
+) -> Verification:
     replay = _Replay(peers)
     selected = Path(path)
     fd = os.open(selected, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
@@ -383,7 +449,9 @@ def verify(path: str | Path, peers: tuple[Peer, ...]) -> Verification:
         _require(_read_exact(file, len(MAGIC)) == MAGIC, "magic")
         ordinal, previous, total = 0, bytes(32), len(MAGIC)
         maximum, quota, terminal = None, None, None
+        pending: tuple[bytes, Position] | None = None
         while total < initial.st_size:
+            exchange = None
             _require(terminal is None, "after_terminal")
             prefix = _read_exact(file, PREFIX.size)
             kind, sequence, size = PREFIX.unpack(prefix)
@@ -411,8 +479,29 @@ def verify(path: str | Path, peers: tuple[Peer, ...]) -> Verification:
                 _require(replay.pairs < maximum, "exchange_limit")
                 if kind == REQUEST:
                     replay.request(index, frame)
+                    if visit is not None:
+                        pending = (
+                            frame,
+                            Position(
+                                ordinal,
+                                total - PREFIX.size - size - 32,
+                                previous.hex(),
+                                replay.pairs,
+                            ),
+                        )
                 else:
                     replay.response(index, frame)
+                    if visit is not None:
+                        _require(pending is not None, "inspection_order")
+                        original, before = pending
+                        exchange = Exchange(
+                            replay.peers[index],
+                            original,
+                            frame,
+                            before,
+                            Position(ordinal + 1, total, digest.hex(), replay.pairs),
+                        )
+                        pending = None
             elif kind in (FINISH, ABORT):
                 _require(size <= TERMINAL_BYTES, "terminal_size")
                 count = w.closed(w.parse(payload), {"exchange_pairs"})["exchange_pairs"]
@@ -426,6 +515,8 @@ def verify(path: str | Path, peers: tuple[Peer, ...]) -> Verification:
                 raise CaptureError("record_kind")
             _require(total <= quota and total <= initial.st_size, "file_size")
             ordinal, previous = ordinal + 1, digest
+            if exchange is not None:
+                visit(exchange)
         _require(terminal is not None, "terminal_missing")
         final = os.fstat(file.fileno())
         lexical = selected.lstat()

@@ -32,6 +32,12 @@ prisoma project code is dual-licensed **MIT OR Apache-2.0** (see `LICENSE-MIT` a
 | `nalgebra` | Numeric geometry | `Apache-2.0` |
 | `serde`, `serde_json`, `anyhow`, `pyo3`, `ndarray` | Rust/Python infrastructure | `MIT OR Apache-2.0` |
 
+The optional [Python application bridge](integrations/agent-bridge/README.md) has a separate Rust lockfile and supply-chain gate.
+It uses the pinned PID-owned run log, PyO3, Rustix, Serde, Anyhow, and SHA-2.
+Its source package includes Prisoma's MIT and Apache-2.0 license texts.
+The generated workspace notice table excludes this optional crate.
+Binary redistribution requires the complete resolved dependency notices, as specified in the release checklist.
+
 ## Reviewed external model candidates
 
 These artifacts are not dependencies and are not distributed by Prisoma. Their licenses do not

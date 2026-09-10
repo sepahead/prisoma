@@ -85,6 +85,7 @@ with Journal(
 This example shows a host integration seam, not a complete simulator launcher.
 A Prisoma experiment must dispatch mutations through Agent Bridge and bind its canonical events to the transcript.
 This package does not create that experiment binding.
+The separate [application adapter](../agent-bridge/README.md) supplies that binding for CREBAIN sensor sessions.
 
 ## Use with CREBAIN's sensor client
 
@@ -161,6 +162,10 @@ The final 1,024 bytes reserve the terminal payload.
 Admission enforces both the 8,190-exchange count ceiling and the 1-GiB byte ceiling.
 The byte ceiling can reject a count that otherwise passes its independent limit.
 
+`capacity_bytes(peers, max_exchanges=N)` calculates an admitted reservation from the exact peer roster.
+It reserves the longest allowed decimal quota representation in the header.
+The actual header can be shorter. The returned capacity remains sufficient.
+
 For 204 exchanges, frame reservations require 26,757,456 bytes before header and terminal space.
 A 32-MiB quota admits the recorded one-peer NEST case.
 The resulting file used 346,779 bytes.
@@ -176,7 +181,7 @@ Records contain a kind byte, ordinal, payload length, original payload, and SHA-
 Each digest includes its predecessor and exact framing bytes.
 A hash chain detects unaccounted changes; it is not a signature or producer attestation.
 
-The [SMT model](quota.smt2) checks conditional frame-cost and remaining-quota arithmetic.
+The [SMT model](../../formal/ncp_transcript_quota.smt2) checks conditional frame-cost and remaining-quota arithmetic.
 It includes feasible examples and counterexamples to intentionally false bounds.
 It does not prove the Python implementation, operating system, or storage device.
 
@@ -194,17 +199,27 @@ It always returns `application_completion_validated=false` and `scientific_valid
 Typed protocol validity does not establish complete application semantics or experimental validity.
 The journal cannot prove that a caller never bypassed its capture boundary.
 
+`Journal.position()` exposes a synchronized exchange boundary while the journal remains open.
+`inspect(path, peers, visit)` supplies original request/response pairs and their boundary positions to a read-only visitor.
+Visitor effects remain provisional until inspection returns successfully.
+A later truncation, missing terminal record, or file change still invalidates the inspection.
+The caller owns any frame bytes it retains.
+
 This format is `prisoma.ncp.transcript.v1`.
 The earlier [local causal journal](../../crates/ncp-local-capture/README.md) retains its separate compatibility contract.
 Neither format replaces the canonical schema-2 Agent Bridge run log.
 
 ## Observed evidence
 
-The source suite passes 29 tests on Python 3.11 and 3.14.
-The same 29 tests pass after a fresh Python 3.14 installation from the pinned public Git dependency.
+The earlier source suite passed 29 tests on Python 3.11 and 3.14.
+The same 29 tests passed after a fresh Python 3.14 installation from the pinned public Git dependency.
 That cold installation took 353 seconds; it does not establish a fast installation path.
 It covers private-stream I/O, sixteen peers, an 800-KiB frame sequence, and storage and transport failures.
 Negative controls cover malformed responses, changed files, missing acknowledgements, reordering, truncation, quotas, and terminal semantics.
+
+The extended Python 3.14 suite passes 36 installed-package tests.
+The added controls cover exchange-boundary inspection, provisional visitor results, changed files, and computed capacity.
+This extension used the same exact NCP revision supplied locally after a separate 300-second public Git installation attempt timed out.
 
 ### NEST capture
 
@@ -260,7 +275,7 @@ After installation, run the focused source suite:
 
 ```bash
 python -m unittest discover -s integrations/ncp-transcript/tests -v
-z3 integrations/ncp-transcript/quota.smt2
+python scripts/check_formal_models.py
 ```
 
 Use exact Z3 4.16.0 for the retained arithmetic check.

@@ -1,0 +1,30 @@
+[package]
+name = "prisoma-agent-bridge-python"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.93"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/sepahead/prisoma"
+description = "Optional Python host for Prisoma's canonical Agent Bridge"
+publish = false
+
+[lib]
+name = "_native"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+extension-module = ["pyo3/extension-module"]
+
+[dependencies]
+anyhow = "1.0"
+pid-bridge = { path = "../pid-bridge" }
+pid-runlog = { path = "../../pid-rs/crates/pid-runlog" }
+pyo3 = { version = "=0.29.0", features = ["abi3-py311"] }
+rustix = { version = "=1.1.4", features = ["fs", "process"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["arbitrary_precision"] }
+sha2 = "0.11"
+
+[lints.rust]
+unsafe_code = "deny"

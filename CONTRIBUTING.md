@@ -129,6 +129,7 @@ just formal
 Run the NCP checks when its excluded crate or lock changes. Run both advisory checks when a Rust
 manifest, lock, or policy changes. Run `just formal` when a formal model, its registry, or its
 runner changes. It requires exact Z3 4.16.0.
+Use exact cargo-deny 0.20.2, matching the CI binary. Record the selected advisory revision and date.
 
 Add positive, malformed/negative, boundary/resource, replay/timing/leakage, and
 independent or property-based cases where applicable. Record exact commands and

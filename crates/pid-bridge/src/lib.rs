@@ -235,13 +235,37 @@ impl FromStr for BridgeMethod {
     }
 }
 
+/// A method vocabulary owned by an installed application.
+///
+/// Implementations belong to trusted adapter code. Implementing this trait
+/// does not register a method with the built-in JSON-RPC simulator profile.
+pub trait RequestMethod {
+    /// Return the exact method identity recorded in the canonical run log.
+    fn as_str(&self) -> &str;
+
+    /// Report static read-only eligibility. Application methods default to false.
+    fn safe_mode_allowed(&self) -> bool {
+        false
+    }
+}
+
+impl RequestMethod for BridgeMethod {
+    fn as_str(&self) -> &str {
+        BridgeMethod::as_str(self)
+    }
+
+    fn safe_mode_allowed(&self) -> bool {
+        BridgeMethod::safe_mode_allowed(self)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct BridgeRequest {
+pub struct BridgeRequest<M = BridgeMethod> {
     pub request_id: String,
     pub step: Option<u64>,
     pub timestamp_ns: u64,
     pub actor: Actor,
-    pub method: BridgeMethod,
+    pub method: M,
     pub payload: Value,
 }
 
@@ -565,14 +589,29 @@ impl BridgeRpcResponse {
     }
 }
 
-pub trait BridgeHandler {
-    fn handle(&mut self, request: &BridgeRequest) -> Result<Value>;
+pub trait BridgeHandler<M = BridgeMethod> {
+    fn handle(&mut self, request: &BridgeRequest<M>) -> Result<Value>;
+
+    /// Return application evidence to record before the command response.
+    ///
+    /// The bridge applies its ordinary event and byte budgets. An error stops
+    /// the bridge because the handler can already have changed external state.
+    fn recorded_events(
+        &self,
+        _request: &BridgeRequest<M>,
+        _response: &BridgeResponse,
+    ) -> Result<Vec<RunLogEvent>> {
+        Ok(Vec::new())
+    }
 }
 
-impl BridgeRequest {
+impl<M: RequestMethod> BridgeRequest<M> {
     fn validate_for_runlog(&self) -> Result<()> {
         if self.request_id.trim().is_empty() {
             bail!("bridge request_id must not be empty");
+        }
+        if self.method.as_str().trim().is_empty() {
+            bail!("bridge method must not be empty");
         }
         if self.actor.actor_id.trim().is_empty() {
             bail!("bridge actor_id must not be empty");
@@ -627,7 +666,10 @@ impl BridgeResponse {
         }
     }
 
-    pub fn blocked_by_safe_mode(request: &BridgeRequest, timestamp_ns: u64) -> Self {
+    pub fn blocked_by_safe_mode<M: RequestMethod>(
+        request: &BridgeRequest<M>,
+        timestamp_ns: u64,
+    ) -> Self {
         Self {
             request_id: request.request_id.clone(),
             step: request.step,
@@ -763,7 +805,7 @@ impl<W: Write> LocalBridge<W> {
         self.run_log_usage
     }
 
-    pub fn record_request(&mut self, request: &BridgeRequest) -> Result<()> {
+    pub fn record_request<M: RequestMethod>(&mut self, request: &BridgeRequest<M>) -> Result<()> {
         self.record_event(&request.to_runlog_event()?)
     }
 
@@ -819,20 +861,40 @@ impl<W: Write> LocalBridge<W> {
     /// A failed response commitment poisons the bridge even when its handler
     /// already changed the environment. This API supplies no rollback or retry.
     /// The supplied sink defines flush semantics; flushing is not disk fsync.
-    pub fn dispatch<H: BridgeHandler>(
+    pub fn dispatch<M: RequestMethod, H: BridgeHandler<M>>(
         &mut self,
-        request: &BridgeRequest,
+        request: &BridgeRequest<M>,
         handler: &mut H,
         response_timestamp_ns: u64,
     ) -> Result<BridgeResponse> {
+        self.dispatch_with_clock(request, handler, || Ok(response_timestamp_ns))
+    }
+
+    /// Sample response time after the handler returns.
+    ///
+    /// A clock error leaves the dispatched request unresolved and poisons this
+    /// bridge. The clock must use the request's declared time origin and units.
+    pub fn dispatch_with_clock<M, H, C>(
+        &mut self,
+        request: &BridgeRequest<M>,
+        handler: &mut H,
+        response_clock: C,
+    ) -> Result<BridgeResponse>
+    where
+        M: RequestMethod,
+        H: BridgeHandler<M>,
+        C: FnOnce() -> Result<u64>,
+    {
         self.record_request(request)?;
         self.flush()?;
         if self.safe_mode && !request.safe_mode_allowed() {
-            let response = BridgeResponse::blocked_by_safe_mode(request, response_timestamp_ns);
+            let timestamp_ns = self.response_time(request.timestamp_ns, response_clock)?;
+            let response = BridgeResponse::blocked_by_safe_mode(request, timestamp_ns);
             self.commit_dispatch_response(&response)?;
             return Ok(response);
         }
         let handled = handler.handle(request);
+        let response_timestamp_ns = self.response_time(request.timestamp_ns, response_clock)?;
         let response = match handled {
             Ok(result) => BridgeResponse {
                 request_id: request.request_id.clone(),
@@ -859,8 +921,30 @@ impl<W: Write> LocalBridge<W> {
                 }
             }
         };
+        let events = handler
+            .recorded_events(request, &response)
+            .inspect_err(|_| self.poisoned = true)?;
+        for event in events {
+            self.record_event(&event)
+                .inspect_err(|_| self.poisoned = true)?;
+        }
         self.commit_dispatch_response(&response)?;
         Ok(response)
+    }
+
+    fn response_time<C: FnOnce() -> Result<u64>>(
+        &mut self,
+        request_ns: u64,
+        clock: C,
+    ) -> Result<u64> {
+        clock()
+            .and_then(|timestamp_ns| {
+                if timestamp_ns < request_ns {
+                    bail!("bridge response clock precedes its request");
+                }
+                Ok(timestamp_ns)
+            })
+            .inspect_err(|_| self.poisoned = true)
     }
 
     fn commit_dispatch_response(&mut self, response: &BridgeResponse) -> Result<()> {

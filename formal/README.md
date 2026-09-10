@@ -80,6 +80,16 @@ transition relation or the impossibility of a forbidden mathematical/publication
   These obligations establish integer arithmetic only. They do not prove allocation behavior,
   total process RSS, dataset completeness, estimator quality, or execution authority.
 
+- `crebain_sensor_capacity.smt2`: fixed-size chunk coverage, 16-kHz acoustic windows on a 120-Hz body clock, adjacent window boundaries, and capture/event counts.
+  Seven conditional integer checks have feasible controls. Three false bounds retain counterexamples.
+  The [worked example](../integrations/agent-bridge/GUIDE.md) defines the units and native case.
+  These obligations do not prove implementation refinement, renderer correctness, real-time behavior, or statistical validity.
+
+- `ncp_transcript_quota.smt2`: two bounded frames fit the reserved exchange cost.
+  Each admitted exchange preserves the remaining transcript reservation.
+  Exact-capacity witnesses and deliberately inadequate reservations prevent a vacuous result.
+  These are conditional integer relations, without a filesystem or Python refinement proof.
+
 The registered `sat` results make transition premises/status tags non-vacuous or require a
 deliberate countermodel. The four scientific countermodels are:
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of_date": "2026-08-14",
+  "as_of_date": "2026-09-10",
   "canonical_spec": {
     "path": "grandplan.md",
     "version": "13.0",
@@ -72,6 +72,37 @@
         "W1",
         "W2",
         "EC1"
+      ]
+    },
+    {
+      "feature_id": "bridge.crebain_sensor_execution",
+      "feature": "Optional canonical CREBAIN sensor execution",
+      "status": "tested",
+      "revision_inputs": [
+        "crates/agent-bridge-python",
+        "crates/pid-bridge",
+        "integrations/agent-bridge",
+        "integrations/ncp-transcript",
+        "formal/crebain_sensor_capacity.smt2",
+        "formal/ncp_transcript_quota.smt2",
+        "justfile"
+      ],
+      "external_revision": null,
+      "test_command": "just application-bridge-check",
+      "evidence_artifacts": [
+        "integrations/agent-bridge/evidence/native-2026-09-10.json",
+        "integrations/agent-bridge/tests",
+        "integrations/agent-bridge/GUIDE.md",
+        "formal/model_registry.json"
+      ],
+      "known_limitations": "One frozen six-tick M4 Max case joins canonical commands to complete original NCP exchanges for two RGB cameras and one microphone. Capture files and host retirement retain separate evidence boundaries. No learned forecast, exact-fork label, PID result, real-time qualification, remote-security assessment, or independent replication is established.",
+      "evidence_level": "E0",
+      "evidence_basis": "intention_or_local_only",
+      "evidence_scope": "locally tested optional Rust/Python application bridge, installed controls, bounded arithmetic models, and one native sensor case",
+      "thesis_dependency": "optional",
+      "claim_ids": [
+        "W1",
+        "W2"
       ]
     },
     {

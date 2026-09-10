@@ -97,7 +97,8 @@ It does not establish calibration, a population effect, or complete-policy impro
 | Native NCP capture | Optional local causal-exchange journal and verification | Separate from schema-2 study logs, without command authority |
 
 CREBAIN is the selected environment integration for the embodied rollout path.
-Its accepted environment state and modality outputs require a consumer-owned Prisoma adapter.
+The [sensor-session adapter](../integrations/agent-bridge/README.md) binds canonical commands to captured NCP operations and independently identified sensor streams.
+Its native engineering case validates execution and readback, without forecasts or restored-branch labels.
 That complete embodied experiment remains under qualification.
 The affine reference and offline workflows remain independent of CREBAIN.
 

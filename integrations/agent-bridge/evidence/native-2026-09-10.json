@@ -1,0 +1,175 @@
+{
+  "case": {
+    "body_hz": 120,
+    "body_ticks": 6,
+    "case_sha256": "1528e4b740671792e44d5e69982d9f00c515aced9404c5b017488e0af6673fbe",
+    "control": "initial target on tick one, then hold",
+    "drone_count": 1,
+    "microphones": [
+      {
+        "sample_rate_hz": 16000,
+        "source_id": "mic-a"
+      }
+    ],
+    "rgb_cameras": [
+      {
+        "height": 240,
+        "period_ticks": 2,
+        "source_id": "rgb-a",
+        "width": 320
+      },
+      {
+        "height": 240,
+        "period_ticks": 3,
+        "source_id": "rgb-b",
+        "width": 320
+      }
+    ],
+    "scene_solids": 0,
+    "seed": 4,
+    "thermal_cameras": []
+  },
+  "claims": {
+    "canonical_sensor_session_replayed": true,
+    "complete_received_bytes_equal_producer_hashes": true,
+    "exact_fork_qualified": false,
+    "independent_council": false,
+    "independent_renderer_oracle": false,
+    "learned_forecast_evaluated": false,
+    "pid_estimate": false,
+    "real_time_qualified": false,
+    "release_complete": false,
+    "statistical_validation": false
+  },
+  "host_retirement": {
+    "application_reader_attests_process_retirement": false,
+    "observed_identities_retired": true,
+    "receipt_sha256": "92c2309afecc1476e8cc82f1b849478e456d800d76a89760d0463e1e50a018de",
+    "signals_sent": 0
+  },
+  "limits": [
+    "One selected M4 Max case, without a population latency measurement.",
+    "Canonical inspection and capture verification each retain their separate authority boundaries.",
+    "Host custody retains the complete transcripts. This public receipt provides counts, identities, and per-payload hashes."
+  ],
+  "observed": {
+    "canonical_bytes": 22042,
+    "canonical_calls": 8,
+    "canonical_events": 28,
+    "capture_bytes": 2337352,
+    "chunks": 56,
+    "elapsed_s": 4.883638833882287,
+    "execution_status": "PASS",
+    "independent_renderer_oracle": false,
+    "microphone_samples": 800,
+    "ncp_exchanges": 150,
+    "payloads": 11,
+    "raw_bytes": 1542400,
+    "real_time_qualified": false,
+    "release_complete": false,
+    "scientific_validation": false,
+    "simulated_seconds": 0.05,
+    "source_runtime_and_index_unchanged": true,
+    "status": "PASS_NATIVE_CANONICAL_SENSOR_SESSION"
+  },
+  "observed_local_date": "2026-09-10",
+  "payloads": [
+    {
+      "bytes": 1064,
+      "chunks": 1,
+      "sensor_id": "pressure:mic-a",
+      "sha256": "b233ffd7e870596cae06c612d3a71ea5b8353867f7914b7ee9686e12167e21f4",
+      "tick": 1
+    },
+    {
+      "bytes": 307200,
+      "chunks": 10,
+      "sensor_id": "rgb:rgb-a",
+      "sha256": "c5bb5ab563e3b5040987a92505b2e960a5366484d1f20cf4aaf8f0a77df65264",
+      "tick": 2
+    },
+    {
+      "bytes": 1064,
+      "chunks": 1,
+      "sensor_id": "pressure:mic-a",
+      "sha256": "3a80be07675ccdcc5717733edf0f1664d9b58f7754dd4121f70955c8ff9283b6",
+      "tick": 2
+    },
+    {
+      "bytes": 307200,
+      "chunks": 10,
+      "sensor_id": "rgb:rgb-b",
+      "sha256": "56939821a79336372031bc992fd262feb5c7f39accf9adbb01cc11828ceabd30",
+      "tick": 3
+    },
+    {
+      "bytes": 1072,
+      "chunks": 1,
+      "sensor_id": "pressure:mic-a",
+      "sha256": "34b8f9f75259636d7f459c5565a912e06f7167dc99104b2b566a069b3b9b2a62",
+      "tick": 3
+    },
+    {
+      "bytes": 307200,
+      "chunks": 10,
+      "sensor_id": "rgb:rgb-a",
+      "sha256": "d4a1847d9e9ac4880bed1163fdd6fb326b89bcf35213a7f6bc71ba3d2ab86563",
+      "tick": 4
+    },
+    {
+      "bytes": 1064,
+      "chunks": 1,
+      "sensor_id": "pressure:mic-a",
+      "sha256": "e89c1de5b4729cd0c1bb57b9b89b7964165cbaca5c3cad59a255a217b006f2cb",
+      "tick": 4
+    },
+    {
+      "bytes": 1064,
+      "chunks": 1,
+      "sensor_id": "pressure:mic-a",
+      "sha256": "1968aaf3b9a7e4f807b6134250b18535e4a648f7c3d8799a73da1b95b5b79d97",
+      "tick": 5
+    },
+    {
+      "bytes": 307200,
+      "chunks": 10,
+      "sensor_id": "rgb:rgb-a",
+      "sha256": "7e1abb36498d22f42449e4b1922d94e819f2c4c13f3f597226725129221f6d4b",
+      "tick": 6
+    },
+    {
+      "bytes": 307200,
+      "chunks": 10,
+      "sensor_id": "rgb:rgb-b",
+      "sha256": "fdb3f675516ff4139de6d730b8568bb7f0c14b0d6545358ede9fd5caa0761102",
+      "tick": 6
+    },
+    {
+      "bytes": 1072,
+      "chunks": 1,
+      "sensor_id": "pressure:mic-a",
+      "sha256": "a5f85e10abebcba3c9a79bc719abcf41d56f920d8d51ad2e1b7c7c700a46b6ca",
+      "tick": 6
+    }
+  ],
+  "retained_evidence_sha256": {
+    "frozen-input.json": "cdd81241c5c23e9a2dcfe5df3682159da9d4d1260ede7e4f9f79391131d5eb6f",
+    "result.json": "bd7c408165c06f9b7da1edc685e38a1edce2fe2650d91fc40d0fd7c30a42a519",
+    "runtime-receipt.json": "c4d69b80860bb705346d80fdb305c1e1990039ae8319e83ad7767865b8048b42",
+    "session/canonical-verification.json": "993fb9003b847908ad5b8b1f09a907c7f608bef9794a8a451aae5f191f172011",
+    "session/capture.ncp": "f0a7788446a71a604660a95384963beefa7c50831f86f49a017f91f204d6ae38",
+    "session/payload-comparison.json": "56accd5f1226e9b03d35eabc8493db37bea06a802a7197c2817c8a1a8a17cad4",
+    "session/run.jsonl": "c63f6e755f5c914d1372f14bde9232b32237a3d497c38b571c15cdba38fb0b0b"
+  },
+  "schema": "prisoma.native_sensor_bridge_evidence.v1",
+  "scope": "one prospectively frozen native engineering case",
+  "source": {
+    "application_wheel_sha256": "53c0aa9f3c5c65cf0805cf35308cfc6ae282d1d4da6f09906907f52a97b87396",
+    "crebain_producer_construction": "660e0654ffed5df2fb9c9665e50c6cbcf4e338fc",
+    "crebain_python": "0e16f30f4970066e30c15f079b29c0e18f00cb25",
+    "ncp_sdk": "9ae64ac1a77c9cd0612284992a8711220428a6e3",
+    "pid_runlog_gitlink": "796c11e70f009634b853dc4ada6f565563d82f51",
+    "prisoma_base": "83e86bff7e533a9196a6bba81d6ef452698f4cd9",
+    "prisoma_staged_source_observation_sha256": "4a783d482fc0e7ff6b93578be980fa5c4e2f9c0cc1d31885ac29edc41b14659d"
+  }
+}

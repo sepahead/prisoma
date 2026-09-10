@@ -35,6 +35,51 @@ jobs:
       - name: Test the installed package on private local streams
         run: python -B -I -m unittest discover -s integrations/ncp-transcript/tests -v
 
+  application-bridge:
+    name: Installed application bridge from source distribution
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          submodules: recursive
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.11.15"
+      - name: Install Rust 1.93.0
+        run: |
+          rustup toolchain install 1.93.0 --profile minimal \
+            --component clippy,rustfmt --no-self-update
+          rustup default 1.93.0
+          rustc --version | grep -F 'rustc 1.93.0 '
+      - name: Check the optional Rust host
+        env:
+          PYO3_PYTHON: python
+          RUSTDOCFLAGS: -D warnings
+        run: |
+          cargo fmt --manifest-path crates/agent-bridge-python/Cargo.toml -- --check
+          cargo test --locked --manifest-path crates/agent-bridge-python/Cargo.toml --all-targets
+          cargo clippy --locked --manifest-path crates/agent-bridge-python/Cargo.toml --all-targets -- -D warnings
+          cargo doc --locked --manifest-path crates/agent-bridge-python/Cargo.toml --no-deps
+      - name: Install the exact package builder
+        run: python -m pip install --disable-pip-version-check --no-input maturin==1.13.1
+      - name: Build the source distribution and its native wheel
+        working-directory: integrations/agent-bridge
+        run: maturin build --sdist --release --locked --compatibility linux --interpreter python --out "$RUNNER_TEMP/application-bridge-dist"
+      - name: Install the built wheel and its optional sensor dependencies
+        shell: bash
+        run: |
+          wheels=("$RUNNER_TEMP"/application-bridge-dist/*.whl)
+          test "${#wheels[@]}" = 1
+          python -m pip install --disable-pip-version-check --no-input \
+            "${wheels[0]}[crebain]" ./integrations/ncp-transcript
+          python -m pip check
+      - name: Test canonical execution and captured sensor reconstruction
+        run: |
+          python -B -I -m unittest discover -s integrations/agent-bridge/tests -v
+          python -B -I -m unittest discover -s integrations/ncp-transcript/tests -v
+
   rust:
     name: Rust workspace and integration
     runs-on: ubuntu-24.04
@@ -606,6 +651,8 @@ jobs:
         run: cargo-deny --log-level warn --manifest-path crates/engram-managed-observer/Cargo.toml --locked check
       - name: cargo-deny (native local NCP capture)
         run: cargo-deny --log-level warn --manifest-path crates/ncp-local-capture/Cargo.toml --config deny.toml --locked --all-features check
+      - name: cargo-deny (optional Python application bridge)
+        run: cargo-deny --log-level warn --manifest-path crates/agent-bridge-python/Cargo.toml --config deny.toml --locked --all-features check
       - name: Reject the vulnerable Zenoh compression feature
         run: |
           # Scan the complete resolved feature graph so a second Zenoh transport

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="670" viewBox="0 0 800 670" role="img" aria-labelledby="title desc">
+<title id="title">One sensor command, two joined records</title>
+<desc id="desc">Prisoma synchronizes the canonical request before dispatch. CREBAIN advances, reads due sensor payloads, and releases buffers through captured NCP exchanges. Prisoma joins the execution receipt to those original bytes, commits the response, and returns observations. Finalization binds the complete capture artifact. Failures can leave an external effect and an incomplete log.</desc>
+
+<rect width="800" height="670" rx="20" fill="#f5f8fb"/>
+<g font-family="Arial, sans-serif" fill="#142c42">
+<text x="34" y="42" font-size="26" font-weight="bold">One command. Two joined records.</text>
+<text x="34" y="72" font-size="18" fill="#475e73">A successful advance follows this order.</text>
+<g stroke="#cbd9e4" stroke-width="1.5" fill="#ffffff"><rect x="34" y="100" width="462" height="92" rx="13"/><rect x="34" y="222" width="462" height="92" rx="13"/><rect x="34" y="344" width="462" height="92" rx="13"/><rect x="34" y="466" width="462" height="92" rx="13"/></g>
+<g fill="#177d81"><circle cx="68" cy="132" r="17"/><circle cx="68" cy="254" r="17"/><circle cx="68" cy="376" r="17"/><circle cx="68" cy="498" r="17"/></g>
+<g fill="#fff" font-size="19" text-anchor="middle" font-weight="bold"><text x="68" y="139">1</text><text x="68" y="261">2</text><text x="68" y="383">3</text><text x="68" y="505">4</text></g>
+<g font-size="22" font-weight="bold"><text x="100" y="139">Record the accepted request</text><text x="100" y="261">Execute and capture</text><text x="100" y="383">Bind the execution receipt</text><text x="100" y="505">Commit the response</text></g>
+<g font-size="19" fill="#475e73"><text x="58" y="174">Synchronize before the callback can run.</text><text x="58" y="296">Advance → read every due payload → release.</text><text x="58" y="418">Join command, span, sensor IDs, and digests.</text><text x="58" y="540">Synchronize, then return the observation.</text></g>
+<g stroke="#177d81" stroke-width="2.5" fill="none"><path d="M265 194V218m-7-8 7 8 7-8"/><path d="M265 316V340m-7-8 7 8 7-8"/><path d="M265 438V462m-7-8 7 8 7-8"/></g>
+<g stroke="#5369a6" stroke-width="2" fill="none"><path d="M498 140H546m-8-5 8 5-8 5"/><path d="M498 269H546m-8-5 8 5-8 5"/><path d="M498 386H546m-8-5 8 5-8 5"/><path d="M498 510H546m-8-5 8 5-8 5"/></g>
+<g fill="#eaf0fa" stroke="#c4d0e6" stroke-width="1.5"><rect x="556" y="106" width="212" height="72" rx="11"/><rect x="556" y="235" width="212" height="72" rx="11"/><rect x="556" y="352" width="212" height="72" rx="11"/><rect x="556" y="476" width="212" height="72" rx="11"/></g>
+<g font-size="21" font-weight="bold"><text x="574" y="135">run.jsonl</text><text x="574" y="264">capture.ncp</text><text x="574" y="381">run.jsonl</text><text x="574" y="505">run.jsonl</text></g>
+<g font-size="17" fill="#475e73"><text x="574" y="160">Canonical request</text><text x="574" y="289">Original NCP frames</text><text x="574" y="406">Execution receipt</text><text x="574" y="530">Canonical response</text></g>
+<rect x="34" y="585" width="734" height="61" rx="12" fill="#e5f2f0"/>
+<text x="52" y="610" font-size="18" font-weight="bold">At finalization: the canonical artifact binds the complete capture.</text>
+<text x="52" y="635" font-size="17" fill="#475e73">Filename + byte count + SHA-256. Content identity does not prove authenticity.</text>
+</g></svg>

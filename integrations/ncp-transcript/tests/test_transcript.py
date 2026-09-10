@@ -19,7 +19,14 @@ from ncp_local.modular_buffer import BufferBinding
 from ncp_local.modular_client import Client
 from ncp_local.modular_owner import profile_digest
 
-from prisoma_ncp_transcript import CaptureError, Journal, Peer, verify
+from prisoma_ncp_transcript import (
+    CaptureError,
+    Journal,
+    Peer,
+    capacity_bytes,
+    inspect,
+    verify,
+)
 from prisoma_ncp_transcript import transcript as t
 
 
@@ -238,6 +245,86 @@ class TranscriptTests(unittest.TestCase):
         self.assertEqual(
             (result.peer_count, result.finished_peers, result.exchange_pairs), (1, 1, 4)
         )
+
+    def test_computed_capacity_admits_the_exact_roster_and_exchange_limit(self):
+        quota = capacity_bytes(self.peers, max_exchanges=4)
+        journal = Journal(self.path, self.peers, max_exchanges=4, quota_bytes=quota)
+        producer = Producer(self.peers[0])
+        producer.operation(journal, w.Prepare(Payload("start")))
+        producer.operation(journal, w.Finish(Payload("done")))
+        self.assertLess(journal.finish().journal_bytes, quota)
+        self.assertEqual(verify(self.path, self.peers).exchange_pairs, 4)
+
+    def test_capacity_rejects_an_invalid_roster_or_exchange_count_without_io(self):
+        for peers, count in (
+            ((), 1),
+            (self.peers, 0),
+            (self.peers, True),
+            (self.peers, t.MAX_EXCHANGES + 1),
+        ):
+            with self.subTest(peers=len(peers), count=count):
+                with self.assertRaises(CaptureError):
+                    capacity_bytes(peers, max_exchanges=count)
+        self.assertFalse(self.path.exists())
+
+    def test_inspection_reconstructs_original_frames_and_live_boundaries(self):
+        journal = self.journal()
+        producer = Producer(self.peers[0])
+        start = journal.position()
+        producer.operation(journal, w.Prepare(Payload("start")))
+        prepared = journal.position()
+        producer.operation(journal, w.Finish(Payload("done")))
+        finished = journal.position()
+        terminal = journal.finish()
+        seen = []
+        self.assertEqual(inspect(self.path, self.peers, seen.append), terminal)
+        self.assertEqual(
+            [frame for row in seen for frame in (row.request, row.response)],
+            producer.frames,
+        )
+        self.assertEqual(
+            (seen[0].before, seen[1].after, seen[-1].after), (start, prepared, finished)
+        )
+        self.assertTrue(
+            all(left.after == right.before for left, right in zip(seen, seen[1:]))
+        )
+        with self.assertRaises(CaptureError):
+            journal.position()
+
+    def test_inspected_pairs_do_not_hide_a_missing_terminal_record(self):
+        self.completed()
+        rewrite(self.path, records(self.path)[:-1])
+        seen = []
+        with self.assertRaises(CaptureError):
+            inspect(self.path, self.peers, seen.append)
+        self.assertEqual(len(seen), 4)
+
+    def test_inspection_rejects_a_noncallable_visitor_before_file_access(self):
+        with self.assertRaises(CaptureError):
+            inspect(self.path, self.peers, None)
+        self.assertFalse(self.path.exists())
+
+    def test_visitor_failure_does_not_return_verification_or_change_source(self):
+        self.completed()
+        before = self.path.read_bytes()
+
+        def fail(_):
+            raise RuntimeError("consumer stopped")
+
+        with self.assertRaisesRegex(RuntimeError, "consumer stopped"):
+            inspect(self.path, self.peers, fail)
+        self.assertEqual(self.path.read_bytes(), before)
+        self.assertEqual(verify(self.path, self.peers).store_completion, "complete")
+
+    def test_source_changes_by_a_visitor_are_rejected(self):
+        self.completed()
+
+        def touch_source(_):
+            now = self.path.stat()
+            os.utime(self.path, ns=(now.st_atime_ns, now.st_mtime_ns + 1_000_000))
+
+        with self.assertRaisesRegex(CaptureError, "file_changed"):
+            inspect(self.path, self.peers, touch_source)
 
     def test_sixteen_optional_peers_have_distinct_terminal_chains(self):
         result, _ = self.completed(peers=tuple(peer(i) for i in range(16)))

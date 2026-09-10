@@ -20,6 +20,7 @@ The canonical research and engineering specification is [grandplan.md](grandplan
 | PID data from world-model outputs | [PID handoff](docs/lewm/PID_HANDOFF.md) and the target-specific ancestry rules |
 | Native local NCP capture | [Capture contract](crates/ncp-local-capture/README.md) |
 | Modular NCP transcript | [Transcript contract](integrations/ncp-transcript/README.md) and [design](integrations/ncp-transcript/DESIGN.md) |
+| Python Agent Bridge or canonical CREBAIN sensor execution | [Application bridge](integrations/agent-bridge/README.md) and [execution guide](integrations/agent-bridge/GUIDE.md) |
 | Legacy NCP wire observer | [Observer contract](crates/ncp-observer/README.md) and [NCP development notes](NCP_DEV_PROMPT.md) |
 | Engram Host API receipt observation | [Integration contract](integrations/engram/README.md) and [managed observer](integrations/engram/managed-observer/README.md) |
 | Rerun or other visualizations | [UI specification](uidesigner/UI.md), [diagrams](DIAGRAMS.md), and grandplan section 16 |
@@ -230,7 +231,8 @@ Use these additional gates when their surfaces change:
 | Documentation | `just docs-audit` |
 | Candidate artifacts | `just release-candidate-audit`, after exact source capture and regeneration |
 | Native NCP capture | `just ncp-local-capture-check` |
-| Modular NCP transcript | `just ncp-transcript-check <isolated-python>` after package installation, and its exact Z3 quota check |
+| Modular NCP transcript | `just ncp-transcript-check <isolated-python>` after package installation, and `just formal` |
+| Python application bridge | `just application-bridge-check <isolated-python>`, excluded-crate supply-chain checks, installed wheel/source-distribution checks, and the applicable native case |
 | Legacy wire observer | `just ncp-observer-test` |
 | Engram managed observer | `just engram-managed-observer-check` |
 | LeWM default admission and arithmetic | Existing `tests/python/test_lewm_*.py` tests |
@@ -239,6 +241,8 @@ Use these additional gates when their surfaces change:
 | Rust manifest, lock, or dependency policy | Applicable root and excluded-consumer `cargo deny --locked ... check` commands |
 
 The candidate audit binds a source capture. It is not evidence for a future commit.
+Use CI's exact cargo-deny 0.20.2 for dependency checks.
+Record the advisory revision and its date. Use a private database path when a shared cache cannot satisfy the selected revision.
 Distinguish a scoped source milestone from a complete immutable operational release.
 Keep commits focused. Preserve unrelated work and do not add AI co-author trailers.
 

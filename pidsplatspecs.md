@@ -82,6 +82,11 @@ The offline and toy harnesses require `pid-sim/analysis`. WebSocket transport re
 `pid-sim/websocket`. These features keep estimator, linear-algebra, and SHA-1 dependencies outside
 the default execution graph.
 
+Installed applications can supply a typed method vocabulary through `RequestMethod` and `BridgeHandler<M>`.
+This extension does not register methods with the standard simulator's JSON-RPC parser.
+The [optional Python host](integrations/agent-bridge/README.md) freezes its finite application vocabulary before opening the run.
+It records execution receipts through the existing schema-2 compatibility envelope.
+
 ### 4.2 Request model
 
 The bridge accepts one JSON-RPC object per message. It does not accept batches. Parameters are

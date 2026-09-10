@@ -84,6 +84,16 @@ experiment semantics. Estimator changes belong upstream, followed by a reviewed 
 
 It does not own network transports, the simulator, or file confinement.
 
+Trusted applications can implement `RequestMethod` and `BridgeHandler<M>` without changing the standard simulator's method catalog.
+The default method type remains `BridgeMethod`.
+`dispatch_with_clock` samples response time after the handler returns.
+An application evidence hook records effects before the canonical response, under the same event and byte limits.
+An evidence, clock, or response-commit failure poisons the bridge because an external effect can already exist.
+
+The optional [Python application bridge](integrations/agent-bridge/README.md) supplies private-file admission and synchronized canonical recording.
+Its CREBAIN adapter reconstructs each recorded command against the original NCP exchanges and sensor bytes.
+The core, local simulator, and affine reference remain independent of that adapter.
+
 ### 3.3 Execution layer: `pid-sim`
 
 `pid-sim` groups small local execution surfaces that share the run-log contract:

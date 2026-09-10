@@ -3,12 +3,43 @@
   "z3_version": "Z3 version 4.16.0 - 64 bit",
   "models": {
     "bridge_log_before_dispatch.smt2": {
-      "expected": ["unsat", "unsat", "sat", "sat", "sat", "unsat"],
+      "expected": [
+        "unsat",
+        "unsat",
+        "sat",
+        "sat",
+        "sat",
+        "unsat"
+      ],
       "sha256": "3e7973c3bb660e3f7ad5de57534bb3d985115d35dece26aac53ba905f048781e"
     },
     "coupling_nonidentification.smt2": {
-      "expected": ["sat"],
+      "expected": [
+        "sat"
+      ],
       "sha256": "ab58d5451af020a78e0b8f9873b1655247ae2d981b67c3f12f7e763d867744ae"
+    },
+    "crebain_sensor_capacity.smt2": {
+      "expected": [
+        "unsat",
+        "sat",
+        "unsat",
+        "sat",
+        "sat",
+        "unsat",
+        "sat",
+        "unsat",
+        "sat",
+        "unsat",
+        "sat",
+        "sat",
+        "unsat",
+        "sat",
+        "unsat",
+        "sat",
+        "sat"
+      ],
+      "sha256": "04567825a60e4785480d21a76cf42cb4890b52047d3b8d12e07330b96a14cca9"
     },
     "h2_paired_brier_bounds.smt2": {
       "expected": [
@@ -26,27 +57,67 @@
       "sha256": "6f5f0fdf30644b64ec029bdbc8ab1c6921a0c2808da19580a9761cb91f09fd43"
     },
     "h3_full_population_fallback.smt2": {
-      "expected": ["sat", "unsat", "sat"],
+      "expected": [
+        "sat",
+        "unsat",
+        "sat"
+      ],
       "sha256": "e3e3df6edb46f0b106efb5937773bdd24d681d67f80f5a10859ff956883df5cd"
     },
-    "informative_censoring_nonidentification.smt2": {
-      "expected": ["sat", "unsat"],
-      "sha256": "453df6526d713f230fc2f760c848360af9c3cf37f7c9dcd630457a744526f49d"
-    },
     "individual_effect_prevalence_nonidentification.smt2": {
-      "expected": ["sat"],
+      "expected": [
+        "sat"
+      ],
       "sha256": "ef3a71f72002e08c7212bad15f70881898765bc2fdb1a89ff95caab0b26e6e0f"
     },
+    "informative_censoring_nonidentification.smt2": {
+      "expected": [
+        "sat",
+        "unsat"
+      ],
+      "sha256": "453df6526d713f230fc2f760c848360af9c3cf37f7c9dcd630457a744526f49d"
+    },
     "lewm_action_conversion.smt2": {
-      "expected": ["unsat", "unsat", "sat", "sat", "unsat", "sat", "unsat", "sat", "sat"],
+      "expected": [
+        "unsat",
+        "unsat",
+        "sat",
+        "sat",
+        "unsat",
+        "sat",
+        "unsat",
+        "sat",
+        "sat"
+      ],
       "sha256": "9373bedd027d40a5a693ceec37661059f8a939f8c2941002b788abcb2003d459"
     },
     "lewm_row_admission.smt2": {
-      "expected": ["unsat", "unsat", "unsat", "sat", "sat", "sat", "sat"],
+      "expected": [
+        "unsat",
+        "unsat",
+        "unsat",
+        "sat",
+        "sat",
+        "sat",
+        "sat"
+      ],
       "sha256": "da96cc6f1aa6dfc4756e934fd0ef3ecd1c121e280e56f5fb6b42b1e8dcbcf543"
     },
+    "ncp_transcript_quota.smt2": {
+      "expected": [
+        "unsat",
+        "sat",
+        "sat",
+        "unsat",
+        "sat",
+        "sat"
+      ],
+      "sha256": "c82be007ebf09356ad543d680ad95ee48cf2e2ea4a92afbeecdc991fc322789d"
+    },
     "pid_nonidentification.smt2": {
-      "expected": ["sat"],
+      "expected": [
+        "sat"
+      ],
       "sha256": "9497d35f63fa9a55414224fd6f3364e29a905b019b7c4948c02596a714b12352"
     },
     "receipt_last_publication.smt2": {
@@ -65,7 +136,12 @@
       "sha256": "6a7ff04f3335fec088d6b856c8dd59ffebd9a3e7a3921c5438a8e1e2444e2a19"
     },
     "shannon_two_source_identity.smt2": {
-      "expected": ["sat", "unsat", "unsat", "unsat"],
+      "expected": [
+        "sat",
+        "unsat",
+        "unsat",
+        "unsat"
+      ],
       "sha256": "1cd9f776667d2f184badd5f17df1ce9788d1a31c804c031ebde85c89d9407877"
     },
     "typed_outcome_publication.smt2": {

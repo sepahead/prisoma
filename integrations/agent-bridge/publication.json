@@ -1,0 +1,45 @@
+{
+  "figures": {
+    "integrations/agent-bridge/execution.svg": {
+      "bytes": 3502,
+      "sha256": "5322b1cb563b1baa85b46591f68d8cb17a61745fe2a5b9282288fad4c6c99a6b"
+    },
+    "integrations/agent-bridge/timing.svg": {
+      "bytes": 4179,
+      "sha256": "d23659b116ba93cc7726b5cb4a341355ad0d66b0c71c11ec203a23b11f2623d6"
+    }
+  },
+  "fonts": {
+    "Andale Mono.ttf": {
+      "bytes": 109700,
+      "sha256": "ca436a8f07f6699107542ebe19dcc9478f12aa666927699e9fa10115e7d2ee95"
+    },
+    "Arial Bold.ttf": {
+      "bytes": 750984,
+      "sha256": "d72db21f9242aedd6b917d8549ad5921766b24d5f8d0becfda2ff4c620b3c2e0"
+    },
+    "Arial.ttf": {
+      "bytes": 773236,
+      "sha256": "525979822591a3447cfc49d943d6f7683508e25543407871c0ed8fed05fd2bd9"
+    }
+  },
+  "packages": {
+    "reportlab": "4.4.10",
+    "svglib": "1.5.1"
+  },
+  "pdf": {
+    "bytes": 96442,
+    "pages": 4,
+    "sha256": "f08e810df62703887b5f341a094b7ce327e7a1e9e2d007ff56415eb2e42b7b76"
+  },
+  "renderer": {
+    "bytes": 9000,
+    "sha256": "926a2eeec3ac3237d07a589fd13ec20c3a3e03296b1bf61dd3d404c99dc9047c"
+  },
+  "schema": "prisoma.sensor_execution_publication.v1",
+  "scientific_validation": false,
+  "source": {
+    "bytes": 7695,
+    "sha256": "401454c6631b5deff0e7e55ca8fa5cc731219d88b8773a54055d22eb44a6efef"
+  }
+}

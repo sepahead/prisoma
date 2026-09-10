@@ -57,6 +57,7 @@ See the [adapter boundaries](ARCHITECTURE.md#34-viewer-layer-pid-rerun).
 | [Offline analysis](EXPERIMENTS.md) | Evaluate strict artifacts with simple baselines and optional named PID routes | Support, split, measure, estimator, and application limits remain explicit |
 | [NCP capture](integrations/ncp-transcript/README.md) | Preserve original exchanges for independently selected peers, including large frame sequences | Separate native NEST and CREBAIN source runs; complete embodied experiment remains open |
 | [Agent Bridge](ARCHITECTURE.md#32-contract-layer-pid-bridge) | Dispatch typed local operations and record accepted requests and responses | Local profiles, not a qualified remote-security system |
+| [CREBAIN sensor execution](integrations/agent-bridge/README.md) | Control a selected sensor session through Agent Bridge and reconstruct its original NCP exchanges | Native two-camera/acoustic engineering case; no learned policy, branch labels, or real-time qualification |
 | [Rerun export](ARCHITECTURE.md#34-viewer-layer-pid-rerun) | Inspect schema-checked run-log projections | Derived inspection, not scientific validation |
 
 The [capability matrix](docs/CAPABILITY_MATRIX.md) records the reviewed evidence for each cataloged surface.
@@ -119,6 +120,13 @@ Prisoma owns candidate identity, forecast commitments, experiment ordering, comp
 The complete Prisoma-to-CREBAIN embodied experiment remains under qualification.
 A working environment component alone does not establish that integration.
 
+The [sensor-session adapter](integrations/agent-bridge/README.md) now joins canonical commands, execution receipts, NCP exchanges, and original payload bytes.
+One native M4 Max case used two independently sampled RGB cameras and one microphone.
+It reconstructed eight commands, 150 exchanges, and 11 payloads totaling 1,542,400 bytes.
+Separate camera instances remain distinct even when they share a modality or payload digest.
+This is an execution path. Forecasts, independent restored labels, and scientific comparison remain separate work.
+The [illustrated execution guide](output/pdf/Recorded_Sensor_Execution.pdf) explains source identity, timing, and capture arithmetic.
+
 The independent reference workflows remain runnable without CREBAIN.
 This preserves the [dependency firebreak](grandplan.md#893-dependency-firebreak).
 Each future environment path must bind units, frames, clocks, action application, missingness, and checkpoint semantics.
@@ -133,7 +141,7 @@ CREBAIN remains usable without Prisoma.
 The capture package also works without a body peer.
 Application completion and scientific validity remain separate checks.
 Installed ecosystem qualification remains a separate gate.
-It does not turn NCP into a broker or grant Prisoma command authority.
+Capture alone grants no command authority. The application adapter dispatches its controls through Agent Bridge.
 
 <details>
 <summary>Legacy NCP and Engram compatibility</summary>

@@ -158,6 +158,14 @@ ncp-observer-test:
 ncp-transcript-check python_path:
     {{ quote(python_path) }} -B -I -m unittest discover -s integrations/ncp-transcript/tests -v
 
+# Optional application host. The Python argument must select an installed wheel.
+application-bridge-check python_path="python":
+    cargo fmt --manifest-path crates/agent-bridge-python/Cargo.toml -- --check
+    PYO3_PYTHON={{ quote(python_path) }} cargo test --locked --manifest-path crates/agent-bridge-python/Cargo.toml --all-targets
+    PYO3_PYTHON={{ quote(python_path) }} cargo clippy --locked --manifest-path crates/agent-bridge-python/Cargo.toml --all-targets -- -D warnings
+    PYO3_PYTHON={{ quote(python_path) }} RUSTDOCFLAGS="-D warnings" cargo doc --locked --manifest-path crates/agent-bridge-python/Cargo.toml --no-deps
+    {{ quote(python_path) }} -B -I -m unittest discover -s integrations/agent-bridge/tests -v
+
 # Explicit native local NCP capture gate. Root PID builds remain independent.
 ncp-local-capture-check:
     cargo fmt --manifest-path crates/ncp-local-capture/Cargo.toml -- --check
