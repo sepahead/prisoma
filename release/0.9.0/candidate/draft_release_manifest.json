@@ -56,11 +56,11 @@
     }
   ],
   "component_semantic_sha256": {
-    "claim_evidence_ledger.json": "afb3b734c7ff74bc18f9b25b5982a08f17072fec548cdbe1d08f4b880f4ee77e",
-    "defect_register.json": "5a4c36f13d979f072903598c493a9639b44093b99e3e9934b27c67848917614c",
-    "evidence_receipts.json": "83c7d08bc1073ec56aeb4e86fc013ca03f8869259cd8b340e2524ba6f9dd823b",
-    "source_inventory.json": "7ab8807e244c1cf022bbaeb206c8825b8b45b7461765cfb9c568fbb6214e631f",
-    "task_lens_ledger.json": "ceca9b5afde1f2894dc785490a436dc70fb443769bfd5ce74ca4529ebfdc237c"
+    "claim_evidence_ledger.json": "a9c0ad6ce997719eabb5b1795e3e0e40238fc784d24ce498d98905dbd0cf961d",
+    "defect_register.json": "c9bafef532af3b0b8003d0bd3e4bfe413e3293c0daeb5dda571046b1f3a6270e",
+    "evidence_receipts.json": "e9dad0791d630878da7869d4c22e305d7d67ca47b86ddbb62a256dbd9fd20bfd",
+    "source_inventory.json": "be033d47c2ca54ea7a7403ac59e5df36a92324b07d1666a8aefbd36e4b951a21",
+    "task_lens_ledger.json": "0dc648e8275d63e7bfdbede263c30bb427ebf74339c3d8bd475e3a02c3d255c8"
   },
   "cross_repository_qualification": [],
   "datasets": [],
@@ -171,18 +171,18 @@
   },
   "signatures": [],
   "source": {
-    "candidate_state_sha256": "6ca49837f015e746d66d37754fc8a4bff56f8b06f57fb8b47b4ae4460df8cd83",
-    "commit": "f543ac51e862be7db17e64dcf1f8c57b2063feb1",
-    "commit_role": "parent_HEAD_at_dirty_candidate_capture_not_release_commit",
+    "candidate_state_sha256": "9ca17304bee45ad965e33c46126033a4ebe9d771cd9bad53871ee99b85c40774",
+    "commit": "7b7139d7c26eda8e670976e115a0896db5c27e80",
+    "commit_role": "clean_HEAD_at_candidate_capture_not_publication_identity",
     "repository": "https://github.com/sepahead/prisoma",
-    "tree_clean": false
+    "tree_clean": true
   },
   "source_candidate": {
-    "clean": false,
+    "clean": true,
     "exact_pushed_commit": null,
-    "head_commit_at_capture": "f543ac51e862be7db17e64dcf1f8c57b2063feb1",
-    "state": "dirty_uncommitted_source_snapshot",
-    "state_sha256": "6ca49837f015e746d66d37754fc8a4bff56f8b06f57fb8b47b4ae4460df8cd83"
+    "head_commit_at_capture": "7b7139d7c26eda8e670976e115a0896db5c27e80",
+    "state": "clean_source_snapshot",
+    "state_sha256": "9ca17304bee45ad965e33c46126033a4ebe9d771cd9bad53871ee99b85c40774"
   },
   "submodules": [
     {
