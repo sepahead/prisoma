@@ -887,7 +887,7 @@
       "feature_id": "observer.ncp_fault_observatory",
       "feature": "Deterministic NCP wire-0.8 protocol-fault observatory",
       "status": "tested",
-      "exact_revision": "NCP@v0.8.0#2f5bd586d4bb20c90362bb6f5698b7f64057ba4e; local-sha256:12a03d9b3626b4596f00c73b7d306d4eea0a92f0bf573ad9439d11bf358b3cd0",
+      "exact_revision": "NCP@v0.8.0#2f5bd586d4bb20c90362bb6f5698b7f64057ba4e; local-sha256:fc1919dbbd9eb60170d47e0aaa5c276252e91cf5f87e2a9f3bdc4a6529e53f2c",
       "revision_inputs": [
         "crates/ncp-observer",
         "pid-rs",
@@ -901,7 +901,7 @@
         },
         {
           "path": "crates/ncp-observer/README.md",
-          "sha256": "0c8500c0fb93565903ed1d91f3187b0fa045f8103081d3df06ad5b9ceb7df093"
+          "sha256": "62fc9eab442c2ffa5233b137dbc78c0bc1801e78120810a17d3c0358a3007d57"
         },
         {
           "path": "NCP_DEV_PROMPT.md",
@@ -921,7 +921,7 @@
       "feature_id": "observer.ncp_read_only",
       "feature": "Read-only NCP wire-0.8 observer",
       "status": "tested",
-      "exact_revision": "NCP@v0.8.0#2f5bd586d4bb20c90362bb6f5698b7f64057ba4e; local-sha256:12a03d9b3626b4596f00c73b7d306d4eea0a92f0bf573ad9439d11bf358b3cd0",
+      "exact_revision": "NCP@v0.8.0#2f5bd586d4bb20c90362bb6f5698b7f64057ba4e; local-sha256:fc1919dbbd9eb60170d47e0aaa5c276252e91cf5f87e2a9f3bdc4a6529e53f2c",
       "revision_inputs": [
         "crates/ncp-observer",
         "pid-rs",
@@ -939,7 +939,7 @@
         },
         {
           "path": "crates/ncp-observer/src/lib.rs",
-          "sha256": "6cea574dbda03a0a0f233815ca1095597795e51e68d68cac1b8822c5df25004d"
+          "sha256": "41a71ace332f5f98bc698fe828f71aa5194785d3fabb65f58835fc7da06426c3"
         },
         {
           "path": "crates/pid-sim/src/offline_harness.rs",
@@ -947,7 +947,7 @@
         },
         {
           "path": "crates/ncp-observer/README.md",
-          "sha256": "0c8500c0fb93565903ed1d91f3187b0fa045f8103081d3df06ad5b9ceb7df093"
+          "sha256": "62fc9eab442c2ffa5233b137dbc78c0bc1801e78120810a17d3c0358a3007d57"
         }
       ],
       "known_limitations": "This is a frozen v0.8.0 base-route-only observer and has no command authority. No conforming public live producer provides honest L, split, episode, and outcome structure; open/secure choice is declared but live security and noninterference are unvalidated. P01, P02, and P03 are OPEN, not dependency-ready, and NOT RUN. P03 covers fault-observatory migration and Prisoma observer-role qualification.",

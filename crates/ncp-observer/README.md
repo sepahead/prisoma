@@ -73,6 +73,10 @@ registered D2/EC1 evaluation until the gaps below close:
    and UTF-8-representable canonical targets. Append/hash/write/fsync failures
    preserve exact same-path retry state; retries pin all three canonical targets
    and adopt only byte-identical bounded regular files.
+   On Unix, directory fsync compares device, inode, permission mode, owner, and group.
+   Concurrent child creation or removal does not invalidate this directory identity check.
+   Regular files retain the existing snapshot checks and exact retry-byte comparison.
+   Path checks observe specific instants and do not isolate outputs from hostile ancestor changes.
 4. **Held-out structure** — no `metadata.split` / `episode_id` / required `success` labels
    by default, so the strict `--require-heldout-*` gates and H1/H2 protocol analyses cannot
    run. Passing these adapter gates would still not clear the four PID gates or implement

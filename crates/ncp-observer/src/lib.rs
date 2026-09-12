@@ -1310,7 +1310,32 @@ fn open_bounded_snapshot(_path: &Path) -> std::io::Result<File> {
 }
 
 #[cfg(unix)]
+fn same_directory_identity(left: &std::fs::Metadata, right: &std::fs::Metadata) -> bool {
+    // Child entries change directory size, link count, and timestamps without replacing it.
+    left.file_type().is_dir()
+        && right.file_type().is_dir()
+        && left.dev() == right.dev()
+        && left.ino() == right.ino()
+        && left.mode() == right.mode()
+        && left.uid() == right.uid()
+        && left.gid() == right.gid()
+}
+
+#[cfg(unix)]
 pub(crate) fn sync_directory(path: &Path) -> anyhow::Result<()> {
+    sync_directory_with_hooks(path, || {}, || {})
+}
+
+#[cfg(unix)]
+fn sync_directory_with_hooks<BeforeOpen, AfterSync>(
+    path: &Path,
+    after_initial_inspection: BeforeOpen,
+    after_sync: AfterSync,
+) -> anyhow::Result<()>
+where
+    BeforeOpen: FnOnce(),
+    AfterSync: FnOnce(),
+{
     let path_before = std::fs::symlink_metadata(path)
         .with_context(|| format!("failed to inspect directory {} for fsync", path.display()))?;
     if !path_before.file_type().is_dir() {
@@ -1319,6 +1344,7 @@ pub(crate) fn sync_directory(path: &Path) -> anyhow::Result<()> {
             path.display()
         );
     }
+    after_initial_inspection();
     let mut options = OpenOptions::new();
     options
         .read(true)
@@ -1331,10 +1357,8 @@ pub(crate) fn sync_directory(path: &Path) -> anyhow::Result<()> {
         .with_context(|| format!("failed to inspect directory {}", path.display()))?;
     let path_after_open = std::fs::symlink_metadata(path)
         .with_context(|| format!("failed to re-inspect directory {}", path.display()))?;
-    if !opened_before.file_type().is_dir()
-        || !path_after_open.file_type().is_dir()
-        || !same_file_snapshot(&path_before, &opened_before)
-        || !same_file_snapshot(&opened_before, &path_after_open)
+    if !same_directory_identity(&path_before, &opened_before)
+        || !same_directory_identity(&opened_before, &path_after_open)
     {
         anyhow::bail!(
             "directory {} changed while opening for fsync",
@@ -1344,14 +1368,14 @@ pub(crate) fn sync_directory(path: &Path) -> anyhow::Result<()> {
     directory
         .sync_all()
         .with_context(|| format!("failed to fsync directory {}", path.display()))?;
+    after_sync();
     let opened_after = directory
         .metadata()
         .with_context(|| format!("failed to re-inspect directory {}", path.display()))?;
     let path_after_sync = std::fs::symlink_metadata(path)
         .with_context(|| format!("failed to re-inspect directory {}", path.display()))?;
-    if !path_after_sync.file_type().is_dir()
-        || !same_file_snapshot(&opened_before, &opened_after)
-        || !same_file_snapshot(&opened_after, &path_after_sync)
+    if !same_directory_identity(&opened_before, &opened_after)
+        || !same_directory_identity(&opened_after, &path_after_sync)
     {
         anyhow::bail!("directory {} changed while syncing", path.display());
     }
@@ -3217,6 +3241,185 @@ mod tests {
             "ncp_observer_{name}_{}_{nonce}",
             std::process::id()
         ))
+    }
+
+    #[cfg(unix)]
+    mod directory_sync {
+        use super::*;
+        use std::os::unix::fs::{symlink, PermissionsExt};
+
+        struct TestDirectory(PathBuf);
+
+        impl TestDirectory {
+            fn new() -> Self {
+                let path = unique_test_dir("directory_sync");
+                std::fs::create_dir(&path).unwrap();
+                Self(path)
+            }
+        }
+
+        impl Drop for TestDirectory {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+
+        #[derive(Clone, Copy, Debug)]
+        enum ChangePoint {
+            BeforeOpen,
+            AfterSync,
+        }
+
+        const CHANGE_POINTS: [ChangePoint; 2] = [ChangePoint::BeforeOpen, ChangePoint::AfterSync];
+
+        fn sync_with_change(
+            path: &Path,
+            point: ChangePoint,
+            change: impl FnOnce(),
+        ) -> anyhow::Result<()> {
+            match point {
+                ChangePoint::BeforeOpen => sync_directory_with_hooks(path, change, || {}),
+                ChangePoint::AfterSync => sync_directory_with_hooks(path, || {}, change),
+            }
+        }
+
+        #[test]
+        fn stable_directory_succeeds() {
+            let directory = TestDirectory::new();
+            sync_directory(&directory.0).unwrap();
+        }
+
+        fn accept_child_change(prepare: impl Fn(&Path), change: impl Fn(&Path)) {
+            let results = CHANGE_POINTS.map(|point| {
+                let directory = TestDirectory::new();
+                let child = directory.0.join("child");
+                prepare(&child);
+                sync_with_change(&directory.0, point, || change(&child))
+            });
+            assert!(results.iter().all(Result::is_ok), "{results:?}");
+        }
+
+        #[test]
+        fn child_file_creation_succeeds() {
+            accept_child_change(
+                |_| {},
+                |child| std::fs::write(child, b"independent output").unwrap(),
+            );
+        }
+
+        #[test]
+        fn child_directory_creation_succeeds() {
+            accept_child_change(|_| {}, |child| std::fs::create_dir(child).unwrap());
+        }
+
+        #[test]
+        fn child_file_removal_succeeds() {
+            accept_child_change(
+                |child| std::fs::write(child, b"independent output").unwrap(),
+                |child| std::fs::remove_file(child).unwrap(),
+            );
+        }
+
+        #[test]
+        fn child_directory_removal_succeeds() {
+            accept_child_change(
+                |child| std::fs::create_dir(child).unwrap(),
+                |child| std::fs::remove_dir(child).unwrap(),
+            );
+        }
+
+        #[test]
+        fn directory_replacement_is_rejected() {
+            for point in CHANGE_POINTS {
+                let root = TestDirectory::new();
+                let target = root.0.join("target");
+                let moved = root.0.join("original");
+                std::fs::create_dir(&target).unwrap();
+                let error = sync_with_change(&target, point, || {
+                    // Keep the original inode allocated throughout the replacement control.
+                    std::fs::rename(&target, &moved).unwrap();
+                    std::fs::create_dir(&target).unwrap();
+                })
+                .unwrap_err();
+                assert!(
+                    error.to_string().contains("changed while"),
+                    "{point:?}: {error}"
+                );
+            }
+        }
+
+        #[test]
+        fn symlink_target_and_replacement_are_rejected() {
+            for point in CHANGE_POINTS {
+                let root = TestDirectory::new();
+                let target = root.0.join("target");
+                let moved = root.0.join("original");
+                std::fs::create_dir(&target).unwrap();
+                sync_with_change(&target, point, || {
+                    std::fs::rename(&target, &moved).unwrap();
+                    symlink(&moved, &target).unwrap();
+                })
+                .unwrap_err();
+                let error = sync_directory(&target).unwrap_err();
+                assert!(error
+                    .to_string()
+                    .contains("must be a non-symlink directory"));
+            }
+        }
+
+        fn reject_non_directory(install: impl Fn(&Path)) {
+            for point in CHANGE_POINTS {
+                let root = TestDirectory::new();
+                let target = root.0.join("target");
+                let moved = root.0.join("original");
+                std::fs::create_dir(&target).unwrap();
+                sync_with_change(&target, point, || {
+                    std::fs::rename(&target, &moved).unwrap();
+                    install(&target);
+                })
+                .unwrap_err();
+                let error = sync_directory(&target).unwrap_err();
+                assert!(error
+                    .to_string()
+                    .contains("must be a non-symlink directory"));
+            }
+        }
+
+        #[test]
+        fn regular_file_target_and_replacement_are_rejected() {
+            reject_non_directory(|path| std::fs::write(path, b"replacement").unwrap());
+        }
+
+        #[test]
+        fn fifo_target_and_replacement_are_rejected_without_blocking() {
+            reject_non_directory(|path| {
+                let status = std::process::Command::new("mkfifo")
+                    .arg(path)
+                    .status()
+                    .unwrap();
+                assert!(status.success());
+            });
+        }
+
+        #[test]
+        fn permission_change_is_rejected_and_stable_permissions_succeed() {
+            for point in CHANGE_POINTS {
+                let directory = TestDirectory::new();
+                std::fs::set_permissions(&directory.0, std::fs::Permissions::from_mode(0o700))
+                    .unwrap();
+                sync_directory(&directory.0).unwrap();
+                let error = sync_with_change(&directory.0, point, || {
+                    std::fs::set_permissions(&directory.0, std::fs::Permissions::from_mode(0o750))
+                        .unwrap();
+                })
+                .unwrap_err();
+                assert!(
+                    error.to_string().contains("changed while"),
+                    "{point:?}: {error}"
+                );
+                sync_directory(&directory.0).unwrap();
+            }
+        }
     }
 
     #[cfg(unix)]
