@@ -15,7 +15,7 @@ dependencies = []
 [project.optional-dependencies]
 crebain = [
     "prisoma-ncp-transcript==0.1.0",
-    "crebain-ncp-sensors @ git+https://github.com/sepahead/crebain.git@6c9f09a060abf5bfb098e285125c14ec2bb6d16c#subdirectory=integrations/ncp-force-ground-sensors/python",
+    "crebain-ncp-sensors @ git+https://github.com/sepahead/crebain.git@c461c91cf85e1fb07218a4b10d57d8c98b8c74b9#subdirectory=integrations/ncp-force-ground-sensors/python",
 ]
 
 [project.urls]

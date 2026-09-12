@@ -9,7 +9,7 @@ description = "Bounded durable capture of modular NCP exchanges on host-owned st
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 requires-python = ">=3.11"
-dependencies = ["ncp-local @ git+https://github.com/sepahead/NCP.git@233de821a5b67a34aa7721f900c09ab73a61ba88#subdirectory=local/python"]
+dependencies = ["ncp-local @ git+https://github.com/sepahead/NCP.git@c0465d40f1f2b9df2caf9793183d11e65ac9ec74#subdirectory=local/python"]
 
 [project.urls]
 Repository = "https://github.com/sepahead/prisoma"

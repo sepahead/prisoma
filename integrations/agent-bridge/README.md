@@ -56,8 +56,8 @@ Each source keeps its own identity, cadence, acquisition time, and availability 
 The adapter adds no compulsory modality, neural peer, monitor, model, or PID estimator.
 CREBAIN remains usable without Prisoma.
 
-The optional dependency pins CREBAIN to `6c9f09a060abf5bfb098e285125c14ec2bb6d16c`.
-Both sensor and transcript packages select NCP `233de821a5b67a34aa7721f900c09ab73a61ba88`.
+The optional dependency pins CREBAIN to `c461c91cf85e1fb07218a4b10d57d8c98b8c74b9`.
+Both sensor and transcript packages select NCP `c0465d40f1f2b9df2caf9793183d11e65ac9ec74`.
 The current installation command requires both local Prisoma package paths.
 This source milestone makes no published-PyPI-wheel promise.
 

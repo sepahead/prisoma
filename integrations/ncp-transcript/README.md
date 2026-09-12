@@ -40,7 +40,7 @@ Install this optional package in its own Python environment:
 python -m pip install ./integrations/ncp-transcript
 ```
 
-The manifest pins the public NCP SDK to immutable Git source `233de821a5b67a34aa7721f900c09ab73a61ba88`.
+The manifest pins the public NCP SDK to immutable Git source `c0465d40f1f2b9df2caf9793183d11e65ac9ec74`.
 Python 3.11 or newer on a POSIX host is required.
 The root Prisoma environment and PID dependency remain independent of this package.
 
@@ -139,7 +139,7 @@ A capture failure retires the client without retry or further release.
 The host must close its streams and confirm producer retirement on every path.
 Logical quota admission does not reserve physical disk space.
 
-The [CREBAIN calling contract](https://github.com/sepahead/crebain/blob/47ea76fc0a9dda0e247ec099119c6df9a5dfde1b/integrations/ncp-force-ground-sensors/python/README.md) defines lifecycle, failure prefixes, sensor layouts, and host responsibilities.
+The [CREBAIN calling contract](https://github.com/sepahead/crebain/blob/c461c91cf85e1fb07218a4b10d57d8c98b8c74b9/integrations/ncp-force-ground-sensors/python/README.md) defines lifecycle, failure prefixes, sensor layouts, and host responsibilities.
 This example supplies no installed launcher or canonical Agent Bridge experiment binding.
 
 ## Capacity and storage
