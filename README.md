@@ -114,34 +114,56 @@ Read the [mathematics](docs/lewm/MATHEMATICS.md),
 
 ## CREBAIN and the ecosystem
 
-CREBAIN is the selected environment integration for the embodied rollout path.
-It owns its world, dynamics, sensor production, and accepted checkpoint construction.
-Prisoma owns candidate identity, forecast commitments, experiment ordering, comparison rules, and outcome lineage.
-The complete Prisoma-to-CREBAIN embodied experiment remains under qualification.
-A working environment component alone does not establish that integration.
+CREBAIN runs its world and sensors independently of Prisoma.
+It is the selected environment for Prisoma's embodied experiments.
+The applications retain separate responsibilities:
 
-The [sensor-session adapter](integrations/agent-bridge/README.md) now joins canonical commands, execution receipts, NCP exchanges, and original payload bytes.
-One native M4 Max case used two RGB cameras with different sampling periods and one microphone.
+| Owner | Responsibility |
+| --- | --- |
+| CREBAIN | World state, dynamics, sensor production, action application, and accepted checkpoint construction |
+| NCP | Typed exchanges, payload transfer, ordering, and acknowledgements |
+| Prisoma | Candidate identity, forecast commitments, experiment ordering, comparisons, and outcome lineage |
+| Agent Bridge | Canonical recording and dispatch of accepted Prisoma experiment commands |
+
+For a standalone environment, start with [CREBAIN](https://github.com/sepahead/crebain).
+Its optional [installed sensor launcher](https://github.com/sepahead/crebain/tree/main/integrations/ncp-force-ground-sensors/python#install-and-run-a-body-session) owns producer startup and retirement.
+Select cameras, microphones, and thermal sensors through the admitted scene configuration.
+Repeated cameras keep separate identities and sampling periods.
+A microphone-only session needs no graphics runtime.
+Neural models, monitoring, and Prisoma recording are separate composition choices.
+
+For canonical experiment execution, use Prisoma's [sensor-session adapter](integrations/agent-bridge/README.md).
+`SensorExperiment` accepts host-managed streams. The host owns producer lifetime.
+It joins canonical commands, execution receipts, original NCP exchanges, and sensor payload bytes.
+The September 10 native case used two RGB cameras and one microphone.
 It reconstructed eight commands, 150 exchanges, and 11 payloads totaling 1,542,400 bytes.
-Separate camera instances remain distinct even when they share a modality or payload digest.
-This is an execution path. Forecasts, independent restored labels, and scientific comparison remain separate work.
-The [illustrated execution guide](output/pdf/Recorded_Sensor_Execution.pdf) explains source identity, timing, and capture arithmetic.
+This case establishes recorded execution and readback within its declared scope.
+Learned forecasts, independently restored labels, and the complete embodied comparison remain open.
 
-The independent reference workflows remain runnable without CREBAIN.
+The [recorded execution guide](integrations/agent-bridge/GUIDE.md) defines sensor identity, timing, units, storage bounds, and exchange arithmetic.
+Its [illustrated PDF](output/pdf/Recorded_Sensor_Execution.pdf) presents the same case.
+Two RGB cameras supply two sensor instances and one modality.
+A frame that is not due is absent from that tick's payload roster.
+It does not become a zero-valued observation.
+
+For exchange recording alone, select the [modular NCP transcript](integrations/ncp-transcript/README.md).
+It preserves original NCP payload bytes for the chosen peers and checks terminal acknowledgements.
+CREBAIN's capture hook records sensor reads before releasing their source buffers.
+The separate [native capture case](integrations/ncp-transcript/README.md#crebain-sensor-capture) reconstructed all 44 RGB, thermal, and pressure payloads.
+Capture selects no action and requires no neural, monitor, or body peer.
+Its package pins the public `ncp-local` SDK without requiring a sibling checkout.
+Each composition needs its own application-completion and installed-runtime checks.
+
+**Target workflow:** Engram starts from reviewed PDF evidence.
+It constructs a NEST network and experiment, runs CREBAIN through NCP, and reports results.
+Prisoma can supply selected experiment comparisons, world-model evaluation, or capture.
+Current native compositions start from explicit network and scene inputs.
+They do not establish arbitrary-paper reproduction or the complete forecasting and restored-label experiment.
+
+The affine reference and offline workflows remain runnable without CREBAIN.
 This preserves the [dependency firebreak](grandplan.md#893-dependency-firebreak).
-Each future environment path must bind units, frames, clocks, action application, missingness, and checkpoint semantics.
-Simulator reference outcomes must remain distinct from measured physical outcomes.
-
-NCP capture is a separate optional component.
-Its modular transcript preserves original NCP JSON payload bytes and checks exchange order and terminal acknowledgements.
-Its standalone manifest pins the `ncp-local` SDK to immutable public Git source, with no sibling checkout requirement.
-CREBAIN's optional host hook captures sensor reads before releasing their source buffers.
-One [native body run](integrations/ncp-transcript/README.md#crebain-sensor-capture) verified all 44 RGB, thermal, and pressure payloads.
-CREBAIN remains usable without Prisoma.
-The capture package also works without a body peer.
-Application completion and scientific validity remain separate checks.
-Installed ecosystem qualification remains a separate gate.
-Capture alone grants no command authority. The application adapter dispatches its controls through Agent Bridge.
+The complete environment join must bind units, frames, clocks, actions, missingness, and checkpoint semantics.
+Simulator reference outcomes remain distinct from measured physical outcomes.
 
 <details>
 <summary>Legacy NCP and Engram compatibility</summary>

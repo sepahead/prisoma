@@ -27,6 +27,11 @@ Install the optional packages together in a separate Python 3.11-or-newer POSIX 
 python -m pip install ./integrations/ncp-transcript './integrations/agent-bridge[crebain]'
 ```
 
+The installation includes CREBAIN's Python sensor client and installed body launcher.
+The producer, Bun, and optional graphics resources require the separate [runtime installation](https://github.com/sepahead/crebain/tree/main/integrations/ncp-force-ground-sensors/python#install-and-run-a-body-session).
+Use that launcher for standalone sensor sessions and optional exchange capture.
+
+`SensorExperiment` below retains the host-owned stream interface.
 The host supplies trusted streams, an admitted CREBAIN binding and preparation, an initial target, and an absolute monotonic deadline.
 It owns producer startup and verified process retirement.
 The following code owns only the sensor session and its two new sibling evidence files:
@@ -56,7 +61,7 @@ Each source keeps its own identity, cadence, acquisition time, and availability 
 The adapter adds no compulsory modality, neural peer, monitor, model, or PID estimator.
 CREBAIN remains usable without Prisoma.
 
-The optional dependency pins CREBAIN to `c461c91cf85e1fb07218a4b10d57d8c98b8c74b9`.
+The optional dependency pins CREBAIN to `a5037a23a8e55d39ca0f09da2c25853c5209467b`.
 Both sensor and transcript packages select NCP `c0465d40f1f2b9df2caf9793183d11e65ac9ec74`.
 The current installation command requires both local Prisoma package paths.
 This source milestone makes no published-PyPI-wheel promise.

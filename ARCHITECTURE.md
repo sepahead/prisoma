@@ -92,6 +92,10 @@ An evidence, clock, or response-commit failure poisons the bridge because an ext
 
 The optional [Python application bridge](integrations/agent-bridge/README.md) supplies private-file admission and synchronized canonical recording.
 Its CREBAIN adapter reconstructs each recorded command against the original NCP exchanges and sensor bytes.
+`SensorExperiment` accepts host-owned streams. The host supplies producer startup, deadlines, and verified retirement.
+CREBAIN's separate installed body launcher supports standalone sensor sessions and optional exchange capture.
+Choosing that launcher does not select Prisoma's canonical command adapter.
+The [recorded execution guide](integrations/agent-bridge/GUIDE.md) defines the sensor clocks, units, payload bounds, and command arithmetic.
 The core, local simulator, and affine reference remain independent of that adapter.
 
 ### 3.3 Execution layer: `pid-sim`
