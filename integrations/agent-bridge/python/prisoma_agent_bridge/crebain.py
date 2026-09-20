@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import deque
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 import hashlib
 from io import BytesIO
@@ -12,7 +13,14 @@ import threading
 import time
 from typing import BinaryIO, Callable
 
-from crebain_ncp_sensors import SensorContract, SensorSession, codec as c, types as t
+from crebain_ncp_sensors import (
+    SensorContract,
+    SensorSession,
+    body_session,
+    new_binding,
+    codec as c,
+    types as t,
+)
 from ncp_local import modular_wire as w
 from ncp_local.modular_buffer import BufferBinding, CHUNK_BYTES
 from prisoma_ncp_transcript import (
@@ -45,6 +53,13 @@ class ExperimentError(ValueError):
 def _require(condition: bool, message: str) -> None:
     if not condition:
         raise ExperimentError(message)
+
+
+def _contains_error(container: BaseException, target: BaseException) -> bool:
+    return container is target or (
+        isinstance(container, BaseExceptionGroup)
+        and any(_contains_error(error, target) for error in container.exceptions)
+    )
 
 
 def _json(value: object) -> str:
@@ -178,6 +193,40 @@ class SensorExperiment:
         deadline: float,
         actor_id: str = "prisoma.sensor_host",
     ) -> None:
+        self._initialize(
+            log_path,
+            capture_path,
+            binding,
+            prepare,
+            actor_id=actor_id,
+            session_factory=lambda: SensorSession(
+                reader,
+                writer,
+                binding,
+                prepare,
+                deadline=deadline,
+                exchange=self._exchange,
+            ),
+        )
+
+    def _initialize(
+        self,
+        log_path,
+        capture_path,
+        binding,
+        prepare,
+        *,
+        actor_id,
+        session_factory=None,
+    ) -> None:
+        self._owner = threading.get_ident()
+        self._retired = False
+        self._prepared = False
+        self._resources_closed = False
+        self._failure = None
+        self._completed_run = None
+        self._session = self._journal = self._bridge = None
+        self._open_owner = None
         log, capture = Path(log_path).absolute(), Path(capture_path).absolute()
         _require(
             log.parent.resolve(strict=True) == capture.parent.resolve(strict=True),
@@ -188,16 +237,9 @@ class SensorExperiment:
             "distinct bounded capture name required",
         )
         budget = capture_budget(binding, prepare)
-        self._owner = threading.get_ident()
-        self._retired = False
-        self._prepared = False
         self._binding, self._plan, self._budget = binding, prepare, budget
         self._primary = None
-        self._journal = self._bridge = None
         self._capture_name = capture.name
-        self._session = SensorSession(
-            reader, writer, binding, prepare, deadline=deadline, exchange=self._exchange
-        )
         config = {
             "schema": "prisoma.application_bridge.v1",
             "run_id": binding.run_id,
@@ -213,6 +255,8 @@ class SensorExperiment:
             },
         }
         try:
+            if session_factory is not None:
+                self._session = session_factory()
             self._journal = Journal(
                 capture,
                 (Peer(binding, SensorContract),),
@@ -220,9 +264,23 @@ class SensorExperiment:
                 quota_bytes=budget.quota_bytes,
             )
             self._bridge = Bridge(log, _json(config))
-        except BaseException:
-            self.close()
-            raise
+        except BaseException as error:
+            self._close(error)
+
+    @property
+    def process_exit(self) -> dict | None:
+        """Owned-body retirement observation, available after context exit."""
+        return getattr(self._session, "process_exit", None)
+
+    @property
+    def diagnostics(self) -> bytes:
+        """Bounded owned-producer output retained after context exit."""
+        return getattr(self._session, "diagnostics", b"")
+
+    @property
+    def diagnostics_truncated(self) -> bool:
+        """Whether the owned producer exceeded retained diagnostic capacity."""
+        return getattr(self._session, "diagnostics_truncated", False)
 
     def _active(self) -> None:
         _require(
@@ -263,9 +321,8 @@ class SensorExperiment:
 
         try:
             self._bridge.dispatch(method, _json(payload), callback)
-        except BaseException:
-            self.close()
-            raise
+        except BaseException as error:
+            self._close(error)
         return observed
 
     def prepare(self) -> t.Prepared:
@@ -278,6 +335,10 @@ class SensorExperiment:
                 _same(c.raw(decoded), c.raw(self._plan)),
                 "recorded preparation mismatch",
             )
+            if self._open_owner is not None:
+                # Owner entry prepares through this command's captured exchange.
+                self._session = self._open_owner()
+                return self._session.prepare_response.body.data
             return self._session.prepare()
 
         result = self._call(METHODS[0], c.raw(self._plan), invoke)
@@ -318,37 +379,108 @@ class SensorExperiment:
             )
             return self._session.finish()
 
-        session = self._call(
-            METHODS[2], {"completed_ticks": self._session.validated_ticks}, invoke
-        )
         try:
+            session = self._call(
+                METHODS[2], {"completed_ticks": self._session.validated_ticks}, invoke
+            )
             capture = self._journal.finish()
             _require(
                 capture.exchange_pairs == self._budget.max_exchanges,
                 "complete exchange roster mismatch",
             )
             run_log = json.loads(self._bridge.finish(self._capture_name))
-            return SensorRun(session, capture, run_log)
-        finally:
-            self.close()
+            self._completed_run = SensorRun(session, capture, run_log)
+        except BaseException as error:
+            self._close(error)
+        self.close()
+        return self._completed_run
 
     def close(self) -> None:
+        self._close()
+
+    def _close(self, primary: BaseException | None = None) -> None:
         _require(
             threading.get_ident() == self._owner, "experiment belongs to another thread"
         )
         self._retired = True
-        self._session.close()
-        if self._journal is not None:
-            self._journal.close()
-        if self._bridge is not None:
-            self._bridge.close()
+        failures = [] if primary is None else [primary]
+        if primary is not None and self._failure is not None:
+            if _contains_error(self._failure, primary):
+                failures = [self._failure]
+            elif not _contains_error(primary, self._failure):
+                failures.insert(0, self._failure)
+        if not self._resources_closed:
+            self._resources_closed = True
+            for resource in (self._session, self._journal, self._bridge):
+                if resource is not None:
+                    try:
+                        resource.close()
+                    except BaseException as error:
+                        failures.append(error)
+        if failures:
+            self._failure = (
+                failures[0]
+                if len(failures) == 1
+                else BaseExceptionGroup(
+                    "sensor experiment and cleanup failed", failures
+                )
+            )
+            raise self._failure
 
     def __enter__(self) -> SensorExperiment:
         self.prepare()
         return self
 
     def __exit__(self, error_type, error, traceback) -> None:
-        self.close()
+        self._close(error)
+
+
+@contextmanager
+def owned_sensor_experiment(
+    runtime,
+    prepare: t.Prepare,
+    log_path: str | Path,
+    capture_path: str | Path,
+    *,
+    timeout_s: int = 180,
+    binding: BufferBinding | None = None,
+    actor_id: str = "prisoma.sensor_host",
+):
+    """Own an installed body while recording every command through Agent Bridge.
+
+    Call ``finish()`` explicitly after all planned ticks. Any unfinished or
+    failed exit aborts the owner without an unrecorded automatic Finish.
+    Process retirement and diagnostics become available after context exit.
+    """
+    binding = new_binding() if binding is None else binding
+    with ExitStack() as owner:
+        experiment = SensorExperiment.__new__(SensorExperiment)
+        experiment._initialize(
+            log_path, capture_path, binding, prepare, actor_id=actor_id
+        )
+        experiment._open_owner = lambda: owner.enter_context(
+            body_session(
+                runtime,
+                prepare,
+                timeout_s=timeout_s,
+                binding=binding,
+                exchange=experiment._exchange,
+            )
+        )
+        primary = None
+        try:
+            experiment.prepare()
+            yield experiment
+            if experiment._failure is not None:
+                raise experiment._failure
+            _require(
+                experiment._completed_run is not None,
+                "finish the complete canonical experiment before leaving its context",
+            )
+        except BaseException as error:
+            primary = error
+        # Raising through ExitStack keeps owner exit exceptional on every abort.
+        experiment._close(primary)
 
 
 def _position(value: dict) -> Position:
