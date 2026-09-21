@@ -55,11 +55,39 @@ def _require(condition: bool, message: str) -> None:
         raise ExperimentError(message)
 
 
-def _contains_error(container: BaseException, target: BaseException) -> bool:
-    return container is target or (
-        isinstance(container, BaseExceptionGroup)
-        and any(_contains_error(error, target) for error in container.exceptions)
-    )
+# One exception graph is inspected with an explicit node budget. Recursive descent
+# raises RecursionError on a deeply nested group. That would discard the retained
+# failure identities and skip the resource cleanup in _close below.
+_TRAVERSAL_BUDGET = 4096
+
+
+def _contains_error(
+    container: BaseException, target: BaseException, *, budget: int = _TRAVERSAL_BUDGET
+) -> bool | None:
+    """Search one exception-group tree for an exact exception identity.
+
+    Returns True when target is reachable from container, False when the whole tree
+    was searched without reaching it, and None when the node budget was exhausted.
+    None means unknown, never absent, so a caller must retain both roots.
+
+    An identity referenced by several edges is visited once. A shared cause or a
+    malformed cycle therefore cannot extend the search.
+    """
+    pending = [container]
+    seen = {id(container)}
+    while pending:
+        if budget <= 0:
+            return None
+        budget -= 1
+        current = pending.pop()
+        if current is target:
+            return True
+        if isinstance(current, BaseExceptionGroup):
+            for error in current.exceptions:
+                if id(error) not in seen:
+                    seen.add(id(error))
+                    pending.append(error)
+    return False
 
 
 def _json(value: object) -> str:
@@ -405,9 +433,14 @@ class SensorExperiment:
         self._retired = True
         failures = [] if primary is None else [primary]
         if primary is not None and self._failure is not None:
-            if _contains_error(self._failure, primary):
+            # This merge must stay non-raising: the resource cleanup below would be
+            # skipped, which is how a deep retained group previously leaked the
+            # session, journal, and bridge.
+            # Drop a root only when it is proved reachable from the other root. An
+            # exhausted or inconclusive search retains both rather than losing one.
+            if _contains_error(self._failure, primary) is True:
                 failures = [self._failure]
-            elif not _contains_error(primary, self._failure):
+            elif _contains_error(primary, self._failure) is not True:
                 failures.insert(0, self._failure)
         if not self._resources_closed:
             self._resources_closed = True

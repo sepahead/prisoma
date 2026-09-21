@@ -5,6 +5,7 @@ from dataclasses import replace
 import json
 from pathlib import Path
 import tempfile
+import threading
 import time
 import unittest
 from unittest.mock import patch
@@ -18,9 +19,84 @@ from test_crebain import channel, selected_plan
 
 
 def leaves(error):
-    if isinstance(error, BaseExceptionGroup):
-        return [leaf for child in error.exceptions for leaf in leaves(child)]
-    return [error]
+    """Collect leaf identities in order, iteratively.
+
+    A deeply nested group must not exhaust the stack in a helper used by the
+    controls that exist to prove deep groups are handled.
+    """
+    found, pending, seen = [], [error], {id(error)}
+    while pending:
+        current = pending.pop()
+        if isinstance(current, BaseExceptionGroup):
+            for child in reversed(current.exceptions):
+                if id(child) not in seen:
+                    seen.add(id(child))
+                    pending.append(child)
+        else:
+            found.append(current)
+    return found
+
+
+def nested_group(leaf, depth):
+    error = leaf
+    for _ in range(depth):
+        error = BaseExceptionGroup("retained nesting", [error])
+    return error
+
+
+class BoundedFailureMerge(unittest.TestCase):
+    """A deeply nested retained failure must not discard failures or skip cleanup."""
+
+    def experiment(self, retained):
+        closed = []
+
+        class Resource:
+            def close(self):
+                closed.append(self)
+
+        experiment = bridge.SensorExperiment.__new__(bridge.SensorExperiment)
+        experiment._owner = threading.get_ident()
+        experiment._retired = False
+        experiment._resources_closed = False
+        experiment._failure = retained
+        experiment._session = Resource()
+        experiment._journal = Resource()
+        experiment._bridge = Resource()
+        return experiment, closed
+
+    def test_deep_retained_failure_keeps_both_roots_and_still_closes(self):
+        # Within budget, then beyond it: an exhausted search must also retain both.
+        for depth in (2000, bridge._TRAVERSAL_BUDGET + 500):
+            with self.subTest(depth=depth):
+                leaf = RuntimeError("retained leaf")
+                later = RuntimeError("later failure")
+                experiment, closed = self.experiment(nested_group(leaf, depth))
+                with self.assertRaises(BaseException) as stopped:
+                    experiment._close(later)
+                # Cleanup must not be skipped by the containment search.
+                self.assertEqual(len(closed), 3)
+                found = leaves(stopped.exception)
+                self.assertIn(leaf, found)
+                self.assertIn(later, found)
+
+    def test_shallow_reachable_root_is_still_collapsed_once(self):
+        later = RuntimeError("later failure")
+        retained = BaseExceptionGroup("retained", [later])
+        experiment, closed = self.experiment(retained)
+        with self.assertRaises(BaseException) as stopped:
+            experiment._close(later)
+        self.assertIs(stopped.exception, retained)
+        self.assertEqual(leaves(stopped.exception), [later])
+        self.assertEqual(len(closed), 3)
+
+    def test_shared_identity_across_edges_is_visited_once(self):
+        leaf = RuntimeError("shared leaf")
+        shared = BaseExceptionGroup("shared", [leaf])
+        retained = BaseExceptionGroup("retained", [shared, shared])
+        self.assertIs(bridge._contains_error(retained, leaf), True)
+        self.assertIs(bridge._contains_error(retained, RuntimeError("absent")), False)
+        # A budget smaller than the graph reports unknown, never absent.
+        self.assertIsNone(bridge._contains_error(retained, leaf, budget=1))
 
 
 class CountingSensors(SyntheticSensors):
