@@ -31,6 +31,10 @@ python-bindings:
 python-test: python-bindings
     uv run --no-sync pytest tests/python -q
 
+# Pure numerical controls only; no native E1 campaign or C1 qualification.
+e1-reference-check:
+    uv run --no-sync pytest tests/python/test_e1_reference.py -q
+
 # Required local gate. Feature-specific, NCP, supply-chain, and formal checks remain
 # additive because they depend on the files changed and on optional local tools.
 check:

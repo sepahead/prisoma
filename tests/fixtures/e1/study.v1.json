@@ -1,0 +1,278 @@
+{
+  "action_unit": "rad",
+  "actions": [
+    {
+      "altitude_m": 8.0,
+      "apply_tick": 13,
+      "armed": true,
+      "heading_rad": 0.0,
+      "hold_through_tick": 36,
+      "id": "neutral",
+      "kind": "force_attitude_height",
+      "pitch_rad": 0.0,
+      "roll_rad": 0.0
+    },
+    {
+      "altitude_m": 8.0,
+      "apply_tick": 13,
+      "armed": true,
+      "heading_rad": 0.0,
+      "hold_through_tick": 36,
+      "id": "positive_pitch",
+      "kind": "force_attitude_height",
+      "pitch_rad": 0.03,
+      "roll_rad": 0.0
+    },
+    {
+      "altitude_m": 8.0,
+      "apply_tick": 13,
+      "armed": true,
+      "heading_rad": 0.0,
+      "hold_through_tick": 36,
+      "id": "negative_pitch",
+      "kind": "force_attitude_height",
+      "pitch_rad": -0.03,
+      "roll_rad": 0.0
+    },
+    {
+      "altitude_m": 8.0,
+      "apply_tick": 13,
+      "armed": true,
+      "heading_rad": 0.0,
+      "hold_through_tick": 36,
+      "id": "positive_roll",
+      "kind": "force_attitude_height",
+      "pitch_rad": 0.0,
+      "roll_rad": 0.03
+    },
+    {
+      "altitude_m": 8.0,
+      "apply_tick": 13,
+      "armed": true,
+      "heading_rad": 0.0,
+      "hold_through_tick": 36,
+      "id": "negative_roll",
+      "kind": "force_attitude_height",
+      "pitch_rad": 0.0,
+      "roll_rad": -0.03
+    }
+  ],
+  "authority": {
+    "canonical_order_verified_here": false,
+    "loaded_bytes_attested": false,
+    "native_label_ancestry_verified_here": false,
+    "release_qualified": false
+  },
+  "clock_hz": 120,
+  "evaluation": {
+    "benefit_requires": "both_baseline_interval_lower_endpoints_exceed_same_positive_margin",
+    "bootstrap": {
+      "bit_generator": "PCG64",
+      "episode_count": 32,
+      "indices_le_u32_sha256": "2f2e3aa4f7869010334213e1ac4bd7b0e25d2b7892ef3c80cff6208fccb1d203",
+      "method": "linear",
+      "quantiles": [
+        0.025,
+        0.975
+      ],
+      "resamples": 10000,
+      "seed": 104729,
+      "unit": "episode"
+    },
+    "direction": "baseline_minus_reference",
+    "metric": "episode_mean_absolute_error_pa_across_five_actions",
+    "missing_or_failed_episode": "retain_failure_and_reject_complete_report",
+    "no_action_variation": "all_five_targets_equal_within_every_heldout_episode",
+    "useful_margin": "0.05_times_training_mean_target_pa"
+  },
+  "experiment_id": "NCP-E1-ACTION-CONDITIONED-PRESSURE-FORECAST",
+  "feature_order": [
+    "A_R",
+    "A_G",
+    "A_B",
+    "B_R",
+    "B_G",
+    "B_B",
+    "pressure_mean_pa",
+    "pressure_rms_pa",
+    "roll_rad",
+    "pitch_rad",
+    "A_R*roll_rad",
+    "A_R*pitch_rad",
+    "A_G*roll_rad",
+    "A_G*pitch_rad",
+    "A_B*roll_rad",
+    "A_B*pitch_rad",
+    "B_R*roll_rad",
+    "B_R*pitch_rad",
+    "B_G*roll_rad",
+    "B_G*pitch_rad",
+    "B_B*roll_rad",
+    "B_B*pitch_rad",
+    "pressure_mean_pa*roll_rad",
+    "pressure_mean_pa*pitch_rad",
+    "pressure_rms_pa*roll_rad",
+    "pressure_rms_pa*pitch_rad"
+  ],
+  "feature_units": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "Pa",
+    "Pa",
+    "rad",
+    "rad",
+    "rad",
+    "rad",
+    "rad",
+    "rad",
+    "rad",
+    "rad",
+    "rad",
+    "rad",
+    "rad",
+    "rad",
+    "rad",
+    "rad",
+    "Pa rad",
+    "Pa rad",
+    "Pa rad",
+    "Pa rad"
+  ],
+  "forecast": {
+    "negative_clip": 0.0,
+    "selection": "smallest_value_then_declared_action_order"
+  },
+  "intercept_separate": true,
+  "landmark_tick": 12,
+  "observation_units": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "Pa",
+    "Pa"
+  ],
+  "pressure": {
+    "availability": "source_tick_equals_available_tick",
+    "dtype": "f64le",
+    "kind": "pressure",
+    "layout": "c_contiguous",
+    "sample_rate_hz": 16000,
+    "target_function_sha256": "2587d58265dfec6decf9d2255a410ca195a337e1bbf1020ccaac4f37ee6c1505",
+    "unit": "pascal"
+  },
+  "rgb": {
+    "channels": "RGBA",
+    "dtype": "u8",
+    "encoding": "rgba8-srgb",
+    "height": 120,
+    "kind": "rgba8",
+    "layout": "c_contiguous",
+    "normalized_by": 255,
+    "row_origin": "bottom-left",
+    "width": 160
+  },
+  "samples_per_window": 400,
+  "scene": {
+    "bodies": 1,
+    "camera_fov_degrees": 60,
+    "camera_period_ticks": 3,
+    "camera_positions_m": [
+      [
+        0,
+        9,
+        5
+      ],
+      [
+        5,
+        9,
+        0
+      ]
+    ],
+    "camera_target_m": [
+      0,
+      8,
+      0
+    ],
+    "frame": "Y_up_Z_forward",
+    "microphone_position_m": [
+      0,
+      2,
+      10
+    ],
+    "neutral_through_tick": 12,
+    "solids": 0,
+    "workload_identity": "separate_prospective_native_freeze_required"
+  },
+  "schema": "prisoma.e1-reference-study.v1",
+  "scope": "small_learned_reference_not_advertised_product_model_qualification",
+  "seed_roster_semantic_sha256": "a6e91971ad30edafca859d668a2df87f1d38309a05769849d0d02d2261353462",
+  "solver": {
+    "development_tie": "exact_larger_lambda",
+    "dtype": "float64",
+    "intercept_penalized": false,
+    "lambdas": [
+      1e-06,
+      0.001,
+      1.0,
+      1000.0
+    ],
+    "library": "numpy",
+    "method": "numpy.linalg.lstsq_augmented_ridge",
+    "normal_residual_relative_bound": 1e-10,
+    "objective": "SSE_plus_lambda_squared_coefficient_norm",
+    "python": "3.11",
+    "rcond": 1e-12,
+    "retrain_after_selection": false,
+    "target_scale": "positive_training_maximum_or_one",
+    "version": "2.4.6"
+  },
+  "splits": {
+    "development": 16,
+    "heldout": 32,
+    "qualification": 8,
+    "train": 64
+  },
+  "stage_policy": {
+    "development": {
+      "collection_policy": "neutral",
+      "forecasts": [
+        "all_four_frozen_training_ridges",
+        "constant",
+        "persistence"
+      ]
+    },
+    "heldout": {
+      "collection_policy": "selected_ridge",
+      "forecasts": [
+        "selected_frozen_ridge",
+        "constant",
+        "persistence"
+      ]
+    },
+    "train": {
+      "collection_policy": "neutral",
+      "forecasts": [
+        "persistence"
+      ]
+    }
+  },
+  "target_ticks": [
+    34,
+    35,
+    36
+  ],
+  "transform": {
+    "drop_rule": "exact_numeric_constant",
+    "fit_split": "train",
+    "nonconstant_zero_scale": "reject",
+    "representation": "maximum_absolute_value_then_unit_mean_and_population_scale",
+    "rows": 320
+  }
+}

@@ -1,0 +1,4034 @@
+{
+  "schema": "prisoma.e1.reference-seed-roster.v1",
+  "status": "PROSPECTIVE_DESIGN_NOT_OPERATIONAL_AUTHORITY",
+  "experiment_id": "NCP-E1-ACTION-CONDITIONED-PRESSURE-FORECAST",
+  "selection": {
+    "domain": "prisoma.e1.reference-seed-roster.v1",
+    "hash": "sha256",
+    "encoding": "ASCII domain LF episode_id LF role LF decimal_nonce LF",
+    "seed_word": "first_four_digest_bytes_unsigned_big_endian",
+    "collision_rule": "increment_nonce_until_globally_unused_uint32",
+    "excluded_words": [
+      104729
+    ],
+    "role_order": [
+      "placement",
+      "runtime",
+      "acoustic"
+    ],
+    "split_order_and_counts": [
+      [
+        "qualification",
+        8
+      ],
+      [
+        "train",
+        64
+      ],
+      [
+        "development",
+        16
+      ],
+      [
+        "heldout",
+        32
+      ]
+    ],
+    "outcomes_inspected": false,
+    "seed_replacement_allowed": false
+  },
+  "placement": {
+    "generator": "CREBAIN_uint32_LCG_projection_v1",
+    "multiplier": 1664525,
+    "increment": 1013904223,
+    "modulus": 4294967296,
+    "draws_per_position": 3,
+    "axis_order": [
+      "x",
+      "y",
+      "z"
+    ],
+    "minimum_m": [
+      -0.5,
+      8.0,
+      -0.5
+    ],
+    "maximum_m": [
+      0.5,
+      8.0,
+      0.5
+    ],
+    "fixed_y_draw_consumed": true,
+    "distribution_scope": "finite_pseudorandom_design_not_literal_continuous_independence",
+    "runtime_rng_consumption_claimed": false
+  },
+  "branch_rule": "Restored siblings intentionally reuse the qualified episode checkpoint RNG state; every owner/run/generation remains unique.",
+  "bootstrap": {
+    "bit_generator": "numpy.random.PCG64",
+    "seed": 104729,
+    "resamples": 10000,
+    "episode_count": 32
+  },
+  "episodes": [
+    {
+      "episode_id": "e1-qualification-000",
+      "split": "qualification",
+      "seeds": {
+        "placement": 1865808176,
+        "runtime": 3164656246,
+        "acoustic": 31229919
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "6f35f9309084e27ca3f4415fb5d51934dce3719fd83347a04d3fb8420e5fc281"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "bca0d276363c9eb739eda45c8fd32a447b6adef49dfa9dbbe08e69b67d8b5d7f"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "01dc87dfcd7ede6b53a3cb62e44a42f0f1c74dc9da61b2271423eb7256c4cd14"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3106257615,
+        3925797346,
+        2258821081
+      ],
+      "explicit_position_m": [
+        0.22323195985518396,
+        8.0,
+        0.025922766188159585
+      ]
+    },
+    {
+      "episode_id": "e1-qualification-001",
+      "split": "qualification",
+      "seeds": {
+        "placement": 967291807,
+        "runtime": 1398378441,
+        "acoustic": 649862511
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "39a7b39fb815f0d69d55029d1acb8745a0e4488cad01c4d04944bfe252aba4ac"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "53598fc9a8238277e973fe9f122c52d6606818758fe55554dc0adfc541c1dcae"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "26bc1d6f0332f9df79f5f514f27657aea15e0f814717094b0de168e6891ba4f9"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2248895602,
+        794485033,
+        3603150964
+      ],
+      "explicit_position_m": [
+        0.02361181052401662,
+        8.0,
+        0.33892395813018084
+      ]
+    },
+    {
+      "episode_id": "e1-qualification-002",
+      "split": "qualification",
+      "seeds": {
+        "placement": 1865201616,
+        "runtime": 3231802168,
+        "acoustic": 4017443424
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "6f2cb7d04d7a2f9ce03d0903592540446d004f975860da8781859ab72bf058b7"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "c0a163385a1bec3a651a64d76e1a89b97906b56e36328640c4fbd461252a9255"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "ef75526081eca78c90166f3d436323b5c6c98052dcc2f58185f9a978b34521d7"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2789288175,
+        2741256578,
+        3763475193
+      ],
+      "explicit_position_m": [
+        0.14943176112137735,
+        8.0,
+        0.3762523515615612
+      ]
+    },
+    {
+      "episode_id": "e1-qualification-003",
+      "split": "qualification",
+      "seeds": {
+        "placement": 1245265924,
+        "runtime": 2663042846,
+        "acoustic": 133534233
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "4a3940046b8c4ad3ae7ed2bb6da8bba75e8a59d7ee61208b7bc495374f696037"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "9ebacf1ee9b65cd20812e369c7f998496f7971501a2ef3578c510ed52774f285"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "07f592191bc9cff3a54c95553d5d826ad25775e5b5614740a786dada57c3870a"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        289196947,
+        922541014,
+        1052991805
+      ],
+      "explicit_position_m": [
+        -0.432666088687256,
+        8.0,
+        -0.2548312402796
+      ]
+    },
+    {
+      "episode_id": "e1-qualification-004",
+      "split": "qualification",
+      "seeds": {
+        "placement": 717748261,
+        "runtime": 118859394,
+        "acoustic": 2173036121
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "2ac7f825c2b3738295a91f0fb631e81af659e13364f938c542fce7b3f800bf44"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "0715a68265620762eccfc8a93ec513dbcec7c45c079f152cf154e4aff2ebaadc"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "8185e659b53ced7f29e889587a5cb925e805ff39c97341c4134f78bd924ddc96"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1360153408,
+        4254614943,
+        2507069042
+      ],
+      "explicit_position_m": [
+        -0.18331460654735565,
+        8.0,
+        0.08372249873355031
+      ]
+    },
+    {
+      "episode_id": "e1-qualification-005",
+      "split": "qualification",
+      "seeds": {
+        "placement": 2601281100,
+        "runtime": 3383617534,
+        "acoustic": 3491184874
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "9b0c664c93886a13e5c90888a2933961659c293bbee88d81df4feb9b531d0fdf"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "c9ade7fe824aea7520717536d9111786891c3eabdf44f1f53440f4d7541ff914"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "d01740ea9af0dc62af446836256fa5815ae0020cba3bdc3be7613f2edd72f510"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        171863355,
+        1273168222,
+        2880403749
+      ],
+      "explicit_position_m": [
+        -0.4599849444348365,
+        8.0,
+        0.17064625886268914
+      ]
+    },
+    {
+      "episode_id": "e1-qualification-006",
+      "split": "qualification",
+      "seeds": {
+        "placement": 3868142334,
+        "runtime": 230033428,
+        "acoustic": 498714466
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "e68f2afed7bd70b53416657b89c0405f62a072cdd8180564b90edc65cb2d1ebf"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "0db6081497aa070fdbaaaf1e24675913614095396b5b62fb0699ef492b787193"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "1db9c76273f57b38feb89754736afd3f415b801ccf75409fff27f544a5f6e76f"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        799233605,
+        685167328,
+        2134698175
+      ],
+      "explicit_position_m": [
+        -0.3139139253180474,
+        8.0,
+        -0.0029768499080091715
+      ]
+    },
+    {
+      "episode_id": "e1-qualification-007",
+      "split": "qualification",
+      "seeds": {
+        "placement": 3040081052,
+        "runtime": 4061965767,
+        "acoustic": 2813874344
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "b533f49c07cf06048396bfeb8a5b0b73152335fc870ceb2975e0f209328e8053"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "f21cadc7e49cd44097fc6239892048c77fdb524ede9faead26cf76451db72413"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "a7b850a8c56a340e8f879b7ca7fbb09ce984e68c2f39b65ca8b7a13eb30bc8b3"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        113542987,
+        413447214,
+        3038014901
+      ],
+      "explicit_position_m": [
+        -0.47356371325440705,
+        8.0,
+        0.20734296482987702
+      ]
+    },
+    {
+      "episode_id": "e1-train-000",
+      "split": "train",
+      "seeds": {
+        "placement": 3569349825,
+        "runtime": 4191278659,
+        "acoustic": 2286271213
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "d4bff4c191f6ee98d4772f3d970952d845ee6ee8b6640b5e21926237db383954"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "f9d1d643841dba312abc0e70a7ddbcc0a99b696f5781531bc297a278529abf12"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "8845baedc9b2d8f8aa42e4087e8d128d1f5514e86eff81b2cd3b2eb05f6b3b86"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1821132588,
+        2536904859,
+        3743348030
+      ],
+      "explicit_position_m": [
+        -0.07598452735692263,
+        8.0,
+        0.3715661312453449
+      ]
+    },
+    {
+      "episode_id": "e1-train-001",
+      "split": "train",
+      "seeds": {
+        "placement": 4230135044,
+        "runtime": 3126871703,
+        "acoustic": 3307242214
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "fc22bd040cd4f8afa3140a6a21870657a14f498b1df105e57404ac19b5303e54"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "ba60469761dd3cee9441dd0353f60b395969d1786e1bbd5b491d742c6ed2bb7a"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "c52082e6f003c21e9d0f98aa0388f7d942b32e0503488c4f06ad5bb4ce98a277"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1457923219,
+        3943456982,
+        2408260157
+      ],
+      "explicit_position_m": [
+        -0.16055079852230847,
+        8.0,
+        0.060716762440279126
+      ]
+    },
+    {
+      "episode_id": "e1-train-002",
+      "split": "train",
+      "seeds": {
+        "placement": 4218054302,
+        "runtime": 2151227166,
+        "acoustic": 3962419127
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "fb6a669e5fbe4a16afd8c26dd15ba4c2271b5cbba2823c1b0d78fecb406cde35"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "80391f1ee258771cbb6b8a61fa4667b2d47ac82ba443f445ac065aea748131e9"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "ec2db7b79a36ee4257d7dd0a5b046e6a53c00341c367776a6418206bf087ad9b"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1797725541,
+        570339200,
+        2479545567
+      ],
+      "explicit_position_m": [
+        -0.081434405175969,
+        8.0,
+        0.07731419033370912
+      ]
+    },
+    {
+      "episode_id": "e1-train-003",
+      "split": "train",
+      "seeds": {
+        "placement": 2218698125,
+        "runtime": 1485504576,
+        "acoustic": 387878585
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "843ea58d8fad63962149389c671df3e0c27e5a0099898da08b38ca9108ce5a5e"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "588b0040696e22be1e5ae313d017e904436dbdbf2d5c5cf7f03c6ea794741289"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "171e8eb9c21393c83dadd908319b0b14130a8e17ce5024b18dcfb69bf122f058"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        341346696,
+        4194443079,
+        3572487162
+      ],
+      "explicit_position_m": [
+        -0.42052402906119823,
+        8.0,
+        0.331784485373646
+      ]
+    },
+    {
+      "episode_id": "e1-train-004",
+      "split": "train",
+      "seeds": {
+        "placement": 3392479482,
+        "runtime": 277192278,
+        "acoustic": 2017516374
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "ca3520fa0c7479fb1d8da3e66cee32d35126114043ed6aed3428d95dc1965858"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "10859e565a12f6e3fa41206b375736ea23b676c0ceda3504675d57618d15a504"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "7840db5680caae5546486d2f48bfb474e8f53179efdf272056d64092cb988995"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3836689425,
+        2297218620,
+        3813469291
+      ],
+      "explicit_position_m": [
+        0.39329886832274497,
+        8.0,
+        0.38789250957779586
+      ]
+    },
+    {
+      "episode_id": "e1-train-005",
+      "split": "train",
+      "seeds": {
+        "placement": 1466093690,
+        "runtime": 2918641697,
+        "acoustic": 965110729
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "5762d07a5bf62d1fd5ab5d308f79b37c8e740740082d25fbe58d22878d347c19"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "adf6f0215e1ff2064b922d33d1fcd12afe6a5fb444b01cdf4f9aa0deaf0c76cb"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "39866bc925737a07479fe5121ef991824d1d59f2481c1c4ed0a76c0eb08a43df"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1735271825,
+        187146684,
+        1665077739
+      ],
+      "explicit_position_m": [
+        -0.09597554407082498,
+        8.0,
+        -0.11231887829490006
+      ]
+    },
+    {
+      "episode_id": "e1-train-006",
+      "split": "train",
+      "seeds": {
+        "placement": 3248567859,
+        "runtime": 3178928411,
+        "acoustic": 816062637
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "c1a13633c656c51ce80e4f5057621fdf7bfb6bced6d7b67ccaaeee6d732b49b1"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "bd7a991b67db20e5dcecfdf79b37363e34ef88b3bbbe18128b6803dc4ae19de3"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "30a420ada80c4a50e74b5aa66441a3f4fc0db60727b5921a03ad92abe68846db"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2553415158,
+        2053063901,
+        575307928
+      ],
+      "explicit_position_m": [
+        0.09451329475268722,
+        8.0,
+        -0.3660506848245859
+      ]
+    },
+    {
+      "episode_id": "e1-train-007",
+      "split": "train",
+      "seeds": {
+        "placement": 1820387202,
+        "runtime": 1868695271,
+        "acoustic": 1519299484
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "6c80e7820bb4c0bc081ce193885b30519ede87aacf434c72607fcd52c704d7a1"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "6f6206e707ab37dbac025362d0cc6791a69370348608a2805258e2f83f3390ec"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "5a8eab9c021a507cb2bcbb29b9300d2bc47ace5c1ec3203f0fc993435f2cf49e"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3068821753,
+        2383132164,
+        3824208275
+      ],
+      "explicit_position_m": [
+        0.21451574400998652,
+        8.0,
+        0.39039287413470447
+      ]
+    },
+    {
+      "episode_id": "e1-train-008",
+      "split": "train",
+      "seeds": {
+        "placement": 1254942387,
+        "runtime": 4284558862,
+        "acoustic": 3331184984
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "4acce6b3cef633a1a51ce0a78877b456ba669bfca0752da5dc1a82ada5a59f4c"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "ff612e0e698820172aab0365cefe0483ba1b0fc4993441f3aea7d2ccb0b40379"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "c68dd9588892f517492fac6111bc7402c93608ea39d68dbef392fb55f8c81934"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        876412022,
+        3617900893,
+        2182953752
+      ],
+      "explicit_position_m": [
+        -0.29594442481175065,
+        8.0,
+        0.008258527144789696
+      ]
+    },
+    {
+      "episode_id": "e1-train-009",
+      "split": "train",
+      "seeds": {
+        "placement": 3571987223,
+        "runtime": 4290812649,
+        "acoustic": 2811093312
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "d4e83317e3d05f2176e56cdd7c03a6fa5fb303339a968c38f7fc540b5d7af840"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "ffc09ae99121b8571456c27ee6b876e3664c731ba121253d5ffeb4f05e056222"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "a78de14027e2e872e0beb132eef9dd32af5f3acac3f00061f6350f57ebf6ce73"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2379462026,
+        2231248737,
+        427858252
+      ],
+      "explicit_position_m": [
+        0.05401167506352067,
+        8.0,
+        -0.40038148779422045
+      ]
+    },
+    {
+      "episode_id": "e1-train-010",
+      "split": "train",
+      "seeds": {
+        "placement": 468216460,
+        "runtime": 2617799383,
+        "acoustic": 1039053396
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "1be86a8cfa8a8821025cbd5df2c0b7d6a92b4a1a395340b8c853ba628fa79b24"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "9c0872d7735bf2503f269ff205cf8c1848fde1ea636ef3ed28ede9e6884dd642"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "3deeb25463646d7ea908975fcbdd0ee924c67e83e8b10c76255be9ae4281e34e"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2841388155,
+        480825246,
+        975729253
+      ],
+      "explicit_position_m": [
+        0.16156223299913108,
+        8.0,
+        -0.2728203299921006
+      ]
+    },
+    {
+      "episode_id": "e1-train-011",
+      "split": "train",
+      "seeds": {
+        "placement": 2455563728,
+        "runtime": 122416341,
+        "acoustic": 2149544850
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "925cedd064de756674b5dc2cadb757a3169d57060894007dca37504de31993af"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "074becd5c48494afaf75195df3fd250565dc557bc607679c50dd405291491884"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "801f739285f687072ba085aac10d03657882160045464c50b7a33047125f57fe"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3946309359,
+        27256706,
+        2742911225
+      ],
+      "explicit_position_m": [
+        0.4188217481132597,
+        8.0,
+        0.13863378600217402
+      ]
+    },
+    {
+      "episode_id": "e1-train-012",
+      "split": "train",
+      "seeds": {
+        "placement": 3356394834,
+        "runtime": 2688139731,
+        "acoustic": 1022107294
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "c80e8552bac63b1224fa6bf681f10e45cd7c229ec8675cf91f42a60f51ef6db4"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "a039c1d3950aff220e176ae53db4f2ccbd08ae8261f8d03da37300c46f546144"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "3cec1e9ed5aeabce24dfd469bb77809e9618c84b44774a1494b741ac58662878"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        860644489,
+        415212628,
+        3856122787
+      ],
+      "explicit_position_m": [
+        -0.2996155896689743,
+        8.0,
+        0.3978235505055636
+      ]
+    },
+    {
+      "episode_id": "e1-train-013",
+      "split": "train",
+      "seeds": {
+        "placement": 1431147565,
+        "runtime": 1073239585,
+        "acoustic": 1430547555
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "554d942d34748855735f20d0b39262ec7d9b7cdd6141d7a463943e16de121247"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "3ff85621910c8a390edeca48ababf071b113fc4846ba9401f5f183cebb773370"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "55446c6330391e0cd3a172bea5a1201c3cf7a4170eb4434ad1c94f72f852cb05"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        4073613224,
+        3986630375,
+        2207446810
+      ],
+      "explicit_position_m": [
+        0.448461988940835,
+        8.0,
+        0.013961261603981256
+      ]
+    },
+    {
+      "episode_id": "e1-train-014",
+      "split": "train",
+      "seeds": {
+        "placement": 191139844,
+        "runtime": 2584586321,
+        "acoustic": 1435350392
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "0b649004a4921fb8cd736d6d0e6a3d525dffd51805fa518a6e20aa1cee3a632b"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "9a0da851ab6c7336f5bb08a08124e34fe9ea723856e85c696ecee7be66254e2f"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "558db57895e3c6ea8488427e2bc9c606a54868e44328eb1caf012b32ea84adbd"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        4065319827,
+        3444878294,
+        773386557
+      ],
+      "explicit_position_m": [
+        0.4465310319792479,
+        8.0,
+        -0.31993191014043987
+      ]
+    },
+    {
+      "episode_id": "e1-train-015",
+      "split": "train",
+      "seeds": {
+        "placement": 319099585,
+        "runtime": 1373526380,
+        "acoustic": 207273590
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "130512c189a47082b0f36ee312825843737f06c635e0eabd4e7d8a326a038424"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "51de596cfa4b1e69c974d420c4a4387fbd458c8e8b89e088c699119f2ee8a755"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "0c5abe76b2dac03e4a52dfa82abbb24be1eacb5be4d534c6a7af6e51e0b8ce65"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        235064620,
+        429844123,
+        1585802046
+      ],
+      "explicit_position_m": [
+        -0.4452697532251477,
+        8.0,
+        -0.13077668892219663
+      ]
+    },
+    {
+      "episode_id": "e1-train-016",
+      "split": "train",
+      "seeds": {
+        "placement": 3136695207,
+        "runtime": 1055485479,
+        "acoustic": 2293631181
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "baf62ba7861c482306773a8e2f177980081d17710addf436c352adc844fa1918"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "3ee96e27a137a2614be6e99ccdcda46e74293f17546ae0266791a258de1f917b"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "88b608cd9c9e776c577c2bf3854781f743999009afaa50d94be473699e1eed7b"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        329430234,
+        3104505457,
+        3697796380
+      ],
+      "explicit_position_m": [
+        -0.4232985465787351,
+        8.0,
+        0.3609603112563491
+      ]
+    },
+    {
+      "episode_id": "e1-train-017",
+      "split": "train",
+      "seeds": {
+        "placement": 3905674353,
+        "runtime": 2872445605,
+        "acoustic": 4161381092
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "e8cbdc71282bfa0594ff17471e219eca573e22f9ca7d916f7990c92e612595ac"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "ab360aa5247bde72cf7a4e1a3d0f6d0813645c3af74bf02677e8f85b449a93f3"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "f809a2e4ff5606ea39a0a0d9bdd7d390d490ea823e506f664993944d0d0e89f3"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3483839260,
+        2564115403,
+        1648996014
+      ],
+      "explicit_position_m": [
+        0.31114453729242086,
+        8.0,
+        -0.11606319667771459
+      ]
+    },
+    {
+      "episode_id": "e1-train-018",
+      "split": "train",
+      "seeds": {
+        "placement": 3600866008,
+        "runtime": 3711793854,
+        "acoustic": 3924232145
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "d6a0dad8c4d185ceade8a976b2887269ebfa7c6dd5ac04f6ba0dc0712076276a"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "dd3d7abef8ff0be33bfa503dad2beacd8e442f02c7e6535b32d7c0df0b690f9f"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "e9e707d164e5840d23b40ef88f61eb56bd5150eb44871003d35357fe285aac78"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2565087319,
+        224805322,
+        361809569
+      ],
+      "explicit_position_m": [
+        0.09723093151114881,
+        8.0,
+        -0.41575964516960084
+      ]
+    },
+    {
+      "episode_id": "e1-train-019",
+      "split": "train",
+      "seeds": {
+        "placement": 4061349987,
+        "runtime": 3025637030,
+        "acoustic": 2348506581
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "f2134863cb6691348141ca64f3fe016a0cf560d0067ff3716a382b9152ccba69"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "b4578ea61ae93fbe1b604298f825e93466751edb7d4a37c5e573a392264048ec"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "8bfb5dd5e2ed1616e9f3a614133f8bd46e5d4abad159a8adfd985e9864f9653a"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1206653542,
+        3199633037,
+        3373594248
+      ],
+      "explicit_position_m": [
+        -0.2190540791489184,
+        8.0,
+        0.2854761201888323
+      ]
+    },
+    {
+      "episode_id": "e1-train-020",
+      "split": "train",
+      "seeds": {
+        "placement": 809238796,
+        "runtime": 1430391804,
+        "acoustic": 777744337
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "303c010c3b69220cc79806a08981adb1173ed10b935648ad98d417e53b4e66b4"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "55420bfcd7e15e3277c98e18bba3e9ff234b4c973ea2d942451f1b63aa3db390"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "2e5b6fd193b22fdc88f2edc65fbeddb76bfb966bb0cb69708fb4686613188320"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2987510011,
+        4260178462,
+        3174042341
+      ],
+      "explicit_position_m": [
+        0.19558387878350914,
+        8.0,
+        0.23901432123966515
+      ]
+    },
+    {
+      "episode_id": "e1-train-021",
+      "split": "train",
+      "seeds": {
+        "placement": 3582286240,
+        "runtime": 579072014,
+        "acoustic": 2755669052
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "d58559a0dc8d90763d1cb1e75e21fa0652bc9998203bbfa710a1840a6873de7d"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "2283f00e3830d681b3a21061ef7598137a810aa1a15cb636f288511f4ce1e54f"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "a4402c3c303f3599857098a71d6b97dd99a11bf77e8050bc589884191f407c11"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        4136255615,
+        596497362,
+        1015701769
+      ],
+      "explicit_position_m": [
+        0.46304705715738237,
+        8.0,
+        -0.263513503363356
+      ]
+    },
+    {
+      "episode_id": "e1-train-022",
+      "split": "train",
+      "seeds": {
+        "placement": 3831670967,
+        "runtime": 3919602515,
+        "acoustic": 3458750829
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "e462a8b7a447ee1856ed3b6052a53f85e68e174eb6ba59fc87c855cc3720b0df"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "e9a063539139f8ed96b305c9ed8ba4bd6a616a629479ee4300cb20b9d5bd746d"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "ce28596d39d18ab348c6ec140349b873d9175b5c960e86685e39c082f4bee4ca"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2659806890,
+        3659222529,
+        3472838508
+      ],
+      "explicit_position_m": [
+        0.11928455019369721,
+        8.0,
+        0.30858322512358427
+      ]
+    },
+    {
+      "episode_id": "e1-train-023",
+      "split": "train",
+      "seeds": {
+        "placement": 2689078946,
+        "runtime": 3017422622,
+        "acoustic": 2694116244
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "a04816a24e3ff4822e4336b20736e7e375feb85096c055d66614cfb2a7ccc164"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "b3da371e9e28f9b75008fcb4c48a3b9baacb38448dbc90626738b02b2b13256e"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "a094f3945d8abc7c48a61c891e91f4f809917ea27ee8700839e8b14165f7e912"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1324262809,
+        2155434532,
+        517371699
+      ],
+      "explicit_position_m": [
+        -0.19167103781364858,
+        8.0,
+        -0.3795400143135339
+      ]
+    },
+    {
+      "episode_id": "e1-train-024",
+      "split": "train",
+      "seeds": {
+        "placement": 1459238627,
+        "runtime": 1549616484,
+        "acoustic": 3242182515
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "56fa36e3f3660e4c32b9d2ad2d62a3f40bf586de78489cc6a4dc7280ea633e4d"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "5c5d4564972a790ca8808a375969cf666248fe9f9309462805b8a50c0b63cc3f"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "c13fc773e679d62a1595380b60ba6618bb6256bb53a07a45ffe0a2a736f8f89a"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3039637222,
+        81787149,
+        189712136
+      ],
+      "explicit_position_m": [
+        0.2077206908725202,
+        8.0,
+        -0.45582920126616955
+      ]
+    },
+    {
+      "episode_id": "e1-train-025",
+      "split": "train",
+      "seeds": {
+        "placement": 953793951,
+        "runtime": 1444195867,
+        "acoustic": 3718448433
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "38d9bd9f86831059d526f94ed38059211c6dad9bc2678ed2af5db848777b50fb"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "5614ae1b90697e6e11774937d40f7502da6dc088d7b709479b1666216f04b0b1"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "dda30531a2d435591324741fb5fe2076983dd4650e262db84aad10e30b7e358b"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1704062578,
+        3539696425,
+        759663220
+      ],
+      "explicit_position_m": [
+        -0.10324201313778758,
+        8.0,
+        -0.32312712352722883
+      ]
+    },
+    {
+      "episode_id": "e1-train-026",
+      "split": "train",
+      "seeds": {
+        "placement": 403779982,
+        "runtime": 2065618378,
+        "acoustic": 58747613
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "1811318ec117bdb1f23373722996c62a73cba7d8e6465e811c80a341bdc7cbf4"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "7b1ed5ca1d1807bd0140bce0e23b61ceb6c888881b15e8eda94c8b94c6daf8fb"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "03806add61ada9087755875679eb920e7dcdf9ed0fd0a104e93c556e0c1c1969"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        636160917,
+        4052281328,
+        3007077007
+      ],
+      "explicit_position_m": [
+        -0.35188224422745407,
+        8.0,
+        0.20013967505656183
+      ]
+    },
+    {
+      "episode_id": "e1-train-027",
+      "split": "train",
+      "seeds": {
+        "placement": 568545562,
+        "runtime": 2069451032,
+        "acoustic": 1217022912
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "21e3511aac87a634a5dd00d9d08d2c2f8a53c305f1fafe879e1186fab5262894"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "7b595118ad99c5d7c2cce9dfe0a1d14c0447e31dbed304fb8e98b90fd9e48151"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "488a4bc06e084f461f7d062cd1fc809434d6d236d766954b6c6f6d16d72baf29"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1926524337,
+        1798703964,
+        1387278091
+      ],
+      "explicit_position_m": [
+        -0.051446098601445556,
+        8.0,
+        -0.17699914914555848
+      ]
+    },
+    {
+      "episode_id": "e1-train-028",
+      "split": "train",
+      "seeds": {
+        "placement": 2811618841,
+        "runtime": 1127259252,
+        "acoustic": 3710438008
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "a795e6191c4c838c0d7147810fa1419659f38e5168702388116b4d4f9a092662"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "43309c743eba6ca230ad3d6dfc0aa901e4a4387df8acc0f9393ab6ab6f22acf0"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "dd28ca7802eb1c59661588e46cfc35a634cb9ed54c158f6e917b5a124528ee25"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        4046100644,
+        1550715827,
+        3945389430
+      ],
+      "explicit_position_m": [
+        0.4420562172308564,
+        8.0,
+        0.4186075604520738
+      ]
+    },
+    {
+      "episode_id": "e1-train-029",
+      "split": "train",
+      "seeds": {
+        "placement": 2838652289,
+        "runtime": 632213821,
+        "acoustic": 2249478176
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "a93265818d2a12be5fbd2e17e76bc7cff64d221bd7d38a3fb3074977aed5bd55"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "25aed13dbc7982c4272d2d3ec09eb96718feb88cd6414294f862d7f1285fbddb"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "86145020cc424b4ba01a9d05132f07d74150f6cf67f280b4d40d63cad6845534"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3523772652,
+        3779561307,
+        1692538110
+      ],
+      "explicit_position_m": [
+        0.32044225465506315,
+        8.0,
+        -0.105925262439996
+      ]
+    },
+    {
+      "episode_id": "e1-train-030",
+      "split": "train",
+      "seeds": {
+        "placement": 444411754,
+        "runtime": 3490920057,
+        "acoustic": 114707308
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "1a7d2f6a728e467c027479b10b02db867c6eb21ee65e8d8b8863a0ddd4fe3468"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "d0133679fe46f8a9112d4d9a5c5bcb522d6089ee29aa915334ee868b23091453"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "06d64b6c4585d1cc12d70f2d0a67b1c009939bd86a88b387b3ea05168d2dec9b"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        386439105,
+        2788068908,
+        465417115
+      ],
+      "explicit_position_m": [
+        -0.4100251344498247,
+        8.0,
+        -0.39163663354702294
+      ]
+    },
+    {
+      "episode_id": "e1-train-031",
+      "split": "train",
+      "seeds": {
+        "placement": 4060731635,
+        "runtime": 3983188955,
+        "acoustic": 2584571151
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "f209d8f3b7793cae77c4d927237843b1ccc056aa0bdbc957ef2f2ea63577267c"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "ed6aa3dbec479c9ef28fb7ea36daaa98ce2d1b8f0f6eff9272424a08c9d87335"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "9a0d6d0fe3b112af060ce77f8bd75d2bf1b7db939f04901a5d17c6de736713ad"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2736441782,
+        3824137629,
+        239909464
+      ],
+      "explicit_position_m": [
+        0.137127501424402,
+        8.0,
+        -0.44414172507822514
+      ]
+    },
+    {
+      "episode_id": "e1-train-032",
+      "split": "train",
+      "seeds": {
+        "placement": 1358591777,
+        "runtime": 2419832313,
+        "acoustic": 1621478411
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "50fa7721de6a3916a91308da80ac0c90589547ae6ac90afed74ef2a7de512727"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "903bb5f92074e37a08ced5847d6a54f5ec64321c6f803f33b69f663e91f6a921"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "60a5cc0b260658a49d9c0c8bb32fb0683e6b343508a480d0f62146a0d9dd232e"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3335988748,
+        3316689403,
+        1134860062
+      ],
+      "explicit_position_m": [
+        0.2767204074189067,
+        8.0,
+        -0.2357698013074696
+      ]
+    },
+    {
+      "episode_id": "e1-train-033",
+      "split": "train",
+      "seeds": {
+        "placement": 784069345,
+        "runtime": 389827532,
+        "acoustic": 2208138935
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "2ebbf2e19f6d6e835b2f65325f5c72753db25b0d72b35a3903fb2a696227f131"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "173c4bcca1156496ccec5923790013446711299901149dd90b04740f8cffc41f"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "839d86b7769ebc55734d80362c50b308a1c269675fc77e82cce1cd25a0a2cdf3"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        918089420,
+        82074555,
+        1842814430
+      ],
+      "explicit_position_m": [
+        -0.28624064940959215,
+        8.0,
+        -0.07093633012846112
+      ]
+    },
+    {
+      "episode_id": "e1-train-034",
+      "split": "train",
+      "seeds": {
+        "placement": 1750409961,
+        "runtime": 1093053601,
+        "acoustic": 1101041040
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "685522e91585683e129a05a1f050b6438833c9ab925ec06e33997245fb17738b"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "4126aca1a38768808f3cff5058127fd289428350c25ee45f489a7bf09c585433"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "41a08d90cc37c83707ee9a1f7108ba600847bd672d2497f19286734ad75fb727"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3714813748,
+        1376252163,
+        438854278
+      ],
+      "explicit_position_m": [
+        0.36492247600108385,
+        8.0,
+        -0.39782127598300576
+      ]
+    },
+    {
+      "episode_id": "e1-train-035",
+      "split": "train",
+      "seeds": {
+        "placement": 929452460,
+        "runtime": 75190568,
+        "acoustic": 2664404702
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "376651ac1449e6234e0bb2fdd89c9a4d0a7651dbef633c44660a4f742c12022b"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "047b5128a0d867176a70ead51e8166e578e4d2d851c228e63ad6a21645072d83"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "9ecf96de26eee9e94868ac5552ce3df9b507456c2cd3a3659a2af8dd8b3db6b4"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3405226267,
+        4040549310,
+        3986110469
+      ],
+      "explicit_position_m": [
+        0.2928410235326737,
+        8.0,
+        0.42808866617269814
+      ]
+    },
+    {
+      "episode_id": "e1-train-036",
+      "split": "train",
+      "seeds": {
+        "placement": 3073928683,
+        "runtime": 1156219581,
+        "acoustic": 3423811308
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "b7386debc68e60304eed4e9db81b99c6859279937e5778e30aeba01d3b8d43f7"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "44ea82bdc1458222a81c47633fc56db7867399f7ab7e9b605d6c1ed770adfdb1"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "cc1336ec45c2bbd3ea88052371554871a80a942486fa2945ce998072c893dff6"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3255511630,
+        2876845397,
+        2800950960
+      ],
+      "explicit_position_m": [
+        0.25798286823555827,
+        8.0,
+        0.15214721485972404
+      ]
+    },
+    {
+      "episode_id": "e1-train-037",
+      "split": "train",
+      "seeds": {
+        "placement": 822955165,
+        "runtime": 290180311,
+        "acoustic": 2319045470
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "310d4c9dfcd14e43875ac5083eece70d377b1ff3c0fa28cfbc76aea665b2470b"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "114bccd7be37ba9b056a985c5c8d94dbee2b80a4cf2809c448ae889b1242426b"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "8a39d35e3006dcab543a4302c7d33b076a73a994df1eaebb3f301193b8ad62b1"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2180474200,
+        1308109015,
+        256749642
+      ],
+      "explicit_position_m": [
+        0.007681211456656456,
+        8.0,
+        -0.4402208155952394
+      ]
+    },
+    {
+      "episode_id": "e1-train-038",
+      "split": "train",
+      "seeds": {
+        "placement": 1014471163,
+        "runtime": 1732759890,
+        "acoustic": 3811696536
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "3c7799fbaf3fae984cb79d97b2f032d6db22ee7249c0213dedceb23bbad57f68"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "6747d152c6725291593e83b3e586e4284a11b3d908302712078e502254ee84bc"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "e331df9832b261566a30568198637bc254171f1c93ed7bd93cb884f2b4eb3f4f"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        4284401438,
+        1770193893,
+        755000320
+      ],
+      "explicit_position_m": [
+        0.4975399444811046,
+        8.0,
+        -0.32421278953552246
+      ]
+    },
+    {
+      "episode_id": "e1-train-039",
+      "split": "train",
+      "seeds": {
+        "placement": 667735592,
+        "runtime": 1228178846,
+        "acoustic": 3370626562
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "27ccd6286c9382107e84a6f7894889978685d757f5f1b7555d4b04fec5e02736"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "4934859e7ebab9b1be8eb8adfd16217d96914c524a8d008f5130fe2490ff3823"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "c8e7ae02471b374023d55709b0619e4395c7551867656b81abffa5d29f3082e4"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3373384551,
+        2604657050,
+        1707813937
+      ],
+      "explicit_position_m": [
+        0.28542729630135,
+        8.0,
+        -0.10236858180724084
+      ]
+    },
+    {
+      "episode_id": "e1-train-040",
+      "split": "train",
+      "seeds": {
+        "placement": 2040120937,
+        "runtime": 2456987830,
+        "acoustic": 591026007
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "7999c66955c3662b4c07f233307006ef95ebbaf78c3ad412b53be9c41e3c42d4"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "9272a8b6a1ea713b91a7fb27bb9f5128e174680b74bf8c04f8c86e04330bcb2a"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "233a5757e083154b6124643e538ac50a80a13ccd50f36f60eb63f38ea6cf2777"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        244112564,
+        2803490947,
+        4110322694
+      ],
+      "explicit_position_m": [
+        -0.44316311459988356,
+        8.0,
+        0.4570090784691274
+      ]
+    },
+    {
+      "episode_id": "e1-train-041",
+      "split": "train",
+      "seeds": {
+        "placement": 1162099215,
+        "runtime": 3280246101,
+        "acoustic": 471598680
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "45443a0fe989c6e6ad2bea81e49fed4edc72b079496a5239b8857e3013f5c710"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "c3849555d01677fbff7f87a9f624859158e212c13486a1b469012859943e5958"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "1c1c06588da15ec0e4e014da405fed4cd574eba055336bd305ca7ca4f1d95d95"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2608783394,
+        2457854233,
+        2618185636
+      ],
+      "explicit_position_m": [
+        0.10740471677854657,
+        8.0,
+        0.10959384683519602
+      ]
+    },
+    {
+      "episode_id": "e1-train-042",
+      "split": "train",
+      "seeds": {
+        "placement": 1666272457,
+        "runtime": 2769657586,
+        "acoustic": 3261634498
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "63514cc9524cc384e302201e16b59600e6ddcb5ba8efd77fb477aa22500dc895"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "a5159ef28a0c1d191564bf9035c168eb444d8f245afbe7cb8d35d721ce3951c6"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "c26897c21031fced6dd46f376be81b53c6dad8208622ed95c366d69aba653a3b"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        734588820,
+        3935049187,
+        426738150
+      ],
+      "explicit_position_m": [
+        -0.3289652122184634,
+        8.0,
+        -0.40064228186383843
+      ]
+    },
+    {
+      "episode_id": "e1-train-043",
+      "split": "train",
+      "seeds": {
+        "placement": 3021217316,
+        "runtime": 3026892842,
+        "acoustic": 35119135
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "b4141e240a9aba0b6a0c70197140191d25339b93f98cab7e6460a4f0a4a54668"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "b46ab82a7aed8532f77cc0610d3c3f9ef3c6f155942c83f444b879d4980968d8"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "0217e01fcc3cce89708ad620c1ccac1efafd3b6c845200054c7ee595e9532a07"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1459278643,
+        927792886,
+        2666785245
+      ],
+      "explicit_position_m": [
+        -0.16023521427996457,
+        8.0,
+        0.12090932507999241
+      ]
+    },
+    {
+      "episode_id": "e1-train-044",
+      "split": "train",
+      "seeds": {
+        "placement": 3891824595,
+        "runtime": 3671959340,
+        "acoustic": 4192540730
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "e7f887d394b68392370397607e81d163d7d4b3bdf686c7d75e88dd6a42cf669d"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "dadda72c27e6540840a0a8db347aa7165d6b588be3dc006a94d55c3f48f7919d"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "f9e5183aed6f199451908a2bf4b4f6a1f8a94fd4ba636c8b2e5ffd2cc71223b7"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1304881942,
+        1717151613,
+        2196587192
+      ],
+      "explicit_position_m": [
+        -0.19618349755182862,
+        8.0,
+        0.011432809755206108
+      ]
+    },
+    {
+      "episode_id": "e1-train-045",
+      "split": "train",
+      "seeds": {
+        "placement": 3083532362,
+        "runtime": 1492313166,
+        "acoustic": 3422979084
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "b7caf84a2b7d6451757931d39705321f5ade1cf2c48a142f79651ff83e17b678"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "58f2e44ea78d8e65c97dc066e5c98d9b9233fc57eb16b36868c284124815a5a0"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "cc06840c9d729890c026a0a7d62ee42915a461645ea878facb301fbd5163b2c4"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2951023393,
+        2209917452,
+        465329659
+      ],
+      "explicit_position_m": [
+        0.18708867602981627,
+        8.0,
+        -0.39165699598379433
+      ]
+    },
+    {
+      "episode_id": "e1-train-046",
+      "split": "train",
+      "seeds": {
+        "placement": 3302553523,
+        "runtime": 1340980636,
+        "acoustic": 344498491
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "c4d8f7b336c4e5775e944c3dfc4b481c3db1de8fa9c86c1d04949f0021037edf"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "4fedbd9c0293a146c5abb9bf1ac2f5c2424ebeb216f20af720aa14409674a93c"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "1488a13bed390c2465246a9a58a76c476850062b96cbf1b2f7863a0f34d8a5bc"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3735017846,
+        2008547933,
+        3704430616
+      ],
+      "explicit_position_m": [
+        0.3696266091428697,
+        8.0,
+        0.36250496469438076
+      ]
+    },
+    {
+      "episode_id": "e1-train-047",
+      "split": "train",
+      "seeds": {
+        "placement": 734947488,
+        "runtime": 3149827181,
+        "acoustic": 1829726714
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "2bce68a05dc010a4296806a91fbae4ba5d3d62af0c7df34194f1f4a703c30f3f"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "bbbe8c6dce2adbb18bc1720282ef82a0b6a58a9d0acd0504154424d72a8f633b"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "6d0f69fa173b16df80dc29c4fc36363f7ffc485b2be3ebc7a1cec224cb6b1216"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3946447743,
+        2737617618,
+        2527468553
+      ],
+      "explicit_position_m": [
+        0.41885396814905107,
+        8.0,
+        0.0884721300099045
+      ]
+    },
+    {
+      "episode_id": "e1-train-048",
+      "split": "train",
+      "seeds": {
+        "placement": 798803487,
+        "runtime": 441745164,
+        "acoustic": 388351167
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "2f9cc61f7f584975255d9fe117c82dce8d5039626b9362ff9c5b49325d5163ad"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "1a547f0cd8d8229769ff1c941120cc40467ce895d95742dae76c20213cc68e8e"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "1725c4bf16ef8cd4e0af39ee799ee3b438acce9fc140edfc6b45be05c3a6a618"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2002541810,
+        751441833,
+        1470135540
+      ],
+      "explicit_position_m": [
+        -0.0337469014339149,
+        8.0,
+        -0.1577073959633708
+      ]
+    },
+    {
+      "episode_id": "e1-train-049",
+      "split": "train",
+      "seeds": {
+        "placement": 1233078171,
+        "runtime": 1416570060,
+        "acoustic": 3874874076
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "497f479b908a306802dec2b4a37cab098a39eea948bba8e861eb6d62edeb9328"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "546f24cc72f5b2c6e2832dad530cd55f8b28df7bfc0a5188673eaddc64515deb"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "e6f5e2dcd9f0c183c4fe582e8d528afe6539195e2589b50577235df757069341"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2895140926,
+        553263749,
+        4058034720
+      ],
+      "explicit_position_m": [
+        0.17407752526924014,
+        8.0,
+        0.4448348358273506
+      ]
+    },
+    {
+      "episode_id": "e1-train-050",
+      "split": "train",
+      "seeds": {
+        "placement": 2724348013,
+        "runtime": 3671164881,
+        "acoustic": 498925383
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "a262406de794f18eaf8c6a953a3b23779c5d0e8a1149a0fc585942852e18ab15"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "dad187d13549e0fd09af573523ba11b8b85f715969bfcbee782494b1b2912ed5"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "1dbcff471334626272f46317b008f24d502ca6359723ddf7d5f8bbefe0cb8cf5"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3955009256,
+        2888555815,
+        227915866
+      ],
+      "explicit_position_m": [
+        0.42084735073149204,
+        8.0,
+        -0.4469342022202909
+      ]
+    },
+    {
+      "episode_id": "e1-train-051",
+      "split": "train",
+      "seeds": {
+        "placement": 1734734790,
+        "runtime": 65581919,
+        "acoustic": 3356464737
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "6765f3c6235850f1f08f7aea2316b24e28453a19d89b2e9fa92c63c4e7930188"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "03e8b35f8a1cdd108daa57edbb301f9887de8122fbe32f01e023fbb82641032e"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "c80f9661c79a29d6a36e734be02313a937626d0304289acb25e7698b9ef8b839"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3927128173,
+        1250508520,
+        3642725671
+      ],
+      "explicit_position_m": [
+        0.4143557802308351,
+        8.0,
+        0.34813816263340414
+      ]
+    },
+    {
+      "episode_id": "e1-train-052",
+      "split": "train",
+      "seeds": {
+        "placement": 4069973693,
+        "runtime": 2591458193,
+        "acoustic": 2684933540
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "f296debd4dd3c5dea0a98a5fd4e46818b48d4a2677e2433ebe8bf32d54e64b8d"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "9a768391443a47608411e1f5200a35970a1e6bd92dcf304af0271537884589c6"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "a008d5a48e5a467ca7dc972ef544977e0af37cf92f221352938f8aa03696593b"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1800179960,
+        1498226679,
+        2671049962
+      ],
+      "explicit_position_m": [
+        -0.08086294122040272,
+        8.0,
+        0.12190228188410401
+      ]
+    },
+    {
+      "episode_id": "e1-train-053",
+      "split": "train",
+      "seeds": {
+        "placement": 3460807347,
+        "runtime": 3564626820,
+        "acoustic": 2881635134
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "ce47bab3fe1b4d7dd3642284a562484b340836fba30f1275c3f770c9ccb288b1"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "d477e3847b023b202c793eb4ba306d13ad02652bbe41eac93af269d4db6ee437"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "abc2433e4c2553d37990742b860766dfa893a2adf7de246ffaa64086fbf6f195"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2247213174,
+        669695325,
+        1222811416
+      ],
+      "explicit_position_m": [
+        0.023220089729875326,
+        8.0,
+        -0.21529203094542027
+      ]
+    },
+    {
+      "episode_id": "e1-train-054",
+      "split": "train",
+      "seeds": {
+        "placement": 3041835633,
+        "runtime": 1673023547,
+        "acoustic": 2349993220
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "b54eba71676f0e459dec00b8389c48e4b2b2d6fad02de38a6d51b09728c61717"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "63b8503bd46637b55a0a4c1a64b4a1fcb3d0333f1f2970e9ab0eab07de3def6d"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "8c120d04a20b9495f8f90c2f73e9adf68ccb744c4f21efeefd4ff94a83b45293"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        79720732,
+        855759307,
+        3575702702
+      ],
+      "explicit_position_m": [
+        -0.48143857065588236,
+        8.0,
+        0.3325331616215408
+      ]
+    },
+    {
+      "episode_id": "e1-train-055",
+      "split": "train",
+      "seeds": {
+        "placement": 2640972744,
+        "runtime": 323253047,
+        "acoustic": 3573649002
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "9d6a0bc800789bdffd1ccf8f17a40832247b0e105fdfcad170a50c23697c7b67"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "134473373766d600e981908ae7a3d6e114a85c19cff6c090a25fee894ae39b93"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "d5018e6ad434ae88507d47567891479564288834ef1e2effd233e4032c42f1c0"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2718645383,
+        3662532666,
+        2835587665
+      ],
+      "explicit_position_m": [
+        0.13298395439051092,
+        8.0,
+        0.16021170117892325
+      ]
+    },
+    {
+      "episode_id": "e1-train-056",
+      "split": "train",
+      "seeds": {
+        "placement": 3223506848,
+        "runtime": 1378584152,
+        "acoustic": 945800559
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "c022cfa05b4f1d4eeb912e149db2916b67a446ab9ff5e7204ae798a25e427ec4"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "522b8658d109403cd212c1299623cfe0fc4b767c0ebff50dfafe3add3b824d97"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "385fc56f0369cc5bd55ff5201d0fcb9c5ce6ec67f20776b22be6094991ff4ccf"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        596459135,
+        1810414034,
+        2529955593
+      ],
+      "explicit_position_m": [
+        -0.3611260356847197,
+        8.0,
+        0.08905118913389742
+      ]
+    },
+    {
+      "episode_id": "e1-train-057",
+      "split": "train",
+      "seeds": {
+        "placement": 398660295,
+        "runtime": 615048398,
+        "acoustic": 2773690838
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "17c312c7bd6e141f4d9554f049568b7beefc45ed04aed47fe35417e2b3db9d9b"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "24a8e4ce5903cd7101aa204eac16dc76dde73663ff235f68ec5a1fd0ad3e207d"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "a55329d6fbd471b0d091babefa5f6da5596ee201e2623aa0f48fe6bf1c0b1de9"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        4272506,
+        241111697,
+        2832313020
+      ],
+      "explicit_position_m": [
+        -0.499005229678005,
+        8.0,
+        0.15944926347583532
+      ]
+    },
+    {
+      "episode_id": "e1-train-058",
+      "split": "train",
+      "seeds": {
+        "placement": 2296736201,
+        "runtime": 3839785999,
+        "acoustic": 3925202659
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "88e569c92ab3674533b88b8f05d9e15022231476cc3437a3e09ec9ed29263313"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "e4de7c0f7d86fdb37727209b622945324acadaae6fe1af3215a57c4b5e92ec59"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "e9f5d6e3ab26a7b7c033b9392273f88c8f45ed7f154f2e23abf706c964c902f6"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3973867668,
+        1270823651,
+        113664742
+      ],
+      "explicit_position_m": [
+        0.4252381669357419,
+        8.0,
+        -0.47353536495938897
+      ]
+    },
+    {
+      "episode_id": "e1-train-059",
+      "split": "train",
+      "seeds": {
+        "placement": 2856906464,
+        "runtime": 3369502964,
+        "acoustic": 192414214
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "aa48eee08ab9389a05fd31f1858e8fd93d3840f5151cd82bad963a9a9e733a9c"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "c8d688f4d0eb7533207be0a0a70b86e1d1e5925084e6c0ba092e062ee1c02367"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "0b78020618dd57ce0355f23ecd9bc38176a8ab7c0500bf2c032a2619671d1003"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1160795327,
+        1213094674,
+        91537225
+      ],
+      "explicit_position_m": [
+        -0.22973127686418593,
+        8.0,
+        -0.4786873289849609
+      ]
+    },
+    {
+      "episode_id": "e1-train-060",
+      "split": "train",
+      "seeds": {
+        "placement": 3696419638,
+        "runtime": 92302950,
+        "acoustic": 2089457608
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "dc52e3364180e164fc5d4740f480938d5bda31f195bda9934b7f223f8aaea739"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "05806e663bef4e932f5a9ec37fa03c3da9b00b3b110068ccadb29e05be72301f"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "7c8a97c8de3c86d736e4b0be5e573c30bbf875b7569a55c854793c8cf7e44651"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2742157597,
+        293572568,
+        4283519319
+      ],
+      "explicit_position_m": [
+        0.13845831830985844,
+        8.0,
+        0.4973345601465553
+      ]
+    },
+    {
+      "episode_id": "e1-train-061",
+      "split": "train",
+      "seeds": {
+        "placement": 4264983802,
+        "runtime": 3960454343,
+        "acoustic": 739176699
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "fe367cfacdb820fd5a4719221d53e562355838fc86306219aad831937252e98f"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "ec0fbcc792f44656a8e30cd97d2d0ddd11218776395e3f7340f7fb02931a1da7"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "2c0ef0fb505db0f9c382f5ebfd054428293a3d43f3e908f8e35ca26134a59b8e"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        258533393,
+        2061664828,
+        1907325035
+      ],
+      "explicit_position_m": [
+        -0.43980550370179117,
+        8.0,
+        -0.05591628444381058
+      ]
+    },
+    {
+      "episode_id": "e1-train-062",
+      "split": "train",
+      "seeds": {
+        "placement": 3083511903,
+        "runtime": 1106828510,
+        "acoustic": 3891751364
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "b7caa85f0d269126807a928f90c5c379fd3b908353cb73849fdd17f3621e19d6"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "41f8dcdeefdff5e7d9d3f1373ef20db24e8d4d55beaac26971ddabf3c8eb8111"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "e7f769c415832093b4f91c17fa83d22ec7abfc07daea75da214f7010832af918"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3256244786,
+        3462624233,
+        2842405940
+      ],
+      "explicit_position_m": [
+        0.25815356941893697,
+        8.0,
+        0.16179920453578234
+      ]
+    },
+    {
+      "episode_id": "e1-train-063",
+      "split": "train",
+      "seeds": {
+        "placement": 1615758089,
+        "runtime": 2680037369,
+        "acoustic": 290298099
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "604e83094fb055295cdd84a884b8e84f0452cb5f7542e8afc6c551a4306efb65"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "9fbe1ff9142a1c4aeea8d4cd8f6e133cb872978e210c42178789598b24905f83"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "114d98f3d7f26c9eeece459ce013895ca4581febe19634227f1be298cb84a554"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        880947412,
+        2335434275,
+        1965987110
+      ],
+      "explicit_position_m": [
+        -0.2948884470388293,
+        8.0,
+        -0.04225795576348901
+      ]
+    },
+    {
+      "episode_id": "e1-development-000",
+      "split": "development",
+      "seeds": {
+        "placement": 299041009,
+        "runtime": 3740856130,
+        "acoustic": 745743759
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "11d300f16b14d7167100c129c8e84505899102b2e9f036fd35788cf82a27bdb9"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "def8ef423bb23aae735921b0eb74a41d2aee570447ccd6e16db551b8b4b0d546"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "2c73258fddd753a1e320c5287910c523a9972b38f60552d971fcaf61cb4ed546"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1309607324,
+        3148506187,
+        1935600942
+      ],
+      "explicit_position_m": [
+        -0.1950832838192582,
+        8.0,
+        -0.049332786817103624
+      ]
+    },
+    {
+      "episode_id": "e1-development-001",
+      "split": "development",
+      "seeds": {
+        "placement": 719486994,
+        "runtime": 2757191652,
+        "acoustic": 1267515105
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "2ae280123c4c29091d90c1c64a1c09c84071e2f9b5c3f8fd6eb2cb9f6c6ecc79"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "a45767e402c1ae70202ab201dab22760927206f9bbff1184bcbbedddbe825b57"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "4b8cbee1c025311b053f9e4573eac4fcd7f0408aff91f1cffbc9ea79b1dd469b"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        716742729,
+        2664246548,
+        1942238563
+      ],
+      "explicit_position_m": [
+        -0.33312032907269895,
+        8.0,
+        -0.04778734524734318
+      ]
+    },
+    {
+      "episode_id": "e1-development-002",
+      "split": "development",
+      "seeds": {
+        "placement": 3240746903,
+        "runtime": 3758260592,
+        "acoustic": 3952449522
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "c129df9753ae2fc16df7e5626f6e744680b848140b06dd4ed5af123776e22890"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "e0028170d93cfde176648bc722aacf77368a1d05d941ba377385547fe3a5d1e5"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "eb9597f22722e118295ce0b2b78905b333b536eefd57cbd8bddc879da3661769"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2422503434,
+        1381435361,
+        3707174860
+      ],
+      "explicit_position_m": [
+        0.06403303379192948,
+        8.0,
+        0.36314390879124403
+      ]
+    },
+    {
+      "episode_id": "e1-development-003",
+      "split": "development",
+      "seeds": {
+        "placement": 1504215202,
+        "runtime": 1768964874,
+        "acoustic": 2343112882
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "59a880a22b6516801d2dbe6168bec4cc7ef505794e657551b8de5592c9799f1c"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "6970430a51b6649cacd463072838e7b83ebf1f34e1c22fbdd97384e0a31e93c7"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "8ba910b258c6109814fbd0af95d0d524609a316e673444cc05a288209156b75e"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2098202521,
+        3073854500,
+        35137843
+      ],
+      "explicit_position_m": [
+        -0.011474156519398093,
+        8.0,
+        -0.4918188333977014
+      ]
+    },
+    {
+      "episode_id": "e1-development-004",
+      "split": "development",
+      "seeds": {
+        "placement": 2515159805,
+        "runtime": 1358696803,
+        "acoustic": 2544325103
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "95ea4afd5213bc52b70a1e47ea013d9b10325c24212a1a7518ecf4be360e95f7"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "50fc1163a456d71af85b77cbff13bd09a1c5a949a4c9ee0818dba21044203cdd"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "97a751efd27f9b91b672dd3b9688209a30562f352944920a79a54a865ef52fa3"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2246742072,
+        2487653943,
+        2403171882
+      ],
+      "explicit_position_m": [
+        0.0231104027479887,
+        8.0,
+        0.05953205609694123
+      ]
+    },
+    {
+      "episode_id": "e1-development-005",
+      "split": "development",
+      "seeds": {
+        "placement": 2970988575,
+        "runtime": 3025177229,
+        "acoustic": 2516561237
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "b115b01f7fe63b1e67201b239e48692c3af938caa46ed227f3169527cbaf321e"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "b4508a8d1c7190ac53d872c19fd55c6faa18792bc0642d2e122e6a93c2219253"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "95ffad556027938560372879869a20ad1420d05b76adb25fc793b715f760feaa"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        297549554,
+        1236570537,
+        639938292
+      ],
+      "explicit_position_m": [
+        -0.43072134582325816,
+        8.0,
+        -0.35100275557488203
+      ]
+    },
+    {
+      "episode_id": "e1-development-006",
+      "split": "development",
+      "seeds": {
+        "placement": 2532872112,
+        "runtime": 2228015256,
+        "acoustic": 364386739
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "96f88fb011e7cf4514312266bafce072eac124358937e0a29554f8ae1bd69721"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "84ccd0983cf8219e98814531f06ccbef41ae85444594396ef39aba2ac9d244f5"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "15b819b3116d28009953b087bd7722ac7efe4c2af01a432482d91a4cb85e52f1"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        4169031503,
+        2206876770,
+        2940565593
+      ],
+      "explicit_position_m": [
+        0.4706782882567495,
+        8.0,
+        0.18465377972461283
+      ]
+    },
+    {
+      "episode_id": "e1-development-007",
+      "split": "development",
+      "seeds": {
+        "placement": 1695550974,
+        "runtime": 1191522923,
+        "acoustic": 4211484322
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "65100dfe02da436df2968e5cadb582372badf03cc7459c733b74b87df0d97e2f"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "4705326b8b55b10639b67e9439b2694f60fe1ea79f61816b11b43fc9936142e3"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "fb0626a28d526296592474f0086f11b4368430f9ab3bd23a7163899b5519a05c"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        564190533,
+        2776673760,
+        3827238847
+      ],
+      "explicit_position_m": [
+        -0.3686391550581902,
+        8.0,
+        0.39109848416410387
+      ]
+    },
+    {
+      "episode_id": "e1-development-008",
+      "split": "development",
+      "seeds": {
+        "placement": 2744916470,
+        "runtime": 2728006227,
+        "acoustic": 2818852541
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "a39c19f685ef421f760e7e17dbbfb1fa86cc15ae6ede80c128224c43d99901ec"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "a29a1253c0c63fe1de88df297f6dcfff731f3db5d0fd95aab4d5a4ef8b59b8c0"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "a80446bdf28d888d4df1d29cbf5f1f0e2eab834c0547e96b38661e2311851ec9"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1186613469,
+        713143448,
+        3050417943
+      ],
+      "explicit_position_m": [
+        -0.22372002224437892,
+        8.0,
+        0.210230773082003
+      ]
+    },
+    {
+      "episode_id": "e1-development-009",
+      "split": "development",
+      "seeds": {
+        "placement": 2434747626,
+        "runtime": 3479878475,
+        "acoustic": 146159580
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "911f4cea18afd53a9601d40b516929d94568d4dd11b5a7a49a2a43bbe9928f70"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "cf6abb4b6ed223645b72cd4fb837f5990f872d57365285fa03993930bd6907c0"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "08b637dc08d8bd698a1078ac7eb3b68380441fc4b09c1f4f051b16994bed45a8"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2525304641,
+        768477100,
+        1723850523
+      ],
+      "explicit_position_m": [
+        0.08796830498613417,
+        8.0,
+        -0.09863477316685021
+      ]
+    },
+    {
+      "episode_id": "e1-development-010",
+      "split": "development",
+      "seeds": {
+        "placement": 2734576598,
+        "runtime": 475010850,
+        "acoustic": 909080931
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "a2fe53d614c9c04cfbec67d5ee6b483673163b2ccd7532cd9ff67fe26c7735a1"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "1c501722de7670103b1bfcdb4007e3445324833433e67f4d5b199fa7806a717a"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "362f7963efad095d04b409f04b977d1bf8acb25d0403a2cbf3b65e7eadee04b2"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        145127741,
+        3626396024,
+        3508543095
+      ],
+      "explicit_position_m": [
+        -0.4662098146509379,
+        8.0,
+        0.31689634709618986
+      ]
+    },
+    {
+      "episode_id": "e1-development-011",
+      "split": "development",
+      "seeds": {
+        "placement": 530304972,
+        "runtime": 3403008214,
+        "acoustic": 3814949378
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "1f9bcfccbdbd9a338130bbae2840e2d13628a03b60765f7f74d7c4204f06180f"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "cad5c8d6c067cdf58a5b02cc20dc3ce6cf31bb9dbe899d5da31d9d8b3e73e248"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "e363820220c05b886e215fa1d19177e7045513e1ecdd932b73617c6e635943a1"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        923781307,
+        3967395550,
+        46588069
+      ],
+      "explicit_position_m": [
+        -0.28491540369577706,
+        8.0,
+        -0.4891528699081391
+      ]
+    },
+    {
+      "episode_id": "e1-development-012",
+      "split": "development",
+      "seeds": {
+        "placement": 2801963770,
+        "runtime": 4235144327,
+        "acoustic": 1106868376
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "a70292fa6d4669ed9905f5782c1f94529592ac391002334d50ec539414bcec4a"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "fc6f2c875a928108c03e140b8f99a1ec904ba7ceb2a558abab0ec7db0bf39d64"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "41f97898b710d889d21a1b20a325ab5728bf306e29741e5776d8f881d6697338"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        411698705,
+        293931068,
+        4015277675
+      ],
+      "explicit_position_m": [
+        -0.4041439255233854,
+        8.0,
+        0.43487968551926315
+      ]
+    },
+    {
+      "episode_id": "e1-development-013",
+      "split": "development",
+      "seeds": {
+        "placement": 761264888,
+        "runtime": 3045629518,
+        "acoustic": 3043169442
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "2d5ffaf8df5f9c000a0aa1b985f7541b7e8987d4dc0511a58fbb63e1c582080c"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "b5889e4e45f1186c48178c284a7529f041977d5b71939655c196263bb36f9323"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "b56314a209401819640b03901ddd508f4bac3065260c021ba15eac6721e95d81"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1250263543,
+        3894277866,
+        321894721
+      ],
+      "explicit_position_m": [
+        -0.2089003345463425,
+        8.0,
+        -0.4250530449207872
+      ]
+    },
+    {
+      "episode_id": "e1-development-014",
+      "split": "development",
+      "seeds": {
+        "placement": 2684943290,
+        "runtime": 4048834316,
+        "acoustic": 2676081972
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "a008fbba276844f95641eb684b490be1fef0dc63ce45d138084a5c94d48ea435"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "f1544f0c7f4e9534446ed1f4ca1202ca07d01354cf2121b35d4c31668d0796ea"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "9f81c534e18f2833b88fbb668599e4d04614257ed0640fe7528179bca1ad5be4"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2254034897,
+        3999608572,
+        1055309355
+      ],
+      "explicit_position_m": [
+        0.024808395886793733,
+        8.0,
+        -0.2542916436214
+      ]
+    },
+    {
+      "episode_id": "e1-development-015",
+      "split": "development",
+      "seeds": {
+        "placement": 2473510911,
+        "runtime": 3883622928,
+        "acoustic": 3583879240
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "936ec7ffb1554e769d5f72849b427b0047f0d24611c7059f4c94d5823b40f54f"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "e77b62109def07ee1fe021f469db877f4575d81be34a14a9e98c5611b84708b3"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "d59da8480e3d4dcaef109bc8b8d47bd38f9a7563223063c1584e4ec867fe7918"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1688581458,
+        337237129,
+        1305367636
+      ],
+      "explicit_position_m": [
+        -0.10684649227187037,
+        8.0,
+        -0.1960704131051898
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-000",
+      "split": "heldout",
+      "seeds": {
+        "placement": 1060706276,
+        "runtime": 230002223,
+        "acoustic": 1435046573
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "3f3917e457074ef945cabb8fc4afcbbb9fa66f0feaffd0c0ff262308b8f3ba2e"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "0db58e2f12a2d3db852d8c4b7df9df6bcf71170488480e1c7339caa12db9bc25"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "558912adc21b9e5312c3b3bd3455b19461c5c7ae44da0e2576ec5cbde5f610bd"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2266890739,
+        1047977654,
+        2231027357
+      ],
+      "explicit_position_m": [
+        0.027801629854366183,
+        8.0,
+        0.01945153553970158
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-001",
+      "split": "heldout",
+      "seeds": {
+        "placement": 2699119609,
+        "runtime": 1148009522,
+        "acoustic": 3457156362
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "a0e14bf9e10a73d4dce43a2effbaea94023dcd5aa4f86527dab793538445b2dd"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "446d3c32a64bc0e8c6ea05874167aeb42954fcb1e90bdaad4c5408b1e1a8e456"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "ce10050ac8ec760a3f2c813f9c445ed2bfbb75fb579a4b332efb449c1d23c9fb"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2541094148,
+        1892732051,
+        585558230
+      ],
+      "explicit_position_m": [
+        0.09164458606392145,
+        8.0,
+        -0.36366410041227937
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-002",
+      "split": "heldout",
+      "seeds": {
+        "placement": 272477462,
+        "runtime": 661531678,
+        "acoustic": 796286968
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "103dad168b549c30e5fcfc36c6feae196fe4a1cf0cb31fe8611b22120cd57b9e"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "276e2c1eba08b6a9fc5a7c3f9ddef6356c9473c8af2c714e6ca4540ade27d646"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "2f765ff8be4d879e55edc9dbec133efe96f5eb1ce7eaf6f243b7e6f7599d11cf"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2309849469,
+        17519800,
+        331059383
+      ],
+      "explicit_position_m": [
+        0.03780373861081898,
+        8.0,
+        -0.42291923076845706
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-003",
+      "split": "heldout",
+      "seeds": {
+        "placement": 3668972003,
+        "runtime": 3107091154,
+        "acoustic": 2814158351
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "dab011e31dd7499775c673c7dcbbcbc4d22944496ab6a73bc632e4ed9eb673ea"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "b93272d2466b7c509ae309193883116b27594bca6e4f2cf980beb8f7e8c71783"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "a7bca60fd7784faa98afe4c7ca37f0626d5ca35b0601536fb7856dd3071d6c1b"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1034636774,
+        983665677,
+        1102396936
+      ],
+      "explicit_position_m": [
+        -0.25910485396161675,
+        8.0,
+        -0.24332821182906628
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-004",
+      "split": "heldout",
+      "seeds": {
+        "placement": 372642387,
+        "runtime": 1688095437,
+        "acoustic": 1836891097
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "16361253310cf207042f3756e49a5d931b5098dbafdb33567bb7f6c5138abc34"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "649e4acd492b345cf42e067ec52d0b7ed55108fdc056148e4619502543bc777b"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "6d7cbbd9d7c94f17a2f6b22948a8e59e7933334816a4d3d93a074fccdc334352"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2996171670,
+        3602912765,
+        3534217016
+      ],
+      "explicit_position_m": [
+        0.19760057842358947,
+        8.0,
+        0.32287402264773846
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-005",
+      "split": "heldout",
+      "seeds": {
+        "placement": 3952170118,
+        "runtime": 2316168933,
+        "acoustic": 1933109626
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "eb915486dfadc2778626b5bb65271ace26430cb8e58b009b6fcee4c4d8603154"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "8a0deee520fd8855712b52f2777aba76655d4c71edcab4e71cb4752c2f2d5b2f"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "7338e97ac57d08d9dd8007f18cbff759e3bbff6035ad65e84a7df81f649bc07d"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1536401965,
+        2347834792,
+        1323721959
+      ],
+      "explicit_position_m": [
+        -0.14227854157797992,
+        8.0,
+        -0.19179696426726878
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-006",
+      "split": "heldout",
+      "seeds": {
+        "placement": 2550306610,
+        "runtime": 2401580182,
+        "acoustic": 2694311216
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "9802973259b4caf35069d337ea4e9b9b15b80e14e908f79519372eb5fab1a5dd"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "8f253496250aef7015123a061f9aa3f3f33e76970a4c9cf64278d6485ed9799c"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "a097ed3080eac5f9ca52383df56d424edc58a83b730e581b05d3dd8c185d3192"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3232795881,
+        541847860,
+        2960714499
+      ],
+      "explicit_position_m": [
+        0.2526939457748085,
+        8.0,
+        0.18934506247751415
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-007",
+      "split": "heldout",
+      "seeds": {
+        "placement": 3746730332,
+        "runtime": 1837305257,
+        "acoustic": 600769013
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "df52915cda41a98b577628bc15804df97d2f44b65a3f2164d28f2cb9dbbfe806"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "6d830da9e63f5a31351b85c5d3a48b7d5ec07569364b5a149362eb11e36f60a3"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "23cf01f5fc8f1ddc4d21aa857d4d48e9ffb0cdafb42555810f7bbae1baec7c2d"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2877750539,
+        1898917614,
+        1573202293
+      ],
+      "explicit_position_m": [
+        0.17002851027064025,
+        8.0,
+        -0.1337102975230664
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-008",
+      "split": "heldout",
+      "seeds": {
+        "placement": 484987111,
+        "runtime": 3377573272,
+        "acoustic": 996570105
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "1ce850e749bc89028752160aee4c371839a9b446bd3ce1a28274ea3aa1dc5935"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "c951ad986b99f676f86be6291fcd1b0a3bfbacd068b3ee0f37af9c5761a28f4c"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "3b6673f9e79740534f9405768428075f554ba43e824751b116b4b40cf549af38"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        721819930,
+        1296602545,
+        3003913052
+      ],
+      "explicit_position_m": [
+        -0.3319382010959089,
+        8.0,
+        0.19940300937741995
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-009",
+      "split": "heldout",
+      "seeds": {
+        "placement": 3294420358,
+        "runtime": 4002332022,
+        "acoustic": 2091431046
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "c45cdd86e39f5a9d1d35722485d09bbaf446f751bfb8bd0ec12bb7a7670582f1"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "ee8ebd762df90b81721e242e491562dc8fd91a7ae8d1d87db96f2ec7c5e9781e"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "7ca8b486e23cf3b94ef5488e9e73c062973bfab3a4aa4a4147dc8c6e04954496"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3615463213,
+        3347746472,
+        2176262631
+      ],
+      "explicit_position_m": [
+        0.34179062698967755,
+        8.0,
+        0.006700629135593772
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-010",
+      "split": "heldout",
+      "seeds": {
+        "placement": 1161230190,
+        "runtime": 3531047378,
+        "acoustic": 3279985376
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "4536f76e6c8296d67240d98ca744230516e7b0fbe888aae096901d93c27d9c54"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "d27781d2bfa047c0170931f813adaab99e4ee4479b38d096e538c8ec68f56ca4"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "c3809ae0276d7298e2886fbed4fa62dc6e3b99dfa2b1e0e597e3d1be5231219a"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3498924021,
+        3147106512,
+        13845999
+      ],
+      "explicit_position_m": [
+        0.31465673190541565,
+        8.0,
+        -0.49677622714079916
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-011",
+      "split": "heldout",
+      "seeds": {
+        "placement": 2503576691,
+        "runtime": 3456102479,
+        "acoustic": 3342455130
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "95398c738332ef3376b307590d1882429a5daa88cfae9fa977f7facc9cd66c02"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "cdfff04fb3f5201c25d74215ce9f91d7862600fff8fb77cd8adfea001afb55fe"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "c739d15a6b5cb297b065d4bc08de514b20818425eb1c302a7a374ad3403355cf"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1972102966,
+        2263823645,
+        2509452248
+      ],
+      "explicit_position_m": [
+        -0.04083399707451463,
+        8.0,
+        0.08427738212049007
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-012",
+      "split": "heldout",
+      "seeds": {
+        "placement": 2239070872,
+        "runtime": 2075401722,
+        "acoustic": 388310144
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "8575829889728a742c6f6d2fccb8ccd282e727873e83258ed1778ca1b0dc3a8c"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "7bb41dfa39739d33bc67fd0cdcd48fc0fb3b7fb2ddc71eeb5452a6e8a58fdbe8"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "172524806812b4a0b54a2ada116ab72679307337bfa48bb9a92effe53dfab0ce"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2521244951,
+        3591503754,
+        1000597857
+      ],
+      "explicit_position_m": [
+        0.087023084750399,
+        8.0,
+        -0.2670301569160074
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-013",
+      "split": "heldout",
+      "seeds": {
+        "placement": 715567227,
+        "runtime": 1863355839,
+        "acoustic": 2835243970
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "2aa6b07b1aa207fa8c2fcff1ff79f0f142cdec6a7d3ba1bda55dc984a5e102fc"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "6f108dbf59fbe21437931961bf7ba5642b317066359b4aa2c4d2e6da4d4d07c4"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "a8fe63c2400c05f92e42693a8f569cd98fe57b5b69ec6276205d7556098005a4"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        221899678,
+        4272873061,
+        2412346496
+      ],
+      "explicit_position_m": [
+        -0.4483349551446736,
+        8.0,
+        0.061668187379837036
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-014",
+      "split": "heldout",
+      "seeds": {
+        "placement": 1839934604,
+        "runtime": 3240778367,
+        "acoustic": 2751475589
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "6dab2c8c0dd8d7829215b02d7c9cc77949b78d637c80459e9783c4691b56b4be"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "c12a5a7f00c6b3337e97c8926ac01493f27bde1195d9a8bbc72cc642d38999ed"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "a4002f85b8354bae7abc51bcc059c131a694df8edf67e446421780a36ae7a9b2"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1535901307,
+        2213732766,
+        3189202021
+      ],
+      "explicit_position_m": [
+        -0.14239511010237038,
+        8.0,
+        0.24254395929165184
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-015",
+      "split": "heldout",
+      "seeds": {
+        "placement": 3330248046,
+        "runtime": 1134512915,
+        "acoustic": 3782227096
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "c67f8d6ede3846a9e2e7816d3797acf5a66f2d6ced2ea8285c50443d3b0e103f"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "439f4b13514a578dded427533e7bacd95001e5ed4a3412ed34712e8a4b4a1066"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "e17034981181e4703e611e515d6fbb5df468fe1310020ebca5d3f2982591756c"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        4076926453,
+        4201123536,
+        3689845743
+      ],
+      "explicit_position_m": [
+        0.44923341018147767,
+        8.0,
+        0.3591091593261808
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-016",
+      "split": "heldout",
+      "seeds": {
+        "placement": 66515128,
+        "runtime": 1541713752,
+        "acoustic": 3684815398
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "03f6f0b8cccc76760847e2b58755854c3587608d803c97310e65232104367e2d"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "5be4af584280f9e28afd21e6d258cfa0b5e370dc90f3fcfafdd678535ec04a1f"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "dba1d22668447f75ff1ee7006686518e8feb1f3a76f12e1d595045d77bd0e595"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1440382135,
+        3558290090,
+        845562369
+      ],
+      "explicit_position_m": [
+        -0.16463490040041506,
+        8.0,
+        -0.3031271693762392
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-017",
+      "split": "heldout",
+      "seeds": {
+        "placement": 121927184,
+        "runtime": 1369273046,
+        "acoustic": 3544456498
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "074476102f9af78b653bd017d676520046a33a9da274e222470e67e0b8def918"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "519d72d6b0f0e7ca46b8807604cd9e4295ff65672e22a7848d7525b9dd10b705"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "d3441d3241a0c9540522e19fda3c780d86118f167b40529ae619d58cd0ae1031"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        1770213935,
+        4050639298,
+        1406291513
+      ],
+      "explicit_position_m": [
+        -0.08783995010890067,
+        8.0,
+        -0.17257224186323583
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-018",
+      "split": "heldout",
+      "seeds": {
+        "placement": 2244066928,
+        "runtime": 2284938426,
+        "acoustic": 1593161887
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "85c1be70f8507917e19866b7f7f50b1025b8745f6ac89f555e463312210f3c5d"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "883164ba98dde6b7ea8967a4ba7555a6a5fcbb60963a996406306862728e7578"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "5ef5b89f60e8360773053163e9ee7374ffafe927c832e4401168194a5cd4e66b"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3524673295,
+        3978764578,
+        452013593
+      ],
+      "explicit_position_m": [
+        0.3206519519444555,
+        8.0,
+        -0.39475738420151174
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-019",
+      "split": "heldout",
+      "seeds": {
+        "placement": 1469648419,
+        "runtime": 1383001727,
+        "acoustic": 823925078
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "57990e23460d4268ff3b4254c0283e5b703e92d8edc23b414b078507846d133b"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "526eee7f551478356aba854a9d1b6df4eaa58eafa560e48c1b607e368e84eac9"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "311c1956b8af6aafb49590d9ffe64f896695095eb14b4a20989645c6bc00909a"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        205626662,
+        1494684237,
+        3177877320
+      ],
+      "explicit_position_m": [
+        -0.4521238119341433,
+        8.0,
+        0.23990722186863422
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-020",
+      "split": "heldout",
+      "seeds": {
+        "placement": 1890440227,
+        "runtime": 3166403342,
+        "acoustic": 381406767
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "70add423861c50a0b87acc9858273c62f30f4668affc88e9afaf1b6dceeca166"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "bcbb7b0e7fb28f0a53159aa62f54efbbb3bc22fbcec92d16ad4cd32ce816ce46"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "16bbce2f52ae05603b9378018c4c2564904dd3719f267b4476412c59f35fa1d1"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        4013140774,
+        2935343181,
+        2621295944
+      ],
+      "explicit_position_m": [
+        0.43438214948400855,
+        8.0,
+        0.1103180218487978
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-021",
+      "split": "heldout",
+      "seeds": {
+        "placement": 1892148311,
+        "runtime": 264401900,
+        "acoustic": 584489180
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "70c7e4577b10c56cd588f8ea3339aa11daea94780a20ccb59a876c86b8d81c80"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "0fc273ec6b5d544767c654659a362711051b2022039a554275d484bd41d24d2e"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "22d698dcf0aa6d763c987e2345144c7cb801bc6eb75cf0f675aadbac281e589f"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3893310922,
+        1432169121,
+        3672064908
+      ],
+      "explicit_position_m": [
+        0.4064820879139006,
+        8.0,
+        0.35496923606842756
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-022",
+      "split": "heldout",
+      "seeds": {
+        "placement": 781875716,
+        "runtime": 1498572334,
+        "acoustic": 3790928519
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "2e9a7a043cb41e23ec0a5a4c9fca74d7dde20736029a6efb979865df19b83933"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "5952662e5a1942a13d615f7ef1e29dacbe5b54a5939426cd32b330c05fadf02b"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "e1f4fa876a4b66368dfd5d47245069457b9dbacfe956bdd17a94d11ca435d464"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        289979795,
+        2617517526,
+        2174624573
+      ],
+      "explicit_position_m": [
+        -0.43248381768353283,
+        8.0,
+        0.0063192390371114016
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-023",
+      "split": "heldout",
+      "seeds": {
+        "placement": 96335032,
+        "runtime": 2632113528,
+        "acoustic": 1464856357
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "05bdf4b82812edd9025d13eb0e2c009ec0529a41f9fdb6b5d2b4ddbc94b01af9"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "9ce2dd789925cfd5b7702c4452d9529bf7fffdef32835dfc6fe4c2cf243cd04b"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "574fef252da46ccf4fb6709b8cc21c34a49a70b10f29af2ac62f3d12021be89d"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        479047863,
+        1709758122,
+        627283457
+      ],
+      "explicit_position_m": [
+        -0.38846297771669924,
+        8.0,
+        -0.35394918895326555
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-024",
+      "split": "heldout",
+      "seeds": {
+        "placement": 1652680313,
+        "runtime": 916398979,
+        "acoustic": 49246864
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "6281e6793efcafe3037c5ceb4c2dc5bb4f2fbeddc1b2b3e3d6c4b93bfb1a7114"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "369f2383ac9048ed180eaf490560b48834d4963217fe5848878f10909f9fd78c"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "02ef7290425032e238792417abe28f70998c0aa7a2554cb429d1549ae47848ab"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2158812548,
+        1197263635,
+        2850674006
+      ],
+      "explicit_position_m": [
+        0.0026377150788903236,
+        8.0,
+        0.163724263664335
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-025",
+      "split": "heldout",
+      "seeds": {
+        "placement": 3808815778,
+        "runtime": 2875776394,
+        "acoustic": 153918952
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "e305eaa23e077369751075561ea58fc54ff1fe9670946fc97b38b29c3de61a78"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "ab68dd8a0617de6b23c97f4caf4ee2cd87cb1d9763a2d4d43086f8e1aabb4c02"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "092c9de8350f9b8dc388b2a400a84f96c93db30be4bd493bbebde6d2846b3238"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        151677337,
+        670713380,
+        3583695667
+      ],
+      "explicit_position_m": [
+        -0.4646848679985851,
+        8.0,
+        0.33439416880719364
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-026",
+      "split": "heldout",
+      "seeds": {
+        "placement": 3561778017,
+        "runtime": 479544378,
+        "acoustic": 2842139658
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "d44c6b61939e426a5c13d7e51388c193e25be6145aa0440c685c5e5ea5a20db7"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "1c95443a67536b13ee34baafaaa9e0b63772efd8c3700c5a9ae405c234b3baf2"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "a9679c0a6ca554faf5a38e702f8d879ac532fe2cfe3532922a820f0c69ac47e8"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        4086435148,
+        412215355,
+        1277313118
+      ],
+      "explicit_position_m": [
+        0.451447325758636,
+        8.0,
+        -0.20260236458852887
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-027",
+      "split": "heldout",
+      "seeds": {
+        "placement": 2662661465,
+        "runtime": 1006245545,
+        "acoustic": 1572192386
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "9eb4fd59d40a5b966147fbfaf0fc84569123981590778bee56930462128870ae"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "3bfa16a9d94b43113a898c4db2011f43ec10e054e80638001cba60c89475b2b0"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "5db5c08219ae35a933bd18497a14f235c74e6288ac5adf90674ef0569b99cf1f"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        641877732,
+        2186241267,
+        1483400630
+      ],
+      "explicit_position_m": [
+        -0.35055119451135397,
+        8.0,
+        -0.1546188765205443
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-028",
+      "split": "heldout",
+      "seeds": {
+        "placement": 3810949638,
+        "runtime": 3410096469,
+        "acoustic": 3302426520
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "e3267a068cc7372ce984deb351d66f10e55bd3a5ea27dadcd711b39c2c2b612b"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "cb41f1552cd94f44531712d00cb51a1db493ceacb03ca84e5f6c2674a36fce3b"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "c4d70798371d2c92cca22c3da107c61b65b3f6f14bd7c895dd8a61601cbabb55"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        77040045,
+        1256251176,
+        1840003175
+      ],
+      "explicit_position_m": [
+        -0.4820627167355269,
+        8.0,
+        -0.07159087643958628
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-029",
+      "split": "heldout",
+      "seeds": {
+        "placement": 302184300,
+        "runtime": 274014016,
+        "acoustic": 865485972
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "1202f76c8467fd6f11e6b7f1c951c1e75e0cd84e3096e69872cdb9aadad939ec"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "10551f407af393c341cb06de4b1ddba4e3508758d3ddd885be036967df2ea59d"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "33964494184ec7e9fee7797236520c9f7dadfabdb7ce1076e8702aff42a2322d"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        2125892571,
+        265310078,
+        3439145157
+      ],
+      "explicit_position_m": [
+        -0.0050270643550902605,
+        8.0,
+        0.3007383805233985
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-030",
+      "split": "heldout",
+      "seeds": {
+        "placement": 3519536635,
+        "runtime": 1647645116,
+        "acoustic": 2290250948
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "d1c7ddfb64378790a8f6973bd930f7875b7ed7cac67061b0090f10c7c9f107a0"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "623511bcb6ca072e330118e74a9215de081ddb0160e43b30c201f47fc70c3dff"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "888274c4808fa5a3119f6009ecc27dc041f30ebce1d013b0ac25de28ac30d262"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        864697118,
+        3018844133,
+        2606757888
+      ],
+      "explicit_position_m": [
+        -0.29867201345041394,
+        8.0,
+        0.1069331169128418
+      ]
+    },
+    {
+      "episode_id": "e1-heldout-031",
+      "split": "heldout",
+      "seeds": {
+        "placement": 238242945,
+        "runtime": 2844162718,
+        "acoustic": 994871804
+      },
+      "derivation": {
+        "placement": {
+          "nonce": 0,
+          "preimage_sha256": "0e334c8137aa890a8169f3b9e7fa477e45294f4f0b106d7c698a3adf5ab73401"
+        },
+        "runtime": {
+          "nonce": 0,
+          "preimage_sha256": "a9867a9e4556861cd8a84df47e18a332775c17dc8d3bfed4b93cb20f6ccae266"
+        },
+        "acoustic": {
+          "nonce": 0,
+          "preimage_sha256": "3b4c89fc8260631669a5b400a046e20448579b835e576c5fa3f4ff6829554684"
+        }
+      },
+      "placement_lcg_words_xyz": [
+        3726523372,
+        1776551515,
+        376342526
+      ],
+      "explicit_position_m": [
+        0.36764883529394865,
+        8.0,
+        -0.41237592743709683
+      ]
+    }
+  ]
+}

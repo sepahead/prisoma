@@ -7,6 +7,9 @@ PID-related modes also follow
 
 The repository contains protocol groundwork. It does not contain a completed confirmatory study.
 
+The separate [E1 pressure reference](docs/E1_REFERENCE.md) provides bounded numerical fitting and proposed forecast commitments.
+Its synthetic controls do not qualify native execution, product models, or scientific benefit.
+
 ## 0. Scope
 
 ### 0.1 Unfrozen claim-template registry
