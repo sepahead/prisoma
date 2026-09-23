@@ -6,8 +6,9 @@ It adds no estimator, simulator, sensor, or model dependency to the default Rust
 
 The [execution guide](GUIDE.md) explains the command, transcript, timing, and sensor joins with a worked example.
 The [frozen M1 campaign](M1_CAMPAIGN.md) owns the maintained transfer comparator and controlled process faults.
-The native engineering case reconstructs eight commands and all 1,542,400 sensor bytes.
-It supplies no learned-policy, exact-fork, statistical, or real-time qualification.
+Its [September 23 native evidence](evidence/M1_NATIVE_2026-09-23.md) compares 44 payloads totaling 4,326,400 bytes across body-only and canonical execution.
+The earlier eight-command, 1,542,400-byte case remains historical evidence.
+Neither case supplies learned-policy, exact-fork, statistical, or real-time qualification.
 
 <picture>
   <source media="(max-width: 640px)" srcset="execution-mobile.svg">
@@ -17,7 +18,7 @@ It supplies no learned-policy, exact-fork, statistical, or real-time qualificati
 [Illustrated PDF](../../output/pdf/Recorded_Sensor_Execution.pdf) ·
 [Mobile SVG](execution-mobile.svg) ·
 [Direct vector for browser zoom](https://raw.githubusercontent.com/sepahead/prisoma/main/integrations/agent-bridge/execution.svg) ·
-[Native case receipt](evidence/native-2026-09-10.json)
+[Historical September 10 receipt](evidence/native-2026-09-10.json)
 
 ## Use with CREBAIN
 
@@ -67,7 +68,7 @@ Both sensor and transcript packages select NCP `c0465d40f1f2b9df2caf9793183d11e6
 The current installation command requires both local Prisoma package paths.
 This source milestone makes no published-PyPI-wheel promise.
 
-The [recorded native case](evidence/native-2026-09-10.json) retains CREBAIN `0e16f30f4970066e30c15f079b29c0e18f00cb25` and NCP `9ae64ac1a77c9cd0612284992a8711220428a6e3`.
+The [historical native case](evidence/native-2026-09-10.json) retains CREBAIN `0e16f30f4970066e30c15f079b29c0e18f00cb25` and NCP `9ae64ac1a77c9cd0612284992a8711220428a6e3`.
 
 ## Own an installed producer
 
@@ -148,7 +149,7 @@ This interface supplies no feature transform, source grouping, target, PID estim
 
 One call's captured frames are retained during readback.
 Its memory admission follows the selected scene's maximum exchange count and NCP's frame limit.
-The current native example reserves 6,553,600 frame bytes for its largest call.
+The historical six-tick example reserves 6,553,600 frame bytes for its largest call.
 This bound excludes Python objects, reconstructed payloads, and canonical replay state.
 
 ## Recording contract

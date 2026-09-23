@@ -1,0 +1,478 @@
+{
+  "schema": "prisoma.m1_native_evidence.v1",
+  "observed_local_date": "2026-09-23",
+  "status": "PASS_SCOPED_NATIVE_ENGINEERING",
+  "scope": "One original frozen 24-tick body-only/canonical transfer comparison and two expected process faults.",
+  "visibility": {
+    "source_and_workload": "public",
+    "this_summary": "public",
+    "original_runtime_and_capture_evidence": "private_locally_observed",
+    "originals_published": false,
+    "summary_substitutes_for_originals": false
+  },
+  "source": {
+    "prisoma_campaign_commit": "d6a0cc3ca84effb0adfa21cbdf22f783ebc970b1",
+    "prisoma_campaign_tree": "b7dd0bcc13b2472d53fbe73866ba8d432ba8612d",
+    "crebain_installed_client_commit": "a5037a23a8e55d39ca0f09da2c25853c5209467b",
+    "crebain_native_runtime_commit": "d397905fe51c687b229a496af3b7dac572595e55",
+    "crebain_native_runtime_tree": "f657fd1d4bcd20b4dac286844f1aa626cba70958",
+    "crebain_runtime_source_identity": "01e64ac0db65cd07354a5b24ab94ee020adf752952a07d8d5ad0c7cf0b3dadc3",
+    "runtime_manifest_sha256": "82f8bf3c0ef08394c87c3b9f94468d2fc4ef4a610de9cb91315996058d450457",
+    "ncp_sdk_commit": "c0465d40f1f2b9df2caf9793183d11e65ac9ec74",
+    "pid_runlog_gitlink": "796c11e70f009634b853dc4ada6f565563d82f51"
+  },
+  "workload": {
+    "repository_path": "integrations/agent-bridge/tests/fixtures/m1.workload.v1.json",
+    "bytes": 3444,
+    "sha256": "f4b8cad4a9daf1f5b95abb9b03409040cd8caa67cf2e14c074a17dcc4a77ecae"
+  },
+  "freeze_sha256": "a22d93e93e52ac0a57036335047c90c38151aa89013145ce2d74736df1ccaaee",
+  "platform": {
+    "product": "26.5.1",
+    "build": "25F80"
+  },
+  "limits": {
+    "session_seconds": 180,
+    "checkpoint_seconds": 30
+  },
+  "tools": {
+    "worker": {
+      "bytes": 95679,
+      "sha256": "e65b008ea692a01ee22f645d990cbefbb10152c936470c015b82afdcae6881b9"
+    },
+    "runner": {
+      "bytes": 11771,
+      "sha256": "e3df791bfe940410404f04a6c871379320a10037ad1e6670580ef7db3ab10582"
+    },
+    "supervisor": {
+      "bytes": 20287,
+      "sha256": "0cdc6ed79763c5a066a9261f749baf315d29c08398d5eb1f5d886de144464aba"
+    },
+    "observer_source": {
+      "bytes": 3934,
+      "sha256": "4326baacd42fbab3b1ea81e42eb3fe7cf0282b26edece3d3cad7a4d7ecf254ec"
+    },
+    "observer_python": {
+      "bytes": 9084,
+      "sha256": "c0726c77f1b25582962dafe2ec189e8b5066f649bc40c416f05a3ff270b7ccef"
+    },
+    "fault_source": {
+      "bytes": 3659,
+      "sha256": "517bec92fdb6f7f74f4f05ca8ad490557847913b2316ccdde6eccec51b8624e6"
+    },
+    "observer_binary": {
+      "bytes": 34464,
+      "sha256": "ebcf76033364b6f2cd050bf1f20313baed5ba4eb12a4dc53b733a4d0fe0365ec"
+    },
+    "fault_binary": {
+      "bytes": 34560,
+      "sha256": "179302e4934f6fb39eeb422eca3b6b76a1824bff96cfd965b5559bb65f430376"
+    }
+  },
+  "wheels": {
+    "crebain-ncp-sensors": {
+      "filename": "crebain_ncp_sensors-0.1.0-py3-none-any.whl",
+      "bytes": 45327,
+      "sha256": "ed08e052efaa0fb1eb957a0cfe2e6addd5f8692d5b77df073a1bcd3cc83a3454"
+    },
+    "ncp-local": {
+      "filename": "ncp_local-1.0.0-py3-none-any.whl",
+      "bytes": 59942,
+      "sha256": "b6a4d43c393c22e68110b0abaa90912079cc9216bb9da6ee4300fac1cb057668"
+    },
+    "prisoma-agent-bridge": {
+      "filename": "prisoma_agent_bridge-0.1.0-cp311-abi3-macosx_11_0_arm64.whl",
+      "bytes": 719662,
+      "sha256": "ec49f5e9593a9ef041a62d8963026e6d442c6d6bb972e9c085aefa1e86b9da80"
+    },
+    "prisoma-ncp-transcript": {
+      "filename": "prisoma_ncp_transcript-0.1.0-py3-none-any.whl",
+      "bytes": 12985,
+      "sha256": "53b5f38a6f562ba876184a5cec57188cd5445b61ed866fdba1a39de8435197c6"
+    }
+  },
+  "environment_scope": {
+    "same_selected_ncp_and_crebain_wheel_bytes": true,
+    "separate_interpreter_and_installed_file_inventories": true,
+    "body_arm_excludes": [
+      "prisoma-agent-bridge",
+      "prisoma-ncp-transcript",
+      "nest",
+      "numpy"
+    ],
+    "loaded_bytes_attested": false
+  },
+  "healthy_comparison": {
+    "status": "pass",
+    "accounting": {
+      "canonical_calls": 26,
+      "canonical_events": 82,
+      "chunks": 168,
+      "exchanges": 476,
+      "max_call_exchanges": 36,
+      "payloads": 44,
+      "pressure_samples": 3200,
+      "raw_bytes": 4326400,
+      "ticks": 24
+    },
+    "complete_payload_bytes_equal": true,
+    "original_requests_reconstructed": true,
+    "observed_retirement_verified": true
+  },
+  "cases": [
+    {
+      "case_id": "body-healthy",
+      "arm": "body",
+      "fault": "none",
+      "healthy": true,
+      "supervisor_returncode_observed_by_command_runner": 0,
+      "worker_returncode": 0,
+      "worker_result_available": true,
+      "application_cleanup_confirmed": true,
+      "observed_process_identities": 15,
+      "observed_process_identities_retired": 15,
+      "emergency_cleanup": false,
+      "capture_completeness_failure": null,
+      "partial_capture_is_authenticated": null,
+      "canonical_finalized": null,
+      "capture_finalized": null
+    },
+    {
+      "case_id": "canonical-healthy",
+      "arm": "canonical",
+      "fault": "none",
+      "healthy": true,
+      "supervisor_returncode_observed_by_command_runner": 0,
+      "worker_returncode": 0,
+      "worker_result_available": true,
+      "application_cleanup_confirmed": true,
+      "observed_process_identities": 15,
+      "observed_process_identities_retired": 15,
+      "emergency_cleanup": false,
+      "capture_completeness_failure": null,
+      "partial_capture_is_authenticated": null,
+      "canonical_finalized": true,
+      "capture_finalized": true
+    },
+    {
+      "case_id": "canonical-caller-loss",
+      "arm": "canonical",
+      "fault": "caller_loss",
+      "healthy": false,
+      "supervisor_returncode_observed_by_command_runner": 0,
+      "worker_returncode": -9,
+      "worker_result_available": false,
+      "application_cleanup_confirmed": null,
+      "observed_process_identities": 14,
+      "observed_process_identities_retired": 14,
+      "emergency_cleanup": false,
+      "capture_completeness_failure": "terminal_missing",
+      "partial_capture_is_authenticated": false,
+      "canonical_finalized": null,
+      "capture_finalized": null
+    },
+    {
+      "case_id": "canonical-renderer-loss",
+      "arm": "canonical",
+      "fault": "renderer_loss",
+      "healthy": false,
+      "supervisor_returncode_observed_by_command_runner": 0,
+      "worker_returncode": 1,
+      "worker_result_available": true,
+      "application_cleanup_confirmed": false,
+      "observed_process_identities": 15,
+      "observed_process_identities_retired": 15,
+      "emergency_cleanup": false,
+      "capture_completeness_failure": "terminal_missing",
+      "partial_capture_is_authenticated": false,
+      "canonical_finalized": null,
+      "capture_finalized": null
+    }
+  ],
+  "negative_controls": {
+    "copied_artifacts": {
+      "capture-terminal": "terminal_record_digest_rejected",
+      "copied-command": "original_request_rejected"
+    },
+    "provenance": {
+      "matching-altered-workload-body": "original_request",
+      "matching-altered-workload-canonical": "original_request",
+      "mixed-arm-environment": "case_binding",
+      "mixed-wheel-freeze": "wheel_distribution",
+      "stale-freeze": "case_binding",
+      "two-stale-body": "case_binding",
+      "two-stale-canonical": "case_binding",
+      "wrong-case": "case_output",
+      "wrong-generation-body": "original_request",
+      "wrong-generation-canonical": "original_request",
+      "wrong-owner": "owner_binding",
+      "wrong-run_id-body": "original_request",
+      "wrong-run_id-canonical": "original_request"
+    },
+    "healthy_baselines_reverified": true,
+    "original_bytes_unchanged": true
+  },
+  "independent_readback": {
+    "status": "PASS_SCOPED_READBACK",
+    "reopened_inputs": 196,
+    "maintained_healthy_comparator_recomputed": true,
+    "maintained_fault_verifiers_recomputed": 2,
+    "retained_negative_control_count": 15,
+    "negative_controls_rerun": false,
+    "all_reopened_inputs_unchanged": true,
+    "simulator_execution": false,
+    "signals_sent": 0,
+    "independent_renderer_implementation": false
+  },
+  "retained_private_artifacts": [
+    {
+      "artifact_id": "native/m1-campaign-001/freeze.json",
+      "bytes": 7605,
+      "sha256": "a22d93e93e52ac0a57036335047c90c38151aa89013145ce2d74736df1ccaaee"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/result.json",
+      "bytes": 51164,
+      "sha256": "4a6451569ef155145a12f54cee9119630129c20465a43b11a775b81035a45a14"
+    },
+    {
+      "artifact_id": "native/body-runtime-002/runtime.json",
+      "bytes": 6198942,
+      "sha256": "82f8bf3c0ef08394c87c3b9f94468d2fc4ef4a610de9cb91315996058d450457"
+    },
+    {
+      "artifact_id": "gates/native-terminal-council-001/result.json",
+      "bytes": 5205,
+      "sha256": "b6b1b928763dc09c5835f7290c3d71e09d204d28808ab8b994e9c052138ab61a"
+    },
+    {
+      "artifact_id": "gates/native-terminal-council-001/m1.json",
+      "bytes": 61387,
+      "sha256": "3f2a3dc964337ae29a8dda4a30bbb1dbd9b0d1dd6f9a96d5ec8618593369c634"
+    },
+    {
+      "artifact_id": "gates/native-terminal-council-001/commands.json",
+      "bytes": 2722,
+      "sha256": "c718a026de521a0fd338db94bb258c94f2ef206fce408217f8a6171ebdc647f8"
+    },
+    {
+      "artifact_id": "gates/native-terminal-council-001/readback.py",
+      "bytes": 21291,
+      "sha256": "24c93feab7c615a34fb4482fc9fe551b8066d25bb1288b560e290d5d6314bc82"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/inventories/body.json",
+      "bytes": 175766,
+      "sha256": "49a5af09eb4bb5a13cfe184319502622e209de104ede3db62a12c995731b198e"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/inventories/canonical.json",
+      "bytes": 158307,
+      "sha256": "b6c7796cda517a78fbddfa58bdff953d364e683a17ab70f165c6bbf528327784"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/readbacks/compare/stdout.json",
+      "bytes": 554,
+      "sha256": "2ae86ff057384064a2c27814288b5be40551c7a69f685334324396176ee7ad26"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/readbacks/compare/command.json",
+      "bytes": 1792,
+      "sha256": "14a29501e9af1434d2b5be7d79044c204e2dc0a95745e7f0ee83af8d53c7c954"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/readbacks/caller-loss/stdout.json",
+      "bytes": 569,
+      "sha256": "1ec8fe7071a2c3584c323402dc6075fc9c715b215fb5bd0d33968148a467affb"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/readbacks/caller-loss/command.json",
+      "bytes": 1780,
+      "sha256": "a2a3180bf31814ee0a3ed382d5a15d6c7e52e050e1eb4bf7ff9350b3d055698c"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/readbacks/renderer-loss/stdout.json",
+      "bytes": 1853,
+      "sha256": "90859e214623a8e207d10152486125f248a4d59496d0fafab6ed7da75aa5c828"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/readbacks/renderer-loss/command.json",
+      "bytes": 1787,
+      "sha256": "efcf044c1bf1fa9c472a451e859a4067f6dc24fafff44bdb0a82003cabacd04e"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/readbacks/copied-negatives/stdout.json",
+      "bytes": 5381,
+      "sha256": "84ab57c2fa5bb4e408a7afc9d520de41062ec514c5ee60cea34f9cf00df4d82a"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/readbacks/copied-negatives/command.json",
+      "bytes": 1933,
+      "sha256": "4cd317c626f174c7e88104470eff6e5d0a7db8402c2b6c49b1c3583ed5cf9b18"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/readbacks/provenance-negatives/stdout.json",
+      "bytes": 841,
+      "sha256": "fe0ddacc1661055d0fdaa3573205ec20f759146e4c93e71a2ade6daf769b7240"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/readbacks/provenance-negatives/command.json",
+      "bytes": 1977,
+      "sha256": "912cacb8176bc393259a847734c748d7864d94135dbba941b792c365b805ae28"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/body-healthy/binding.json",
+      "bytes": 4478,
+      "sha256": "6073db8db4d78c01bb69158944ce64a15fa199a04d6557284f884856ec3a262b"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/body-healthy/owner.json",
+      "bytes": 1399,
+      "sha256": "002874a82307e96c38746a54d7796c4f2bb388c86eb16af95df51f8cf4d6a7b1"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/body-healthy/observer-events.json",
+      "bytes": 3605,
+      "sha256": "2283866f4462d407ca165c1022136ae2bfab295632e7f59cc221ed28bf8c4ea8"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/body-healthy.command.json",
+      "bytes": 2189,
+      "sha256": "fdb622a55accc3e3261e8b48c92a1d61bd46ff13b342636ab7719e29f18c84f8"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/body-healthy/result.json",
+      "bytes": 9441,
+      "sha256": "2c3fb2e4051fae7ac7c6fd6bea10a6684bad62725fc6cd51b50372efe1174d41"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/body-healthy/wire.bin",
+      "bytes": 6629384,
+      "sha256": "29ec073f2fd44b825b774119d709241f91b4d5fd8f78ff5197a2c26b4984c0f0"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-healthy/binding.json",
+      "bytes": 5077,
+      "sha256": "322db3101dc61c5008596d8d227d2b5b160f569885161bac172ead6228a35dcd"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-healthy/owner.json",
+      "bytes": 1370,
+      "sha256": "699fde1aee8acf4d995b3f422332ea100646c121ce8e9aea8e323d34ff2651d5"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-healthy/observer-events.json",
+      "bytes": 3561,
+      "sha256": "4ae5659e31890e72e9db506b157826d86e8aed472db2471d640edcfede5588f6"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-healthy.command.json",
+      "bytes": 2229,
+      "sha256": "34fdb0c733a85ba27aa8de7117e85cde555931c686efaaf9f75af30d7a5b2be9"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-healthy/result.json",
+      "bytes": 9574,
+      "sha256": "20c9164d01ad41e64cdf0e53279e4d40d790775b226194471d7dfa5710178706"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-healthy/capture.ncp",
+      "bytes": 6670005,
+      "sha256": "f9caa2cbd416d5a1e596341b531a9c8d2fda037eb88f3086b4a11e7e9c2a99d4"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-healthy/run.jsonl",
+      "bytes": 55442,
+      "sha256": "83fae0054c31733f42992071ead485e50d879d6732ad2d008957567bebe27d35"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-caller-loss/binding.json",
+      "bytes": 5092,
+      "sha256": "d4efaf44031b22ab0eafb8d5989ab08e442e174c7fe8632c0e5e0443035cb8be"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-caller-loss/owner.json",
+      "bytes": 1295,
+      "sha256": "c6f66a4b4e7eb0881708c46eeb8c1a5cfe385eb211cf50a88e7ace591a6427a1"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-caller-loss/observer-events.json",
+      "bytes": 3371,
+      "sha256": "2a1f74142a5c8915959ce71f5fbbc363d90712dc06510b6be9f37b8d16db5b28"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-caller-loss.command.json",
+      "bytes": 2256,
+      "sha256": "079fad514e433fe0c73f05e896a9b1f039482195de1dedb0ad071daa35a95de9"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-caller-loss/capture.ncp",
+      "bytes": 6439,
+      "sha256": "28815bdd1541f427aabb553ae8d4937ca29da366c1a8762b80f16fa7a36beb63"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-caller-loss/run.jsonl",
+      "bytes": 7031,
+      "sha256": "d3dfc3794c8fc9b3e56273478dab77a13970daae078a9b2fcabc208d7716c079"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-renderer-loss/binding.json",
+      "bytes": 5098,
+      "sha256": "23371ff048d87b2319ce3496ee5692a9b1a7396c7f90977fefb4859920a6261b"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-renderer-loss/owner.json",
+      "bytes": 1410,
+      "sha256": "251b6e5e7e1562dbb72010cf8fa68a06646b8b3190bf2551f7ccc14e6fceb558"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-renderer-loss/observer-events.json",
+      "bytes": 4649,
+      "sha256": "8bd78f21d26bbd3f43375a943f6ebcc26817ed9b0ab4980b26868451d8cfc675"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-renderer-loss.command.json",
+      "bytes": 2268,
+      "sha256": "ecff8ce5b8d88a08dcd184f1c5611c35d04fa2cddfbe0c1fdb86251e45e6275f"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-renderer-loss/result.json",
+      "bytes": 2717,
+      "sha256": "d7999a8d188799f0e34b3fb57b32cd06e6ae71132f07a54ba3a01705b0f12e19"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-renderer-loss/capture.ncp",
+      "bytes": 21839,
+      "sha256": "19f10eaa3be19c353cb1bb6f91cc16030d4b7faf56bd263fb4674a838ab9bf74"
+    },
+    {
+      "artifact_id": "native/m1-campaign-001/runs/canonical-renderer-loss/run.jsonl",
+      "bytes": 9346,
+      "sha256": "6fc709acce92e2e9328356fdd834430968dae52ae24895928a66633053cd5153"
+    }
+  ],
+  "claims": {
+    "selected_transfer_equivalence": true,
+    "expected_fault_behavior_observed": true,
+    "application_cleanup_replaced_by_external_observer": false,
+    "fault_capture_complete": false,
+    "scientific_validation": false,
+    "physical_calibration": false,
+    "learned_model_benefit": false,
+    "exact_fork_qualification": false,
+    "real_time_qualification": false,
+    "loaded_bytes_attested": false,
+    "hostile_containment": false,
+    "many_entity_qualification": false,
+    "complete_application_bootstrap": false,
+    "release_qualified": false
+  },
+  "limits_and_history": [
+    "Only observed process identities are covered; sampling is not exhaustive containment.",
+    "Caller-loss application cleanup is unavailable; renderer-loss application cleanup remains false.",
+    "Both fault captures reject with terminal_missing and remain unauthenticated incomplete captures.",
+    "Hashes identify locally observed bytes, not producer authenticity or loaded runtime code.",
+    "The independent review reruns maintained comparators, not an independent simulator implementation.",
+    "The September 10 eight-command, 1,542,400-byte case remains historical evidence with its original identities."
+  ]
+}

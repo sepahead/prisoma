@@ -2,7 +2,9 @@
 
 This campaign compares installed body-only and canonical sensor execution.
 It uses the public CREBAIN, NCP, and optional Prisoma APIs.
-Native qualification remains pending until the selected campaign completes.
+The [September 23 native evidence](evidence/M1_NATIVE_2026-09-23.md) records a passing 24-tick comparison, 15 rejecting controls, and two expected faults.
+Qualification covers only its frozen engineering case and recorded runtime.
+Both fault cases remain unhealthy, with incomplete captures and separate cleanup observations.
 Synthetic controls establish software behavior only.
 
 The maintained workload is [the original M1 input](tests/fixtures/m1.workload.v1.json).

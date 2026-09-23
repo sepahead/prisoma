@@ -57,7 +57,7 @@ See the [adapter boundaries](ARCHITECTURE.md#34-viewer-layer-pid-rerun).
 | [Offline analysis](EXPERIMENTS.md) | Evaluate strict artifacts with simple baselines and optional named PID routes | Support, split, measure, estimator, and application limits remain explicit |
 | [NCP capture](integrations/ncp-transcript/README.md) | Preserve original exchanges for independently selected peers, including large frame sequences | Separate native NEST and CREBAIN source runs; complete embodied experiment remains open |
 | [Agent Bridge](ARCHITECTURE.md#32-contract-layer-pid-bridge) | Dispatch typed local operations and record accepted requests and responses | Local profiles, not a qualified remote-security system |
-| [CREBAIN sensor execution](integrations/agent-bridge/README.md) | Control a selected sensor session through Agent Bridge and reconstruct its original NCP exchanges | Native two-camera/acoustic engineering case; no learned policy, branch labels, or real-time qualification |
+| [CREBAIN sensor execution](integrations/agent-bridge/README.md) | Control a selected sensor session through Agent Bridge and reconstruct its original NCP exchanges | Native M1 RGB/thermal/acoustic comparison; no learned policy, branch labels, or real-time qualification |
 | [Rerun export](ARCHITECTURE.md#34-viewer-layer-pid-rerun) | Inspect schema-checked run-log projections | Derived inspection, not scientific validation |
 
 The [capability matrix](docs/CAPABILITY_MATRIX.md) records the reviewed evidence for each cataloged surface.
@@ -135,7 +135,11 @@ Neural models, monitoring, and Prisoma recording are separate composition choice
 For canonical experiment execution, use Prisoma's [sensor-session adapter](integrations/agent-bridge/README.md).
 `SensorExperiment` accepts host-managed streams. The host owns producer lifetime.
 It joins canonical commands, execution receipts, original NCP exchanges, and sensor payload bytes.
-The September 10 native case used two RGB cameras and one microphone.
+The [September 23 M1 campaign](integrations/agent-bridge/evidence/M1_NATIVE_2026-09-23.md) matched 44 payloads and all 4,326,400 bytes across body-only and canonical execution.
+It reconstructed 26 canonical commands and retained 15 rejecting controls plus two expected process faults.
+Its dated evidence separates application cleanup from observed process retirement.
+
+The historical September 10 native case used two RGB cameras and one microphone.
 It reconstructed eight commands, 150 exchanges, and 11 payloads totaling 1,542,400 bytes.
 This case establishes recorded execution and readback within its declared scope.
 Learned forecasts, independently restored labels, and the complete embodied comparison remain open.
