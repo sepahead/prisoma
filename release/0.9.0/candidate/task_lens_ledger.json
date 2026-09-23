@@ -381,7 +381,7 @@
   "record_type": "candidate_live_task_lens_ledger",
   "release_version": "0.9.0",
   "schema_version": "prisoma.release-candidate/0.1.0",
-  "source_state_sha256": "4c0e0dcf09cfa74f5bfc342097048bb2b8314c829d9ac38ac3c715ef3ab8ad3b",
+  "source_state_sha256": "463e4bad52f582622ef0f61a843171bb8af2019821806aae688a746d855cc07a",
   "status_contract": {
     "closure_rule": "Terminal states are reserved for a successor schema that binds every typed task obligation to authenticated evidence; schema 0.1 records only open, in-progress, blocked, and wave-rework state",
     "lens_statuses": [

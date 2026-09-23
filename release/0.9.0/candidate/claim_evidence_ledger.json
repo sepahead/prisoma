@@ -236,9 +236,9 @@
       "content_bindings": [
         {
           "bytes": 61887,
-          "inventory_entry_sha256": "aedd64ec6cbce80f3d3c18303c15c2b30357653fff445e6a0c09fa9d84028f96",
+          "inventory_entry_sha256": "98ee52a49c2d10cb84a5914e2a2a8e0e758b9055301f9d63dda8e4506695d131",
           "path": "protocols/capability_matrix_current_v1.json",
-          "sha256": "628a484237477bbd3264e43a66ae2da38288598cec38fe5c48cb4497cd67816e"
+          "sha256": "f585787d7346964f4b75072c91a8a07723023cd8f8c702eec79ea79adc5f1235"
         },
         {
           "bytes": 21113,
@@ -359,10 +359,10 @@
       "code_paths": [],
       "content_bindings": [
         {
-          "bytes": 33300,
-          "inventory_entry_sha256": "8b1413a54b0a5d4515276e93fbbb16f5c5898f665e90843e3649852f4d2b2d2f",
+          "bytes": 33525,
+          "inventory_entry_sha256": "49f5cdcb3fe48b6e75ecd0ae0d5123098059c0219938ed461f54c7a884ff5867",
           "path": "EXPERIMENTS.md",
-          "sha256": "1a172edf479be4014ab8fe6feea944eee4f533409ee838daab12da244c4f3f70"
+          "sha256": "977c6449d1901fe401d765369c917ffb9d13b88cf01dc654187d7821a51ee7a6"
         },
         {
           "bytes": 14238,
@@ -404,10 +404,10 @@
       "code_paths": [],
       "content_bindings": [
         {
-          "bytes": 33300,
-          "inventory_entry_sha256": "8b1413a54b0a5d4515276e93fbbb16f5c5898f665e90843e3649852f4d2b2d2f",
+          "bytes": 33525,
+          "inventory_entry_sha256": "49f5cdcb3fe48b6e75ecd0ae0d5123098059c0219938ed461f54c7a884ff5867",
           "path": "EXPERIMENTS.md",
-          "sha256": "1a172edf479be4014ab8fe6feea944eee4f533409ee838daab12da244c4f3f70"
+          "sha256": "977c6449d1901fe401d765369c917ffb9d13b88cf01dc654187d7821a51ee7a6"
         },
         {
           "bytes": 14238,
@@ -577,7 +577,7 @@
   "record_type": "candidate_claim_to_evidence_ledger",
   "release_version": "0.9.0",
   "schema_version": "prisoma.release-candidate/0.1.0",
-  "source_state_sha256": "4c0e0dcf09cfa74f5bfc342097048bb2b8314c829d9ac38ac3c715ef3ab8ad3b",
+  "source_state_sha256": "463e4bad52f582622ef0f61a843171bb8af2019821806aae688a746d855cc07a",
   "status_contract": {
     "scientific_statuses": [
       "blocked_not_established",
