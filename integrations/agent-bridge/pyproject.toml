@@ -15,7 +15,7 @@ dependencies = []
 [project.optional-dependencies]
 crebain = [
     "prisoma-ncp-transcript==0.1.0",
-    "crebain-ncp-sensors @ git+https://github.com/sepahead/crebain.git@a5037a23a8e55d39ca0f09da2c25853c5209467b#subdirectory=integrations/ncp-force-ground-sensors/python",
+    "crebain-ncp-sensors @ git+https://github.com/sepahead/crebain.git@50f1e214a19f6778d581f1ebef375df3b4602ba9#subdirectory=integrations/ncp-force-ground-sensors/python",
 ]
 
 [project.urls]
@@ -29,5 +29,6 @@ module-name = "prisoma_agent_bridge._native"
 features = ["extension-module"]
 include = [
     { path = "GUIDE.md", format = "sdist" },
+    { path = "FAMILY.md", format = "sdist" },
     { path = "*.svg", format = "sdist" },
 ]

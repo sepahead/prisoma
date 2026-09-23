@@ -8,6 +8,7 @@ The [execution guide](GUIDE.md) explains the command, transcript, timing, and se
 The [frozen M1 campaign](M1_CAMPAIGN.md) owns the maintained transfer comparator and controlled process faults.
 The [fixed-schedule performance baseline](M1_PERFORMANCE.md) supplies prospective measurement tools and synthetic controls.
 The first native performance campaign is incomplete after two direct cases and a prelaunch body admission failure.
+The [checkpoint-family adapter](FAMILY.md) records restored branches through one canonical timeline and independently bound NCP journals.
 The transfer campaign's [September 23 native evidence](evidence/M1_NATIVE_2026-09-23.md) compares 44 payloads totaling 4,326,400 bytes across body-only and canonical execution.
 The earlier eight-command, 1,542,400-byte case remains historical evidence.
 Neither case supplies learned-policy, exact-fork, statistical, or real-time qualification.
@@ -65,7 +66,7 @@ Each source keeps its own identity, cadence, acquisition time, and availability 
 The adapter adds no compulsory modality, neural peer, monitor, model, or PID estimator.
 CREBAIN remains usable without Prisoma.
 
-The optional dependency pins CREBAIN to `a5037a23a8e55d39ca0f09da2c25853c5209467b`.
+The optional dependency pins CREBAIN to `50f1e214a19f6778d581f1ebef375df3b4602ba9`.
 Both sensor and transcript packages select NCP `c0465d40f1f2b9df2caf9793183d11e65ac9ec74`.
 The current installation command requires both local Prisoma package paths.
 This source milestone makes no published-PyPI-wheel promise.

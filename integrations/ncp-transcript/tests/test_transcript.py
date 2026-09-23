@@ -1,11 +1,15 @@
 """Synthetic protocol controls; no simulator or scientific outcome is inferred."""
 
 from dataclasses import dataclass, replace
+import errno
 import hashlib
+import json
 import os
 from pathlib import Path
 import socket
 import struct
+import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -498,6 +502,184 @@ class TranscriptTests(unittest.TestCase):
             verify(self.path, self.peers)
         hardlink.unlink()
         self.assertEqual(verify(self.path, self.peers).store_completion, "complete")
+
+    def test_reader_closes_regular_and_rejected_directory_descriptors(self):
+        expected, _ = self.completed()
+        original_open, original_fdopen = os.open, os.fdopen
+        for selected in (self.path, self.path.parent):
+            opened = []
+
+            def open_file(*args, **kwargs):
+                descriptor = original_open(*args, **kwargs)
+                opened.append(descriptor)
+                return descriptor
+
+            with (
+                self.subTest(path=selected.name),
+                patch.object(os, "open", side_effect=open_file),
+                patch.object(os, "fdopen", wraps=original_fdopen) as fdopen,
+            ):
+                if selected == self.path:
+                    self.assertEqual(verify(selected, self.peers), expected)
+                    fdopen.assert_called_once_with(opened[0], "rb", closefd=False)
+                else:
+                    with self.assertRaisesRegex(CaptureError, "private_regular_file"):
+                        verify(selected, self.peers)
+                    fdopen.assert_not_called()
+            self.assertEqual(len(opened), 1)
+            with self.assertRaises(OSError) as raised:
+                os.fstat(opened[0])
+            self.assertEqual(raised.exception.errno, errno.EBADF)
+
+    def test_reader_rejects_fifo_without_waiting_for_a_writer(self):
+        fifo = self.path.with_name("fifo-reader")
+        os.mkfifo(fifo, 0o600)
+        script = """
+import errno, json, os, sys
+from unittest.mock import patch
+sys.path[:0] = json.loads(sys.argv[2])
+from test_transcript import peer
+from prisoma_ncp_transcript import CaptureError, verify
+original_open = os.open
+opened = []
+def open_file(*args, **kwargs):
+    descriptor = original_open(*args, **kwargs)
+    opened.append(descriptor)
+    return descriptor
+with patch.object(os, 'open', side_effect=open_file):
+    try:
+        verify(sys.argv[1], (peer(),))
+    except CaptureError as failure:
+        assert failure.code == 'private_regular_file'
+    else:
+        raise AssertionError('FIFO verification succeeded')
+assert len(opened) == 1
+try:
+    os.fstat(opened[0])
+except OSError as failure:
+    assert failure.errno == errno.EBADF
+else:
+    raise AssertionError('FIFO descriptor remained open')
+"""
+        paths = [
+            str(Path(__file__).resolve().parent),
+            str(Path(t.__file__).resolve().parents[1]),
+            str(Path(w.__file__).resolve().parents[1]),
+        ]
+        result = subprocess.run(
+            [sys.executable, "-I", "-B", "-c", script, str(fifo), json.dumps(paths)],
+            cwd=self.temp.name,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_reader_closes_descriptor_when_stream_construction_fails(self):
+        self.completed()
+        primary = OSError("synthetic stream construction failure")
+        original_open = os.open
+        opened = []
+
+        def open_file(*args, **kwargs):
+            descriptor = original_open(*args, **kwargs)
+            opened.append(descriptor)
+            return descriptor
+
+        with (
+            patch.object(os, "open", side_effect=open_file),
+            patch.object(os, "fdopen", side_effect=primary),
+            self.assertRaises(OSError) as raised,
+        ):
+            verify(self.path, self.peers)
+        self.assertIs(raised.exception, primary)
+        self.assertEqual(len(opened), 1)
+        with self.assertRaises(OSError) as closed:
+            os.fstat(opened[0])
+        self.assertEqual(closed.exception.errno, errno.EBADF)
+
+    def reader_cleanup_failure(self, *, primary=None, stream_error=None, fd_error=None):
+        self.completed()
+        original_fdopen, original_close = os.fdopen, os.close
+        events, opened = [], []
+
+        class Stream:
+            def __init__(self, file):
+                self.file = file
+
+            def read(self, size):
+                return self.file.read(size)
+
+            def close(self):
+                events.append("stream")
+                self.file.close()
+                if stream_error is not None:
+                    raise stream_error
+
+        def fdopen(descriptor, *args, **kwargs):
+            self.assertIs(kwargs.get("closefd"), False)
+            opened.append(descriptor)
+            return Stream(original_fdopen(descriptor, *args, **kwargs))
+
+        def close(descriptor):
+            events.append("descriptor")
+            # Release this test-owned descriptor even when injecting a failure.
+            original_close(descriptor)
+            if fd_error is not None:
+                raise fd_error
+
+        def visit(_):
+            if primary is not None:
+                raise primary
+
+        with (
+            patch.object(os, "fdopen", side_effect=fdopen),
+            patch.object(os, "close", side_effect=close),
+        ):
+            try:
+                inspect(self.path, self.peers, visit)
+            except BaseException as failure:
+                retained = failure
+            else:
+                self.fail("Cleanup failure returned a verification")
+        self.assertEqual(events, ["stream", "descriptor"])
+        self.assertEqual(len(opened), 1)
+        with self.assertRaises(OSError) as closed:
+            os.fstat(opened[0])
+        self.assertEqual(closed.exception.errno, errno.EBADF)
+        self.assertEqual(verify(self.path, self.peers).store_completion, "complete")
+        return retained
+
+    def test_reader_preserves_primary_and_both_cleanup_failures_in_order(self):
+        class HostileError(RuntimeError):
+            @property
+            def __class__(self):
+                raise AssertionError("Exception diagnostic must not run")
+
+        primary = HostileError("synthetic visitor failure")
+        stream_error = OSError("synthetic stream close failure")
+        fd_error = OSError("synthetic descriptor close failure")
+        retained = self.reader_cleanup_failure(
+            primary=primary, stream_error=stream_error, fd_error=fd_error
+        )
+        self.assertIs(type(retained), ExceptionGroup)
+        self.assertEqual(len(retained.exceptions), 3)
+        for actual, expected in zip(
+            retained.exceptions, (primary, stream_error, fd_error), strict=True
+        ):
+            self.assertIs(actual, expected)
+
+    def test_reader_stream_close_failure_still_closes_descriptor(self):
+        failure = OSError("synthetic stream close failure")
+        self.assertIs(self.reader_cleanup_failure(stream_error=failure), failure)
+
+    def test_reader_descriptor_close_failure_returns_no_verification(self):
+        failure = OSError("synthetic descriptor close failure")
+        self.assertIs(self.reader_cleanup_failure(fd_error=failure), failure)
+
+    def test_reader_primary_error_identity_survives_successful_cleanup(self):
+        failure = KeyboardInterrupt("synthetic visitor cancellation")
+        self.assertIs(self.reader_cleanup_failure(primary=failure), failure)
 
     def test_abort_and_plain_close_have_different_meanings(self):
         journal = self.journal()

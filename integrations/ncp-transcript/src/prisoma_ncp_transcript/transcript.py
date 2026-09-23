@@ -442,10 +442,14 @@ def _verify(
     replay = _Replay(peers)
     selected = Path(path)
     fd = os.open(selected, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
-    with os.fdopen(fd, "rb") as file:
-        initial = os.fstat(file.fileno())
+    file = None
+    failures = []
+    try:
+        initial = os.fstat(fd)
         _private_regular(initial)
         _require(len(MAGIC) < initial.st_size <= MAX_BYTES, "file_size")
+        # This scope retains ownership even when stream construction fails.
+        file = os.fdopen(fd, "rb", closefd=False)
         _require(_read_exact(file, len(MAGIC)) == MAGIC, "magic")
         ordinal, previous, total = 0, bytes(32), len(MAGIC)
         maximum, quota, terminal = None, None, None
@@ -518,9 +522,26 @@ def _verify(
             if exchange is not None:
                 visit(exchange)
         _require(terminal is not None, "terminal_missing")
-        final = os.fstat(file.fileno())
+        final = os.fstat(fd)
         lexical = selected.lstat()
         _require(
             _metadata(initial) == _metadata(final) == _metadata(lexical), "file_changed"
         )
-        return _summary(replay, terminal, total, previous)
+        result = _summary(replay, terminal, total, previous)
+    except BaseException as primary:
+        failures.append(primary)
+    finally:
+        if file is not None:
+            try:
+                file.close()
+            except BaseException as cleanup:
+                failures.append(cleanup)
+        try:
+            os.close(fd)
+        except BaseException as cleanup:
+            failures.append(cleanup)
+    if len(failures) == 1:
+        raise failures[0]
+    if failures:
+        raise BaseExceptionGroup("Transcript verification and cleanup failed", failures)
+    return result
