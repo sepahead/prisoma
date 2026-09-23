@@ -5,6 +5,7 @@ The optional Python package uses the pinned PID-owned writer, schema, hashes, an
 It adds no estimator, simulator, sensor, or model dependency to the default Rust workspace.
 
 The [execution guide](GUIDE.md) explains the command, transcript, timing, and sensor joins with a worked example.
+The [frozen M1 campaign](M1_CAMPAIGN.md) owns the maintained transfer comparator and controlled process faults.
 The native engineering case reconstructs eight commands and all 1,542,400 sensor bytes.
 It supplies no learned-policy, exact-fork, statistical, or real-time qualification.
 

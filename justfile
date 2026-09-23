@@ -166,6 +166,15 @@ application-bridge-check python_path="python":
     PYO3_PYTHON={{ quote(python_path) }} RUSTDOCFLAGS="-D warnings" cargo doc --locked --manifest-path crates/agent-bridge-python/Cargo.toml --no-deps
     {{ quote(python_path) }} -B -I -m unittest discover -s integrations/agent-bridge/tests -v
 
+# Installed public APIs and Darwin process controls. No simulator executes.
+# The output directory must be new and outside the selected source checkout.
+m1-campaign-check python_path out:
+    mkdir -m 700 {{ quote(out) }}
+    just application-bridge-check {{ quote(python_path) }}
+    {{ quote(python_path) }} -B integrations/agent-bridge/scripts/check_observer.py --output {{ quote(out) }}/observer
+    {{ quote(python_path) }} -B integrations/agent-bridge/scripts/check_fault.py --output {{ quote(out) }}/fault
+    PRISOMA_M1_OBSERVER_BINARY={{ quote(out) }}/observer/source/darwin_observer {{ quote(python_path) }} -I -B integrations/agent-bridge/scripts/test_m1_supervisor.py
+
 # Explicit native local NCP capture gate. Root PID builds remain independent.
 ncp-local-capture-check:
     cargo fmt --manifest-path crates/ncp-local-capture/Cargo.toml -- --check

@@ -1,0 +1,102 @@
+{
+  "schema": "local.darwin-fault-decision.v1",
+  "status": "construction_contract; separate complete scoped gate required",
+  "selection": "one fixed SIGTERM through proc_signal_with_audittoken after identity and executable joins",
+  "authority": [
+    "The trusted supervisor establishes an active sampled descendant through OwnedTree.",
+    "The supervisor selects the exact frozen distinct renderer executable; the helper does not discover or authorize descendants.",
+    "The helper rejoins PID, birth, parent PID, effective UID, real UID, live status, token identity, and exact executable path.",
+    "A successful signal syscall reports signal acceptance only. It supplies no process retirement, application cleanup, scientific, or release authority."
+  ],
+  "approaches": [
+    {
+      "approach": "numeric PID signal after userspace checks",
+      "assumption": "the PID still denotes the checked process at signal time",
+      "benefit": "simple POSIX interface",
+      "failure_mode": "PID reuse or identity change remains between check and signal",
+      "decisive_control": "stale kernel identity must be rejected without affecting the replacement"
+    },
+    {
+      "approach": "signal the owner process group",
+      "assumption": "every group member is an intended target",
+      "benefit": "one operation can affect descendants",
+      "failure_mode": "the renderer fault becomes a broad application fault",
+      "decisive_control": "unrelated owner and body processes must remain unaffected"
+    },
+    {
+      "approach": "add an application fault RPC",
+      "assumption": "the runtime can add and qualify a new fault contract",
+      "benefit": "the runtime identifies its own renderer",
+      "failure_mode": "changes the frozen application and protocol surface",
+      "decisive_control": "source and protocol compatibility would require a separate milestone"
+    },
+    {
+      "approach": "terminate through a task control port",
+      "assumption": "stronger Mach task control is available and appropriate",
+      "benefit": "stable kernel object selection",
+      "failure_mode": "broader authority and different termination behavior",
+      "decisive_control": "least-privilege and fixed-SIGTERM policy comparison"
+    },
+    {
+      "approach": "audit-token version comparison with fixed SIGTERM",
+      "assumption": "the selected SDK and kernel implement audit-token identity comparison",
+      "benefit": "kernel checks the selected process version during signal dispatch",
+      "failure_mode": "API denial, stale token, or lost output makes the experiment fail or remain uncertain",
+      "decisive_control": "wrong-version ESRCH with surviving owned child, exact-token positive, API anomaly controls, and output-loss control"
+    }
+  ],
+  "selected_reason": "The last approach preserves one renderer target and one signal without changing the application. Owner selection remains a separate prerequisite.",
+  "bounds": {
+    "pid_and_parent": [
+      1,
+      2147483647
+    ],
+    "birth_seconds": [
+      1,
+      18446744073709551615
+    ],
+    "birth_microseconds": [
+      0,
+      999999
+    ],
+    "executable_path_bytes_max": 4095,
+    "signal_attempts_max": 1,
+    "signal": 15
+  },
+  "failure_semantics": [
+    "Malformed arguments and failed pre-signal joins make zero signal calls.",
+    "Null or dead task-name ports, token-size mismatch, port-release failure, changed token input, and malformed path output fail before signal.",
+    "A nonzero signal result fails the command. No numeric-PID fallback or retry is authorized.",
+    "Output can fail after a successful signal. A nonzero or unavailable command result therefore does not prove that no signal was delivered.",
+    "The supervisor must retain uncertainty and obtain separate owner receipts; it must never retry an ambiguous fault automatically."
+  ],
+  "limits": [
+    "These interfaces come from the installed macOS SDK; libproc marks its interface surface as private and subject to OS changes.",
+    "The tested OS and SDK do not qualify another Darwin version or platform.",
+    "A path join does not attest loaded executable bytes. The helper is not a malicious-code or complete descendant-containment boundary.",
+    "The helper alone can inspect a caller-selected same-user identity. Safe selection depends on the trusted supervisor contract.",
+    "The syscall result does not prove signal handling, process exit, reaping, or application cleanup."
+  ],
+  "source_observations": [
+    {
+      "url": "https://github.com/apple-oss-distributions/xnu/blob/main/libsyscall/wrappers/libproc/libproc.c",
+      "observation": "The wrapper returns the syscall error for token-bound signaling. Token-bound path lookup requests a PID-version comparison."
+    },
+    {
+      "url": "https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/proc_info.c",
+      "observation": "Kernel dispatch copies the audit token and routes the requested signal through audit-token signaling."
+    },
+    {
+      "url": "https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_proc.c",
+      "observation": "Audit-token process lookup compares the process PID version; process identity validation distinguishes permission to exec."
+    }
+  ],
+  "evidence_boundary": "Public source review explains the design. Actual installed-kernel controls and exact source/compiler receipts qualify only their recorded scope.",
+  "lenses": {
+    "scientific": "A process fault is engineering evidence, not a neuroscience or reproduction result.",
+    "runtime": "Signal acceptance, command response, process disappearance, reaping, and application retirement remain separate facts.",
+    "security_provenance": "Source and SDK hashes bind the local construction; the trusted supervisor retains target selection authority.",
+    "generalization": "Owned synthetic children do not qualify a real Chrome renderer, hostile code, or unobserved descendants.",
+    "maintainability": "One small SDK-built helper and explicit negative controls replace no existing application owner or protocol."
+  }
+}
