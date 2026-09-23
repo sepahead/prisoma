@@ -10735,7 +10735,7 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": true,
-        "git_blob_id": "202a60efe2c6971de5c971e02d2a2c26498df6c6",
+        "git_blob_id": "ccafde0c34dc4a3bbb85ef2f46e1a00a5268b306",
         "independent_reviewer": null,
         "language": "Markdown",
         "line_count": 46,
@@ -10746,20 +10746,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "a2365abc3e6d79bfd39cc3ae765ea254ae5d7a0e5bd39c54cf2bd9fbcc4c6214",
+        "sha256": "941f495893bf867555611e2a652f9a6b6e65994a64f53761c0837c4c0b11b740",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "202a60efe2c6971de5c971e02d2a2c26498df6c6"
+        "oid": "ccafde0c34dc4a3bbb85ef2f46e1a00a5268b306"
       },
       "index": {
         "bytes": 37285,
-        "content_sha256": "a2365abc3e6d79bfd39cc3ae765ea254ae5d7a0e5bd39c54cf2bd9fbcc4c6214",
+        "content_sha256": "941f495893bf867555611e2a652f9a6b6e65994a64f53761c0837c4c0b11b740",
         "mode": "100644",
-        "oid": "202a60efe2c6971de5c971e02d2a2c26498df6c6"
+        "oid": "ccafde0c34dc4a3bbb85ef2f46e1a00a5268b306"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -10777,7 +10777,7 @@
         "line_count": 46,
         "link_target": null,
         "mode": "100644",
-        "sha256": "a2365abc3e6d79bfd39cc3ae765ea254ae5d7a0e5bd39c54cf2bd9fbcc4c6214"
+        "sha256": "941f495893bf867555611e2a652f9a6b6e65994a64f53761c0837c4c0b11b740"
       },
       "worktree_state": "unchanged"
     },
@@ -15850,10 +15850,120 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "7939b7fc18d41edd57abaed3dc0b42347c7cd56d",
+        "git_blob_id": "bd6673f8e7dd05700640d35eff819ce9dbc1aa64",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 225,
+        "line_count": 162,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/M1_CAMPAIGN.md",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "c9990406fec8efc4b313ab35e4a11fdfbc87adc8581434e521105893334a594b",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "bd6673f8e7dd05700640d35eff819ce9dbc1aa64"
+      },
+      "index": {
+        "bytes": 11339,
+        "content_sha256": "c9990406fec8efc4b313ab35e4a11fdfbc87adc8581434e521105893334a594b",
+        "mode": "100644",
+        "oid": "bd6673f8e7dd05700640d35eff819ce9dbc1aa64"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/M1_CAMPAIGN.md",
+      "working_tree": {
+        "bytes": 11339,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 162,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "c9990406fec8efc4b313ab35e4a11fdfbc87adc8581434e521105893334a594b"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "root_documentation",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "f768e7adf73fb587c999dff0f42c5b980ba1e232",
+        "independent_reviewer": null,
+        "language": "Markdown",
+        "line_count": 105,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/M1_COMMAND_RUNNER.md",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "9444a63087dcb3566f9170550f71d51199e1ff3a7bc935fa06f904233260574d",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "f768e7adf73fb587c999dff0f42c5b980ba1e232"
+      },
+      "index": {
+        "bytes": 5914,
+        "content_sha256": "9444a63087dcb3566f9170550f71d51199e1ff3a7bc935fa06f904233260574d",
+        "mode": "100644",
+        "oid": "f768e7adf73fb587c999dff0f42c5b980ba1e232"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/M1_COMMAND_RUNNER.md",
+      "working_tree": {
+        "bytes": 5914,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 105,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "9444a63087dcb3566f9170550f71d51199e1ff3a7bc935fa06f904233260574d"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "root_documentation",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "3a000085bf80f67a8d19fd68cf408cfbf2d82c93",
+        "independent_reviewer": null,
+        "language": "Markdown",
+        "line_count": 226,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "integrations/agent-bridge/README.md",
         "public_surface": false,
@@ -15861,20 +15971,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": true,
-        "sha256": "7080c137afafa85aca0234e4e6ddc128a3be95ed35c3dfe452535c28c282f0d5",
+        "sha256": "a12d4065849c3099f2c7ee85e26cd90932ccbf8871d4abb2ced9669981c16327",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "7939b7fc18d41edd57abaed3dc0b42347c7cd56d"
+        "oid": "3a000085bf80f67a8d19fd68cf408cfbf2d82c93"
       },
       "index": {
-        "bytes": 12662,
-        "content_sha256": "7080c137afafa85aca0234e4e6ddc128a3be95ed35c3dfe452535c28c282f0d5",
+        "bytes": 12774,
+        "content_sha256": "a12d4065849c3099f2c7ee85e26cd90932ccbf8871d4abb2ced9669981c16327",
         "mode": "100644",
-        "oid": "7939b7fc18d41edd57abaed3dc0b42347c7cd56d"
+        "oid": "3a000085bf80f67a8d19fd68cf408cfbf2d82c93"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -15885,14 +15995,14 @@
       },
       "path": "integrations/agent-bridge/README.md",
       "working_tree": {
-        "bytes": 12662,
+        "bytes": 12774,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 225,
+        "line_count": 226,
         "link_target": null,
         "mode": "100644",
-        "sha256": "7080c137afafa85aca0234e4e6ddc128a3be95ed35c3dfe452535c28c282f0d5"
+        "sha256": "a12d4065849c3099f2c7ee85e26cd90932ccbf8871d4abb2ced9669981c16327"
       },
       "worktree_state": "unchanged"
     },
@@ -16290,6 +16400,831 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
+        "git_blob_id": "89996059f15cf61c5675b679753a19d8087e70ca",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 57,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/scripts/audit_token_probe.c",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "e9bc9b8ceb287eb33076d3ad4489f1af916b7f904ad22d97b299d57e11bcd24a",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "89996059f15cf61c5675b679753a19d8087e70ca"
+      },
+      "index": {
+        "bytes": 2390,
+        "content_sha256": "e9bc9b8ceb287eb33076d3ad4489f1af916b7f904ad22d97b299d57e11bcd24a",
+        "mode": "100644",
+        "oid": "89996059f15cf61c5675b679753a19d8087e70ca"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/scripts/audit_token_probe.c",
+      "working_tree": {
+        "bytes": 2390,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 57,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "e9bc9b8ceb287eb33076d3ad4489f1af916b7f904ad22d97b299d57e11bcd24a"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "04a65c7f3c066b30cd41b204c54cf54d5b46cc50",
+        "independent_reviewer": null,
+        "language": "Python",
+        "line_count": 299,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/scripts/check_fault.py",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "67292cc6e2fb382e423dac71c5b8f5f4d0308157dd6de114d948f5096936e32d",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "04a65c7f3c066b30cd41b204c54cf54d5b46cc50"
+      },
+      "index": {
+        "bytes": 9209,
+        "content_sha256": "67292cc6e2fb382e423dac71c5b8f5f4d0308157dd6de114d948f5096936e32d",
+        "mode": "100644",
+        "oid": "04a65c7f3c066b30cd41b204c54cf54d5b46cc50"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/scripts/check_fault.py",
+      "working_tree": {
+        "bytes": 9209,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 299,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "67292cc6e2fb382e423dac71c5b8f5f4d0308157dd6de114d948f5096936e32d"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "e24b9bcf5fcc740dbb2ffeb85de934e89fc736a0",
+        "independent_reviewer": null,
+        "language": "Python",
+        "line_count": 183,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/scripts/check_observer.py",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "e182601e77cf4c229c2b875bd2e2e48aa961dbb8d28710312f66fec06845e2b2",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "e24b9bcf5fcc740dbb2ffeb85de934e89fc736a0"
+      },
+      "index": {
+        "bytes": 6689,
+        "content_sha256": "e182601e77cf4c229c2b875bd2e2e48aa961dbb8d28710312f66fec06845e2b2",
+        "mode": "100644",
+        "oid": "e24b9bcf5fcc740dbb2ffeb85de934e89fc736a0"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/scripts/check_observer.py",
+      "working_tree": {
+        "bytes": 6689,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 183,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "e182601e77cf4c229c2b875bd2e2e48aa961dbb8d28710312f66fec06845e2b2"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "9895d7f1d8f00129ad4420da508dc26bb3d75852",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 76,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/scripts/darwin_fault.c",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "517bec92fdb6f7f74f4f05ca8ad490557847913b2316ccdde6eccec51b8624e6",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "9895d7f1d8f00129ad4420da508dc26bb3d75852"
+      },
+      "index": {
+        "bytes": 3659,
+        "content_sha256": "517bec92fdb6f7f74f4f05ca8ad490557847913b2316ccdde6eccec51b8624e6",
+        "mode": "100644",
+        "oid": "9895d7f1d8f00129ad4420da508dc26bb3d75852"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/scripts/darwin_fault.c",
+      "working_tree": {
+        "bytes": 3659,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 76,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "517bec92fdb6f7f74f4f05ca8ad490557847913b2316ccdde6eccec51b8624e6"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "7699f756a3582b37f4614eb03f2e1cf036222613",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 95,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/scripts/darwin_observer.c",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "4326baacd42fbab3b1ea81e42eb3fe7cf0282b26edece3d3cad7a4d7ecf254ec",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "7699f756a3582b37f4614eb03f2e1cf036222613"
+      },
+      "index": {
+        "bytes": 3934,
+        "content_sha256": "4326baacd42fbab3b1ea81e42eb3fe7cf0282b26edece3d3cad7a4d7ecf254ec",
+        "mode": "100644",
+        "oid": "7699f756a3582b37f4614eb03f2e1cf036222613"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/scripts/darwin_observer.c",
+      "working_tree": {
+        "bytes": 3934,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 95,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "4326baacd42fbab3b1ea81e42eb3fe7cf0282b26edece3d3cad7a4d7ecf254ec"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "740054a35c7c212e66e514b8da561068d02ef78a",
+        "independent_reviewer": null,
+        "language": "JSON",
+        "line_count": 102,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/scripts/fault-decision.v1.json",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "d89a39ff1a25322c6626f88810793f19e13449d0788a3e682094a61046d1943f",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "740054a35c7c212e66e514b8da561068d02ef78a"
+      },
+      "index": {
+        "bytes": 6096,
+        "content_sha256": "d89a39ff1a25322c6626f88810793f19e13449d0788a3e682094a61046d1943f",
+        "mode": "100644",
+        "oid": "740054a35c7c212e66e514b8da561068d02ef78a"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/scripts/fault-decision.v1.json",
+      "working_tree": {
+        "bytes": 6096,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 102,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "d89a39ff1a25322c6626f88810793f19e13449d0788a3e682094a61046d1943f"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "de3ace5d58210b816cd2edb118c397e33de9dec3",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 124,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/scripts/fault_api_control.c",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "1af0915d9e8efe8adab71a4de4b76aebbc5a2c89aadecd108f08c302f70e15da",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "de3ace5d58210b816cd2edb118c397e33de9dec3"
+      },
+      "index": {
+        "bytes": 5773,
+        "content_sha256": "1af0915d9e8efe8adab71a4de4b76aebbc5a2c89aadecd108f08c302f70e15da",
+        "mode": "100644",
+        "oid": "de3ace5d58210b816cd2edb118c397e33de9dec3"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/scripts/fault_api_control.c",
+      "working_tree": {
+        "bytes": 5773,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 124,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "1af0915d9e8efe8adab71a4de4b76aebbc5a2c89aadecd108f08c302f70e15da"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "4aa3861bfcba323e119a93a3012a46c429fe30da",
+        "independent_reviewer": null,
+        "language": "Python",
+        "line_count": 2633,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/scripts/m1_campaign.py",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "e65b008ea692a01ee22f645d990cbefbb10152c936470c015b82afdcae6881b9",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "4aa3861bfcba323e119a93a3012a46c429fe30da"
+      },
+      "index": {
+        "bytes": 95679,
+        "content_sha256": "e65b008ea692a01ee22f645d990cbefbb10152c936470c015b82afdcae6881b9",
+        "mode": "100644",
+        "oid": "4aa3861bfcba323e119a93a3012a46c429fe30da"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/scripts/m1_campaign.py",
+      "working_tree": {
+        "bytes": 95679,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 2633,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "e65b008ea692a01ee22f645d990cbefbb10152c936470c015b82afdcae6881b9"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "3262d5ebdd81c532d6e855d838a79373809a9fed",
+        "independent_reviewer": null,
+        "language": "Python",
+        "line_count": 313,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/scripts/m1_run.py",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "e3df791bfe940410404f04a6c871379320a10037ad1e6670580ef7db3ab10582",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "3262d5ebdd81c532d6e855d838a79373809a9fed"
+      },
+      "index": {
+        "bytes": 11771,
+        "content_sha256": "e3df791bfe940410404f04a6c871379320a10037ad1e6670580ef7db3ab10582",
+        "mode": "100644",
+        "oid": "3262d5ebdd81c532d6e855d838a79373809a9fed"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/scripts/m1_run.py",
+      "working_tree": {
+        "bytes": 11771,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 313,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "e3df791bfe940410404f04a6c871379320a10037ad1e6670580ef7db3ab10582"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "1ef9b72c33cb8caec524f51c87641f388a37e4e9",
+        "independent_reviewer": null,
+        "language": "Python",
+        "line_count": 558,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/scripts/m1_supervisor.py",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "0cdc6ed79763c5a066a9261f749baf315d29c08398d5eb1f5d886de144464aba",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "1ef9b72c33cb8caec524f51c87641f388a37e4e9"
+      },
+      "index": {
+        "bytes": 20287,
+        "content_sha256": "0cdc6ed79763c5a066a9261f749baf315d29c08398d5eb1f5d886de144464aba",
+        "mode": "100644",
+        "oid": "1ef9b72c33cb8caec524f51c87641f388a37e4e9"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/scripts/m1_supervisor.py",
+      "working_tree": {
+        "bytes": 20287,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 558,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "0cdc6ed79763c5a066a9261f749baf315d29c08398d5eb1f5d886de144464aba"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "b09e26132336a120766ea8904e386db322c3b40c",
+        "independent_reviewer": null,
+        "language": "binary_or_unknown",
+        "line_count": 60,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/scripts/observer_api_control.c",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "a9788160ae9949fe43f7585e4141e5783e610435ff60618dfe162a83959a208b",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "b09e26132336a120766ea8904e386db322c3b40c"
+      },
+      "index": {
+        "bytes": 2403,
+        "content_sha256": "a9788160ae9949fe43f7585e4141e5783e610435ff60618dfe162a83959a208b",
+        "mode": "100644",
+        "oid": "b09e26132336a120766ea8904e386db322c3b40c"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/scripts/observer_api_control.c",
+      "working_tree": {
+        "bytes": 2403,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 60,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "a9788160ae9949fe43f7585e4141e5783e610435ff60618dfe162a83959a208b"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "67e983e6671eaff6c5f2bc0c7bfa880e00431ff8",
+        "independent_reviewer": null,
+        "language": "Python",
+        "line_count": 238,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/scripts/owned_observer.py",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "c0726c77f1b25582962dafe2ec189e8b5066f649bc40c416f05a3ff270b7ccef",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "67e983e6671eaff6c5f2bc0c7bfa880e00431ff8"
+      },
+      "index": {
+        "bytes": 9084,
+        "content_sha256": "c0726c77f1b25582962dafe2ec189e8b5066f649bc40c416f05a3ff270b7ccef",
+        "mode": "100644",
+        "oid": "67e983e6671eaff6c5f2bc0c7bfa880e00431ff8"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/scripts/owned_observer.py",
+      "working_tree": {
+        "bytes": 9084,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 238,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "c0726c77f1b25582962dafe2ec189e8b5066f649bc40c416f05a3ff270b7ccef"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "f21ca93c2f6c6f1bc820835a6779d16a35905ce3",
+        "independent_reviewer": null,
+        "language": "Python",
+        "line_count": 139,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/scripts/test_darwin_fault.py",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "87789709c5baee3851a6dc1a51c26b6344b37bd08f614b6ca68af405a8b6b5c9",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "f21ca93c2f6c6f1bc820835a6779d16a35905ce3"
+      },
+      "index": {
+        "bytes": 5266,
+        "content_sha256": "87789709c5baee3851a6dc1a51c26b6344b37bd08f614b6ca68af405a8b6b5c9",
+        "mode": "100644",
+        "oid": "f21ca93c2f6c6f1bc820835a6779d16a35905ce3"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/scripts/test_darwin_fault.py",
+      "working_tree": {
+        "bytes": 5266,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 139,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "87789709c5baee3851a6dc1a51c26b6344b37bd08f614b6ca68af405a8b6b5c9"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "0dff0ce6bfa4b15e07253fbf8e6ca52c44fb42b9",
+        "independent_reviewer": null,
+        "language": "Python",
+        "line_count": 305,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/scripts/test_m1_supervisor.py",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "14132daca1cc1a7fe6c84f01e7aa9276549d94df7236bcb1012db1bc0a2bb281",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "0dff0ce6bfa4b15e07253fbf8e6ca52c44fb42b9"
+      },
+      "index": {
+        "bytes": 12671,
+        "content_sha256": "14132daca1cc1a7fe6c84f01e7aa9276549d94df7236bcb1012db1bc0a2bb281",
+        "mode": "100644",
+        "oid": "0dff0ce6bfa4b15e07253fbf8e6ca52c44fb42b9"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/scripts/test_m1_supervisor.py",
+      "working_tree": {
+        "bytes": 12671,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 305,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "14132daca1cc1a7fe6c84f01e7aa9276549d94df7236bcb1012db1bc0a2bb281"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "13080582a617cd988b22a73f9c51d3468c1274da",
+        "independent_reviewer": null,
+        "language": "Python",
+        "line_count": 392,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/scripts/test_owned_observer.py",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "cd639b7af9dba37a9f31779e85dba00aca5d8c5d1569d1cba4918169ab48744f",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "13080582a617cd988b22a73f9c51d3468c1274da"
+      },
+      "index": {
+        "bytes": 15343,
+        "content_sha256": "cd639b7af9dba37a9f31779e85dba00aca5d8c5d1569d1cba4918169ab48744f",
+        "mode": "100644",
+        "oid": "13080582a617cd988b22a73f9c51d3468c1274da"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/scripts/test_owned_observer.py",
+      "working_tree": {
+        "bytes": 15343,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 392,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "cd639b7af9dba37a9f31779e85dba00aca5d8c5d1569d1cba4918169ab48744f"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
         "git_blob_id": "bd4a2c3aace33fb24e08cc7249d8f420ed0f2dee",
         "independent_reviewer": null,
         "language": "JSON",
@@ -16498,6 +17433,116 @@
         "link_target": null,
         "mode": "100644",
         "sha256": "2212f24b6def1f5e2daf95763bcb626f7143b5c2a1e1fcdf45c8acc9594e1a45"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "aa56dded8b511d308cb311178ddc75c22e3adda3",
+        "independent_reviewer": null,
+        "language": "Python",
+        "line_count": 1210,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/tests/test_m1_campaign.py",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "646781735bf2de18ca4b192d5f43cd29b0a8ce0f064f1e15fb0ccfc5559f5470",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "aa56dded8b511d308cb311178ddc75c22e3adda3"
+      },
+      "index": {
+        "bytes": 48543,
+        "content_sha256": "646781735bf2de18ca4b192d5f43cd29b0a8ce0f064f1e15fb0ccfc5559f5470",
+        "mode": "100644",
+        "oid": "aa56dded8b511d308cb311178ddc75c22e3adda3"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/tests/test_m1_campaign.py",
+      "working_tree": {
+        "bytes": 48543,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 1210,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "646781735bf2de18ca4b192d5f43cd29b0a8ce0f064f1e15fb0ccfc5559f5470"
+      },
+      "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": "3439c4004be5520367e9eae1db4ff23c871bf052",
+        "independent_reviewer": null,
+        "language": "Python",
+        "line_count": 654,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/agent-bridge/tests/test_m1_run.py",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": true,
+        "sha256": "5e48eeccee7c18b5939b4063a7823cb631a5ac00b0628b558a8c87fd2927a463",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": {
+        "mode": "100644",
+        "object_type": "blob",
+        "oid": "3439c4004be5520367e9eae1db4ff23c871bf052"
+      },
+      "index": {
+        "bytes": 26579,
+        "content_sha256": "5e48eeccee7c18b5939b4063a7823cb631a5ac00b0628b558a8c87fd2927a463",
+        "mode": "100644",
+        "oid": "3439c4004be5520367e9eae1db4ff23c871bf052"
+      },
+      "index_state": "unchanged",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/agent-bridge/tests/test_m1_run.py",
+      "working_tree": {
+        "bytes": 26579,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 654,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "5e48eeccee7c18b5939b4063a7823cb631a5ac00b0628b558a8c87fd2927a463"
       },
       "worktree_state": "unchanged"
     },
@@ -19480,10 +20525,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "99067685d4a361396cb71055a88dc286e47fdab7",
+        "git_blob_id": "49d7d782b93492d02ef0044088bf005b10735bc9",
         "independent_reviewer": null,
         "language": "binary_or_unknown",
-        "line_count": 548,
+        "line_count": 557,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "justfile",
         "public_surface": false,
@@ -19491,20 +20536,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "c075e0eab56177345b04fbe1e33087f1b928a077b3a739df41aca24034220e44",
+        "sha256": "470ce701a6623509be5c0919ce6c77ec2bd97fa154f620749e8c91adaaaf41c4",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "99067685d4a361396cb71055a88dc286e47fdab7"
+        "oid": "49d7d782b93492d02ef0044088bf005b10735bc9"
       },
       "index": {
-        "bytes": 55511,
-        "content_sha256": "c075e0eab56177345b04fbe1e33087f1b928a077b3a739df41aca24034220e44",
+        "bytes": 56192,
+        "content_sha256": "470ce701a6623509be5c0919ce6c77ec2bd97fa154f620749e8c91adaaaf41c4",
         "mode": "100644",
-        "oid": "99067685d4a361396cb71055a88dc286e47fdab7"
+        "oid": "49d7d782b93492d02ef0044088bf005b10735bc9"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -19515,14 +20560,14 @@
       },
       "path": "justfile",
       "working_tree": {
-        "bytes": 55511,
+        "bytes": 56192,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 548,
+        "line_count": 557,
         "link_target": null,
         "mode": "100644",
-        "sha256": "c075e0eab56177345b04fbe1e33087f1b928a077b3a739df41aca24034220e44"
+        "sha256": "470ce701a6623509be5c0919ce6c77ec2bd97fa154f620749e8c91adaaaf41c4"
       },
       "worktree_state": "unchanged"
     },
@@ -31580,7 +32625,7 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": true,
-        "git_blob_id": "bf2d5ce6413c04b65653033df4708b909781c629",
+        "git_blob_id": "ebfd01e16c7391d68c26a3d21002c281c8c9072a",
         "independent_reviewer": null,
         "language": "JSON",
         "line_count": 1316,
@@ -31591,20 +32636,20 @@
         "reviewer": null,
         "science_critical": true,
         "security_critical": false,
-        "sha256": "9991ab759863fa2ab0f8bd8df8b88701f361f4f14a4da6b31ce9f9703c3400c2",
+        "sha256": "d6d969c12efe9da1b641e82b8d3d3d42f259abb191129ef4522b7f07f925b478",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "bf2d5ce6413c04b65653033df4708b909781c629"
+        "oid": "ebfd01e16c7391d68c26a3d21002c281c8c9072a"
       },
       "index": {
         "bytes": 61887,
-        "content_sha256": "9991ab759863fa2ab0f8bd8df8b88701f361f4f14a4da6b31ce9f9703c3400c2",
+        "content_sha256": "d6d969c12efe9da1b641e82b8d3d3d42f259abb191129ef4522b7f07f925b478",
         "mode": "100644",
-        "oid": "bf2d5ce6413c04b65653033df4708b909781c629"
+        "oid": "ebfd01e16c7391d68c26a3d21002c281c8c9072a"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -31622,7 +32667,7 @@
         "line_count": 1316,
         "link_target": null,
         "mode": "100644",
-        "sha256": "9991ab759863fa2ab0f8bd8df8b88701f361f4f14a4da6b31ce9f9703c3400c2"
+        "sha256": "d6d969c12efe9da1b641e82b8d3d3d42f259abb191129ef4522b7f07f925b478"
       },
       "worktree_state": "unchanged"
     },
@@ -35403,12 +36448,12 @@
   "repository": "https://github.com/sepahead/prisoma",
   "schema_version": "prisoma.release-candidate/0.1.0",
   "source": {
-    "candidate_state_sha256": "26603704696b79d89928bcd9170fa17bf0041b4eebf46baf03b85f78251fbcc6",
+    "candidate_state_sha256": "812efe5239fc3fa42557d53bf75151b8f64ced710f14a9f9a69d6f8cf209ef0a",
     "clean": true,
     "explicit_source_arguments_required": true,
-    "head_commit": "9ad03eceae9d927a11b0d2df029d3c71bfdf57a0",
-    "head_tree": "40d48d8754b69338e6b1ca38e29b373baa7512f9",
-    "index_entries_sha256": "a7eb59f8df6ee981157c3e3ec60266169b1a7609890a03ab6491ac0f41ca5bae",
+    "head_commit": "de27e65034840a0189a3e8bb205f5a566194616f",
+    "head_tree": "1fbe43d40d902fb84e1d8e43c67e924b05031b03",
+    "index_entries_sha256": "249133013941e65527d0620e7a5ece6038cd41a429e7cb90f49a5fefe7117870",
     "recursive_gitlinks": [
       {
         "commit": "796c11e70f009634b853dc4ada6f565563d82f51",
@@ -35419,14 +36464,14 @@
       }
     ],
     "state": "clean_source_snapshot",
-    "worktree_entries_sha256": "9303ac2c7daff2f84d5ba0a299e5e350b09a42440d07b378d6dd82138b31164a"
+    "worktree_entries_sha256": "9d5ed25b950d55ee5273250eb533c0c4413def7c665e9131ccf4e90cb288e672"
   },
   "summary": {
     "clean": true,
-    "entry_count": 642,
+    "entry_count": 661,
     "index_changed_entry_count": 0,
-    "indexed_entry_count": 435,
-    "parent_entry_count": 435,
+    "indexed_entry_count": 454,
+    "parent_entry_count": 454,
     "recursive_gitlink_entry_count": 207,
     "untracked_entry_count": 0,
     "worktree_changed_entry_count": 0
