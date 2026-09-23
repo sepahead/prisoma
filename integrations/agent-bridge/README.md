@@ -7,7 +7,7 @@ It adds no estimator, simulator, sensor, or model dependency to the default Rust
 The [execution guide](GUIDE.md) explains the command, transcript, timing, and sensor joins with a worked example.
 The [frozen M1 campaign](M1_CAMPAIGN.md) owns the maintained transfer comparator and controlled process faults.
 The [fixed-schedule performance baseline](M1_PERFORMANCE.md) supplies prospective measurement tools and synthetic controls.
-Native performance execution remains **NOT RUN**.
+The first native performance campaign is incomplete after two direct cases and a prelaunch body admission failure.
 The transfer campaign's [September 23 native evidence](evidence/M1_NATIVE_2026-09-23.md) compares 44 payloads totaling 4,326,400 bytes across body-only and canonical execution.
 The earlier eight-command, 1,542,400-byte case remains historical evidence.
 Neither case supplies learned-policy, exact-fork, statistical, or real-time qualification.

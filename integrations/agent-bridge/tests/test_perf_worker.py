@@ -2,16 +2,100 @@
 
 import importlib.util
 import io
+import json
 from pathlib import Path
 import struct
+import sys
+import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest.mock import Mock, patch
+import uuid
 
+from crebain_ncp_sensors import new_binding
+from ncp_local.modular_buffer import BufferError
 from ncp_local import wire
 
 p = Path(__file__).resolve().parents[1] / "scripts" / "perf_worker.py"
 s = importlib.util.spec_from_file_location("perf_worker", p)
 w = importlib.util.module_from_spec(s)
 s.loader.exec_module(w)
+
+
+class AdmissionControls(unittest.TestCase):
+    def test_actual_installed_binding_accepts_canonical_spelling_only(self):
+        selected = uuid.uuid4()
+        binding = new_binding(run_id=str(selected))
+        self.assertEqual(binding.run_id, str(selected))
+        self.assertNotEqual(binding.endpoint_id, binding.generation)
+        with self.assertRaises(BufferError) as rejected:
+            new_binding(run_id=selected.hex)
+        self.assertEqual(rejected.exception.code, "binding")
+
+    def test_each_python_route_admits_run_id_before_inventory_or_output(self):
+        class InventoryBoundary(RuntimeError):
+            pass
+
+        for route in ("body", "canonical"):
+            for spelling in ("canonical", "hex", "absent"):
+                with (
+                    self.subTest(route=route, spelling=spelling),
+                    tempfile.TemporaryDirectory() as temporary,
+                ):
+                    root = Path(temporary).resolve()
+                    selected = uuid.uuid4()
+                    case = {
+                        "case_id": "selected-case",
+                        "route": route,
+                        "run_id": {
+                            "canonical": str(selected),
+                            "hex": selected.hex,
+                            "absent": None,
+                        }[spelling],
+                    }
+                    inventory = root / "inventory.json"
+                    inventory.write_bytes(b"{}")
+                    freeze = {
+                        "schema": "local.m1-performance-freeze.v1",
+                        "cases": [case],
+                        "tools": {
+                            "python_worker": w.m.identity(p),
+                            "m1_helpers": w.m.identity(p.with_name("m1_campaign.py")),
+                        },
+                        "environments": {
+                            route: {
+                                "prefix": str(Path(sys.prefix).resolve()),
+                                "inventory": w.m.identity(inventory),
+                            }
+                        },
+                        "output_root": str(root / "not-created"),
+                    }
+                    path = root / "freeze.json"
+                    path.write_text(json.dumps(freeze))
+                    helper = SimpleNamespace(
+                        inventory=Mock(side_effect=InventoryBoundary("after admission"))
+                    )
+                    with (
+                        patch.object(w, "module", return_value=helper),
+                        patch.object(w, "study_output") as output,
+                        patch(
+                            "crebain_ncp_sensors.runtime.InstalledRuntime.open"
+                        ) as opened,
+                    ):
+                        expected = {
+                            "canonical": InventoryBoundary,
+                            "hex": BufferError,
+                            "absent": w.m.MeasurementError,
+                        }[spelling]
+                        with self.assertRaises(expected):
+                            w.main(path, case["case_id"])
+                        if spelling == "canonical":
+                            helper.inventory.assert_called_once_with()
+                        else:
+                            helper.inventory.assert_not_called()
+                        output.assert_not_called()
+                        opened.assert_not_called()
+                    self.assertFalse(Path(freeze["output_root"]).exists())
 
 
 class ProbeControls(unittest.TestCase):

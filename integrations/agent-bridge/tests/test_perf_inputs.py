@@ -9,6 +9,10 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
+import uuid
+
+from crebain_ncp_sensors import new_binding
+from ncp_local.modular_buffer import BufferError
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "perf_campaign.py"
 SPEC = importlib.util.spec_from_file_location("performance_input_subject", SCRIPT)
@@ -93,6 +97,10 @@ class InputControls(unittest.TestCase):
             p.m.identity(SCRIPT.with_name("owned_observer.py")),
         )
         self.assertEqual(len(result["cases"]), 192)
+        for case in result["cases"]:
+            binding = new_binding(run_id=case["run_id"])
+            self.assertEqual(binding.run_id, case["run_id"])
+            self.assertEqual(str(uuid.UUID(case["run_id"])), case["run_id"])
         self.assertFalse(result["authority"]["release_qualified"])
         self.assertFalse(result["authority"]["real_time_qualified"])
         self.assertFalse(json.loads(self.review.read_bytes())["execution_authorized"])
@@ -102,6 +110,40 @@ class InputControls(unittest.TestCase):
                 self.freeze(output)
             opened.assert_not_called()
         self.assertEqual(p.m.identity(output / "freeze.json"), identity)
+
+    def test_legacy_run_id_rejects_before_runtime_and_execution_marker(self):
+        output = self.root / "legacy-run-id"
+        with patch(
+            "crebain_ncp_sensors.runtime.InstalledRuntime.open",
+            return_value=self.runtime,
+        ):
+            self.freeze(output)
+        selected = output / "freeze.json"
+        result = json.loads(selected.read_bytes())
+        # Change the selected bytes themselves, without relying on a stale outer hash.
+        result["cases"][0]["run_id"] = uuid.UUID(result["cases"][0]["run_id"]).hex
+        inventory = self.root / "inventory.json"
+        inventory.write_bytes(b"{}")
+        result["environments"] = {
+            "canonical": {
+                "prefix": str(Path(sys.prefix).resolve()),
+                "inventory": p.m.identity(inventory),
+                "wheels": {},
+            }
+        }
+        selected.write_text(json.dumps(result))
+        with (
+            patch("crebain_ncp_sensors.runtime.InstalledRuntime.open") as opened,
+            patch.object(p, "capture") as capture,
+        ):
+            with self.assertRaises(BufferError) as rejected:
+                p.run_study(selected)
+            self.assertEqual(rejected.exception.code, "binding")
+            opened.assert_not_called()
+            capture.assert_not_called()
+        self.assertFalse((output / "execution-start.json").exists())
+        self.assertEqual(list((output / "runs").iterdir()), [])
+        self.assertEqual(list((output / "commands").iterdir()), [])
 
     def test_each_input_rejects_size_symlink_relative_and_empty_before_runtime(self):
         oversized = self.root / "oversized"

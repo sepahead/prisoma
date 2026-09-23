@@ -1,6 +1,7 @@
 # Fixed-schedule M1 performance baseline
 
-Status: maintained source and synthetic controls. Native performance execution remains **NOT RUN**.
+Status: the first native performance campaign is **INCOMPLETE**.
+A successor campaign requires a new reviewed freeze.
 Scope: prospective installed M1 engineering measurements on one selected Darwin host.
 This study cannot grant NCP v1 release or real-time qualification.
 The owner-approved broader performance and resource profile remains unavailable.
@@ -15,6 +16,37 @@ The earlier native M1 evidence supplies no per-tick latency distribution or allo
 The independent direct baseline uses CREBAIN's standalone owner.
 The canonical arm uses Prisoma's Agent Bridge and its original NCP capture.
 Neither standalone arm becomes a canonical Prisoma experiment record.
+
+## First retained native attempt
+
+The September 23 attempt used published Prisoma `cbf8345526557e282af9d846755bc74c01215cd2` and one frozen 192-case roster.
+Two direct cases completed before the first body worker rejected its run identifier.
+That rejection occurred before producer launch.
+The campaign stopped with two completed cases, one failed case, and 189 unattempted cases.
+All 190 uncompleted cases remain in the original denominator.
+
+| Retained original | SHA-256 |
+| --- | --- |
+| Prospective freeze | `705a3ead913ed8412aa6866bb54a9d03865e023ac56d46df81d474a83eead4a7` |
+| Incomplete campaign terminal | `c75c855557aab5b8e2967ef163fc94822c58930635e401d9be3af124b3ced255` |
+
+Original artifacts remain private, locally observed evidence.
+These digests identify retained bytes and do not attest loaded code.
+Each completed direct case retained 24 ticks and 44 payloads totaling 4,326,400 bytes.
+Both direct cases missed all 24 original route and export deadlines.
+This incomplete cohort supplies no cross-route distribution or complete baseline.
+
+All three sampled command trees retired, with observed identity counts of nine, nine, and one in launch order.
+No command timed out, overflowed its output, or required a forced kill.
+The observer sent no signals.
+The failed body worker's application cleanup and process-exit fields remain null because owner admission was never reached.
+These observations do not establish exhaustive descendant containment.
+
+The freezer emitted 32 hexadecimal characters, but the installed NCP owner requires canonical hyphenated UUIDv4 strings.
+The maintained repair generates the required spelling and checks the real installed owner before effects.
+It preserves the original workload, measurement arithmetic, case ordering, bounds, and installed artifacts.
+Never rerun or replace a case in the failed freeze.
+Retain this attempt alongside any separately frozen successor report.
 
 ## Compared approaches
 
@@ -84,6 +116,28 @@ Across 32 cases, the warmed suffix has 576 samples per arm.
 Report p50, p99, p99.9, and maximum with nearest-rank quantiles.
 At this sample size, p99.9 equals the sample maximum.
 It is not a reliable estimate of a population tail or a worst-case bound.
+
+## Run identity admission
+
+| Approach | Benefit | Failure mode | Decisive control | Decision |
+| --- | --- | --- | --- | --- |
+| Broaden NCP identifier syntax | Accepts the old hexadecimal spelling | Changes the pinned owner contract | Existing owner rejection disappears | Reject |
+| Normalize inside the worker | Unblocks late admission | Frozen and actual binding strings differ | Compare exact selected and actual strings | Reject |
+| Let the worker choose another run identifier | Produces a valid fresh binding | Loses prospective run identity | Rejoin the actual binding to the freeze | Reject |
+| Generate canonical UUID strings and call the public owner | Preserves exact identity and existing syntax authority | Missing preflight can waste earlier cases | Installed owner positives and old-hex pre-effect negatives | Select |
+| Freeze every complete binding | Selects all endpoint fields early | Adds unused direct-arm identities and lifecycle obligations | Qualify the expanded binding profile | Defer |
+
+Generate each run identifier with `str(uuid.uuid4())`.
+The freezer admits every selected string through the installed `new_binding` API before creating campaign output.
+The campaign repeats admission before any case launch.
+Python workers repeat this pure check before output creation and runtime launch.
+Actual binding creation and publication stay inside the measured preparation interval.
+Local clock identifiers remain opaque 32-character hexadecimal strings.
+
+The direct native plan uses `ncp-<run_id>` with the exact selected string.
+The installed native NCP owner uses the same prefix construction.
+The canonical record retains the exact binding run identifier.
+No route silently translates or replaces a selected run identifier.
 
 ## Clocks, scheduling, and costs
 

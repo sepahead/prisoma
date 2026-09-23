@@ -216,6 +216,9 @@ def main(freeze_path, case_id):
     from crebain_ncp_sensors import codec, body_session, new_binding
     from crebain_ncp_sensors.runtime import InstalledRuntime
 
+    m.require(type(case["run_id"]) is str, "selected run identity")
+    # Pure preflight leaves actual binding creation in the measured preparation.
+    new_binding(run_id=case["run_id"])
     environment = freeze["environments"][case["route"]]
     m.require(str(Path(sys.prefix).resolve()) == environment["prefix"], "environment")
     selected_inventory = m.parse_json(m.selected_file(environment["inventory"]))

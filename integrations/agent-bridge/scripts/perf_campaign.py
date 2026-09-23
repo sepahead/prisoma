@@ -75,6 +75,8 @@ def tree_size(path):
 
 
 def validate_freeze(freeze, raw):
+    from crebain_ncp_sensors import new_binding
+
     m.require(freeze["schema"] == "local.m1-performance-freeze.v1", "freeze schema")
     projection = [
         {key: row[key] for key in ("case_id", "block", "route", "instrumentation")}
@@ -84,15 +86,21 @@ def validate_freeze(freeze, raw):
     for key in ("run_id", "clock_id"):
         values = [row[key] for row in freeze["cases"]]
         m.require(
-            len(set(values)) == 192
-            and all(
-                type(value) is str
-                and len(value) == 32
-                and all(x in "0123456789abcdef" for x in value)
-                for value in values
-            ),
+            all(type(value) is str for value in values) and len(set(values)) == 192,
             "fresh case identity roster",
         )
+        if key == "run_id":
+            # The installed owner admits the exact string before any case effects.
+            for value in values:
+                new_binding(run_id=value)
+        else:
+            m.require(
+                all(
+                    len(value) == 32 and all(x in "0123456789abcdef" for x in value)
+                    for value in values
+                ),
+                "fresh case identity roster",
+            )
     m.require(
         freeze["limits"]
         == {
@@ -150,9 +158,6 @@ def freeze_study(m1_freeze, design, review, campaign):
     executables = {
         name: c.file_identity(getattr(runtime, name)) for name in ("bun", "node")
     }
-    campaign.mkdir(mode=0o700)
-    (campaign / "runs").mkdir(mode=0o700)
-    (campaign / "commands").mkdir(mode=0o700)
     tools = {
         name: m.identity(HERE / filename)
         for name, filename in {
@@ -170,7 +175,7 @@ def freeze_study(m1_freeze, design, review, campaign):
     tools["design"] = design_identity
     tools["design_closure"] = review_identity
     cases = [
-        {**row, "run_id": uuid.uuid4().hex, "clock_id": uuid.uuid4().hex}
+        {**row, "run_id": str(uuid.uuid4()), "clock_id": uuid.uuid4().hex}
         for row in planned_cases()
     ]
     value = {
@@ -207,6 +212,9 @@ def freeze_study(m1_freeze, design, review, campaign):
     }
     encoded = (json.dumps(value, indent=2, allow_nan=False) + "\n").encode()
     validate_freeze(value, encoded)
+    campaign.mkdir(mode=0o700)
+    (campaign / "runs").mkdir(mode=0o700)
+    (campaign / "commands").mkdir(mode=0o700)
     with (campaign / "freeze.json").open("xb") as stream:
         stream.write(encoded)
         stream.flush()
