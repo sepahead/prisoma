@@ -10735,7 +10735,7 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": true,
-        "git_blob_id": "f2a4cf483931462b99172d48f92ff01bd31f90f1",
+        "git_blob_id": "5051becf81852a93f60f377e0a22eb6c32fdf4af",
         "independent_reviewer": null,
         "language": "Markdown",
         "line_count": 46,
@@ -10746,20 +10746,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "2d1f38127348fae27dba4fe786c6f6f9e5199fe634545c64728272fe75581cc6",
+        "sha256": "d02a9592ab647636e7435ce729b7efae070cf65bd7870c49db4d65b3ec230a54",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "f2a4cf483931462b99172d48f92ff01bd31f90f1"
+        "oid": "5051becf81852a93f60f377e0a22eb6c32fdf4af"
       },
       "index": {
         "bytes": 37285,
-        "content_sha256": "2d1f38127348fae27dba4fe786c6f6f9e5199fe634545c64728272fe75581cc6",
+        "content_sha256": "d02a9592ab647636e7435ce729b7efae070cf65bd7870c49db4d65b3ec230a54",
         "mode": "100644",
-        "oid": "f2a4cf483931462b99172d48f92ff01bd31f90f1"
+        "oid": "5051becf81852a93f60f377e0a22eb6c32fdf4af"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -10777,7 +10777,7 @@
         "line_count": 46,
         "link_target": null,
         "mode": "100644",
-        "sha256": "2d1f38127348fae27dba4fe786c6f6f9e5199fe634545c64728272fe75581cc6"
+        "sha256": "d02a9592ab647636e7435ce729b7efae070cf65bd7870c49db4d65b3ec230a54"
       },
       "worktree_state": "unchanged"
     },
@@ -16070,10 +16070,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "47c12b13bf91240287cb23e5d26b92a17cfb10aa",
+        "git_blob_id": "c72555cc029fd79b916aa31aca13a89180b46927",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 309,
+        "line_count": 363,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "integrations/agent-bridge/M1_PERFORMANCE.md",
         "public_surface": false,
@@ -16081,20 +16081,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": true,
-        "sha256": "3a0409eb48398beceb29205fae9ba68a5d57c05c6313c548825556cea12cc3b6",
+        "sha256": "1b4df8138fbb7b55a19abc4c5c7922115609224b2fd151aaa5ebfefba24f5256",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "47c12b13bf91240287cb23e5d26b92a17cfb10aa"
+        "oid": "c72555cc029fd79b916aa31aca13a89180b46927"
       },
       "index": {
-        "bytes": 18873,
-        "content_sha256": "3a0409eb48398beceb29205fae9ba68a5d57c05c6313c548825556cea12cc3b6",
+        "bytes": 22567,
+        "content_sha256": "1b4df8138fbb7b55a19abc4c5c7922115609224b2fd151aaa5ebfefba24f5256",
         "mode": "100644",
-        "oid": "47c12b13bf91240287cb23e5d26b92a17cfb10aa"
+        "oid": "c72555cc029fd79b916aa31aca13a89180b46927"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -16105,14 +16105,14 @@
       },
       "path": "integrations/agent-bridge/M1_PERFORMANCE.md",
       "working_tree": {
-        "bytes": 18873,
+        "bytes": 22567,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 309,
+        "line_count": 363,
         "link_target": null,
         "mode": "100644",
-        "sha256": "3a0409eb48398beceb29205fae9ba68a5d57c05c6313c548825556cea12cc3b6"
+        "sha256": "1b4df8138fbb7b55a19abc4c5c7922115609224b2fd151aaa5ebfefba24f5256"
       },
       "worktree_state": "unchanged"
     },
@@ -16125,7 +16125,7 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "8c9bee88901297b0a2148913d7ab97ac44853609",
+        "git_blob_id": "86a183dfc50b32d8e59a50f73ea703e7f7f9fd6a",
         "independent_reviewer": null,
         "language": "Markdown",
         "line_count": 229,
@@ -16136,20 +16136,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": true,
-        "sha256": "47827f11231e84724385820ffde2f7cd42a9702d1a78041f46b8eb3e9affbdd8",
+        "sha256": "3c8651b0633fd54190073fe0837d734f8a4ba3fd706156bace37007624379eed",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "8c9bee88901297b0a2148913d7ab97ac44853609"
+        "oid": "86a183dfc50b32d8e59a50f73ea703e7f7f9fd6a"
       },
       "index": {
-        "bytes": 13139,
-        "content_sha256": "47827f11231e84724385820ffde2f7cd42a9702d1a78041f46b8eb3e9affbdd8",
+        "bytes": 13204,
+        "content_sha256": "3c8651b0633fd54190073fe0837d734f8a4ba3fd706156bace37007624379eed",
         "mode": "100644",
-        "oid": "8c9bee88901297b0a2148913d7ab97ac44853609"
+        "oid": "86a183dfc50b32d8e59a50f73ea703e7f7f9fd6a"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -16160,14 +16160,14 @@
       },
       "path": "integrations/agent-bridge/README.md",
       "working_tree": {
-        "bytes": 13139,
+        "bytes": 13204,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
         "line_count": 229,
         "link_target": null,
         "mode": "100644",
-        "sha256": "47827f11231e84724385820ffde2f7cd42a9702d1a78041f46b8eb3e9affbdd8"
+        "sha256": "3c8651b0633fd54190073fe0837d734f8a4ba3fd706156bace37007624379eed"
       },
       "worktree_state": "unchanged"
     },
@@ -17335,10 +17335,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "1f6bfffa57603e35e96fe36b47731fa75bec582a",
+        "git_blob_id": "7154918e71571d01e234ed8806909c19f36ab8b9",
         "independent_reviewer": null,
         "language": "Python",
-        "line_count": 683,
+        "line_count": 691,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "integrations/agent-bridge/scripts/perf_campaign.py",
         "public_surface": false,
@@ -17346,20 +17346,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": true,
-        "sha256": "f0b17115291d3ae7c49060c4e89ba54c8730b3b1aef45bac4d813d3c2b2e2713",
+        "sha256": "6bf1c8956b212c2ae351efa48bfeb702f63cab25f9c25bb1feaf307462285234",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "1f6bfffa57603e35e96fe36b47731fa75bec582a"
+        "oid": "7154918e71571d01e234ed8806909c19f36ab8b9"
       },
       "index": {
-        "bytes": 25305,
-        "content_sha256": "f0b17115291d3ae7c49060c4e89ba54c8730b3b1aef45bac4d813d3c2b2e2713",
+        "bytes": 25644,
+        "content_sha256": "6bf1c8956b212c2ae351efa48bfeb702f63cab25f9c25bb1feaf307462285234",
         "mode": "100644",
-        "oid": "1f6bfffa57603e35e96fe36b47731fa75bec582a"
+        "oid": "7154918e71571d01e234ed8806909c19f36ab8b9"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -17370,14 +17370,14 @@
       },
       "path": "integrations/agent-bridge/scripts/perf_campaign.py",
       "working_tree": {
-        "bytes": 25305,
+        "bytes": 25644,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 683,
+        "line_count": 691,
         "link_target": null,
         "mode": "100644",
-        "sha256": "f0b17115291d3ae7c49060c4e89ba54c8730b3b1aef45bac4d813d3c2b2e2713"
+        "sha256": "6bf1c8956b212c2ae351efa48bfeb702f63cab25f9c25bb1feaf307462285234"
       },
       "worktree_state": "unchanged"
     },
@@ -17555,10 +17555,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "fdcc5ccea395c1f4992db7a2232a943c9bcc4ba5",
+        "git_blob_id": "f53fb74a032121140e89e0c16a28019ced9f3c52",
         "independent_reviewer": null,
         "language": "Python",
-        "line_count": 467,
+        "line_count": 470,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "integrations/agent-bridge/scripts/perf_worker.py",
         "public_surface": false,
@@ -17566,20 +17566,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": true,
-        "sha256": "b3e04ca8e79c804c4dca513dfa659740c585f59c4b906f8cf59c33d9d2aa50f6",
+        "sha256": "4bd6a1ad6a84a7977768b87057f7c022769167bf31b38753a97cd32144a7ba4e",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "fdcc5ccea395c1f4992db7a2232a943c9bcc4ba5"
+        "oid": "f53fb74a032121140e89e0c16a28019ced9f3c52"
       },
       "index": {
-        "bytes": 18626,
-        "content_sha256": "b3e04ca8e79c804c4dca513dfa659740c585f59c4b906f8cf59c33d9d2aa50f6",
+        "bytes": 18814,
+        "content_sha256": "4bd6a1ad6a84a7977768b87057f7c022769167bf31b38753a97cd32144a7ba4e",
         "mode": "100644",
-        "oid": "fdcc5ccea395c1f4992db7a2232a943c9bcc4ba5"
+        "oid": "f53fb74a032121140e89e0c16a28019ced9f3c52"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -17590,14 +17590,14 @@
       },
       "path": "integrations/agent-bridge/scripts/perf_worker.py",
       "working_tree": {
-        "bytes": 18626,
+        "bytes": 18814,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 467,
+        "line_count": 470,
         "link_target": null,
         "mode": "100644",
-        "sha256": "b3e04ca8e79c804c4dca513dfa659740c585f59c4b906f8cf59c33d9d2aa50f6"
+        "sha256": "4bd6a1ad6a84a7977768b87057f7c022769167bf31b38753a97cd32144a7ba4e"
       },
       "worktree_state": "unchanged"
     },
@@ -18435,10 +18435,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "5e4ff36546824b19cbf38c0e302272d32470775b",
+        "git_blob_id": "8dcc62545a8f82385bf03639976f4ffa7c699a56",
         "independent_reviewer": null,
         "language": "Python",
-        "line_count": 261,
+        "line_count": 303,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "integrations/agent-bridge/tests/test_perf_inputs.py",
         "public_surface": false,
@@ -18446,20 +18446,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": true,
-        "sha256": "b7b6ae91597ceb36103c4ef4d7fd9b0e8a534b1278a44495df47ade02691f18e",
+        "sha256": "32b9f37a3e89ccad467a74d33bf61058bcefb0ee1308e616bbc5fd9772d04ba2",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "5e4ff36546824b19cbf38c0e302272d32470775b"
+        "oid": "8dcc62545a8f82385bf03639976f4ffa7c699a56"
       },
       "index": {
-        "bytes": 10708,
-        "content_sha256": "b7b6ae91597ceb36103c4ef4d7fd9b0e8a534b1278a44495df47ade02691f18e",
+        "bytes": 12566,
+        "content_sha256": "32b9f37a3e89ccad467a74d33bf61058bcefb0ee1308e616bbc5fd9772d04ba2",
         "mode": "100644",
-        "oid": "5e4ff36546824b19cbf38c0e302272d32470775b"
+        "oid": "8dcc62545a8f82385bf03639976f4ffa7c699a56"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -18470,14 +18470,14 @@
       },
       "path": "integrations/agent-bridge/tests/test_perf_inputs.py",
       "working_tree": {
-        "bytes": 10708,
+        "bytes": 12566,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 261,
+        "line_count": 303,
         "link_target": null,
         "mode": "100644",
-        "sha256": "b7b6ae91597ceb36103c4ef4d7fd9b0e8a534b1278a44495df47ade02691f18e"
+        "sha256": "32b9f37a3e89ccad467a74d33bf61058bcefb0ee1308e616bbc5fd9772d04ba2"
       },
       "worktree_state": "unchanged"
     },
@@ -18545,10 +18545,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "e434b36c03922421e3be8784c1a17dfb197dd237",
+        "git_blob_id": "7adda80c51db38bde6e27fd80fee566f1589875c",
         "independent_reviewer": null,
         "language": "Python",
-        "line_count": 111,
+        "line_count": 195,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "integrations/agent-bridge/tests/test_perf_worker.py",
         "public_surface": false,
@@ -18556,20 +18556,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": true,
-        "sha256": "3df444a209aa5ef62b9630721123af7fdc72a1ff9871d964ff15ef0cef7974cd",
+        "sha256": "cf8bd3140e66064a6a7cf52735d621044b91612da24541382777e7261b38ec1f",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "e434b36c03922421e3be8784c1a17dfb197dd237"
+        "oid": "7adda80c51db38bde6e27fd80fee566f1589875c"
       },
       "index": {
-        "bytes": 4332,
-        "content_sha256": "3df444a209aa5ef62b9630721123af7fdc72a1ff9871d964ff15ef0cef7974cd",
+        "bytes": 8101,
+        "content_sha256": "cf8bd3140e66064a6a7cf52735d621044b91612da24541382777e7261b38ec1f",
         "mode": "100644",
-        "oid": "e434b36c03922421e3be8784c1a17dfb197dd237"
+        "oid": "7adda80c51db38bde6e27fd80fee566f1589875c"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -18580,14 +18580,14 @@
       },
       "path": "integrations/agent-bridge/tests/test_perf_worker.py",
       "working_tree": {
-        "bytes": 4332,
+        "bytes": 8101,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 111,
+        "line_count": 195,
         "link_target": null,
         "mode": "100644",
-        "sha256": "3df444a209aa5ef62b9630721123af7fdc72a1ff9871d964ff15ef0cef7974cd"
+        "sha256": "cf8bd3140e66064a6a7cf52735d621044b91612da24541382777e7261b38ec1f"
       },
       "worktree_state": "unchanged"
     },
@@ -33615,7 +33615,7 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": true,
-        "git_blob_id": "4bfa43390104cbcad4630022ab04a284aa892fe2",
+        "git_blob_id": "ad805d64822c00bb8ce7af0f9716307f8b311dac",
         "independent_reviewer": null,
         "language": "JSON",
         "line_count": 1316,
@@ -33626,20 +33626,20 @@
         "reviewer": null,
         "science_critical": true,
         "security_critical": false,
-        "sha256": "9efbc97c10258267a64bc5a2609af50b442683263368906daaa83908887aea86",
+        "sha256": "6b10dc71d61c5cad0d8926a3094ef40cda87ce0fc9caf0a7d28607d6a0e7ebc5",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "4bfa43390104cbcad4630022ab04a284aa892fe2"
+        "oid": "ad805d64822c00bb8ce7af0f9716307f8b311dac"
       },
       "index": {
         "bytes": 61887,
-        "content_sha256": "9efbc97c10258267a64bc5a2609af50b442683263368906daaa83908887aea86",
+        "content_sha256": "6b10dc71d61c5cad0d8926a3094ef40cda87ce0fc9caf0a7d28607d6a0e7ebc5",
         "mode": "100644",
-        "oid": "4bfa43390104cbcad4630022ab04a284aa892fe2"
+        "oid": "ad805d64822c00bb8ce7af0f9716307f8b311dac"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -33657,7 +33657,7 @@
         "line_count": 1316,
         "link_target": null,
         "mode": "100644",
-        "sha256": "9efbc97c10258267a64bc5a2609af50b442683263368906daaa83908887aea86"
+        "sha256": "6b10dc71d61c5cad0d8926a3094ef40cda87ce0fc9caf0a7d28607d6a0e7ebc5"
       },
       "worktree_state": "unchanged"
     },
@@ -37603,12 +37603,12 @@
   "repository": "https://github.com/sepahead/prisoma",
   "schema_version": "prisoma.release-candidate/0.1.0",
   "source": {
-    "candidate_state_sha256": "99ca170f529a1a9a8240196b616f70890cad4798979ff8f5e6c3f0c0d1d6d41c",
+    "candidate_state_sha256": "931598ed8c5d4b2efedb81a44484a393bae1bac135cf6ba724e6e2f7bfbe09c5",
     "clean": true,
     "explicit_source_arguments_required": true,
-    "head_commit": "3d4cb9751a612ab01a2fada5ecc7dc41092d1dab",
-    "head_tree": "8fddee02a5c9e6ec68865ddaec03ad4de6b041eb",
-    "index_entries_sha256": "373df5adf5477345eddab331898c219b9b10855854e27ed2b24d67718ddbbe00",
+    "head_commit": "51d4cc707beb4f252d78fa0ffa52ccfba9b2eed2",
+    "head_tree": "1b8181667b3025a748bd4c51d06dc4610a0148db",
+    "index_entries_sha256": "97ecb8b5e32899c3426ed2dc5d28675c6596c2614547963bb93c771c22bf41a8",
     "recursive_gitlinks": [
       {
         "commit": "796c11e70f009634b853dc4ada6f565563d82f51",
@@ -37619,7 +37619,7 @@
       }
     ],
     "state": "clean_source_snapshot",
-    "worktree_entries_sha256": "b0f08440b2dfdcddba0924e43f69b8cace427a7a8074577b52d4c70ef39482b2"
+    "worktree_entries_sha256": "e5654b781dd2041a70373f90cfcd1323b765250a77508c2a12e88ed29a431029"
   },
   "summary": {
     "clean": true,
