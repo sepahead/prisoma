@@ -55,38 +55,45 @@ def _require(condition: bool, message: str) -> None:
         raise ExperimentError(message)
 
 
-# One exception graph is inspected with an explicit node budget. Recursive descent
-# raises RecursionError on a deeply nested group. That would discard the retained
-# failure identities and skip the resource cleanup in _close below.
+# Count every inspected group edge, including repeated exception identities.
+# Lazy child cursors also keep broad groups within the traversal's memory bound.
 _TRAVERSAL_BUDGET = 4096
 
 
 def _contains_error(
     container: BaseException, target: BaseException, *, budget: int = _TRAVERSAL_BUDGET
 ) -> bool | None:
-    """Search one exception-group tree for an exact exception identity.
+    """Search exception-group membership with bounded work and temporary memory.
 
     Returns True when target is reachable from container, False when the whole tree
-    was searched without reaching it, and None when the node budget was exhausted.
+    was searched without reaching it, and None when the traversal budget expired.
     None means unknown, never absent, so a caller must retain both roots.
 
-    An identity referenced by several edges is visited once. A shared cause or a
-    malformed cycle therefore cannot extend the search.
+    The budget includes the root and every inspected group-child edge. Shared
+    groups are expanded once. Causes and contexts do not establish group membership.
+    Built-in descriptors avoid invoking a subclass's diagnostic properties.
     """
-    pending = [container]
-    seen = {id(container)}
+    pending = [((container,), 0)]
+    seen = set()
     while pending:
+        children, index = pending[-1]
+        if index == len(children):
+            pending.pop()
+            continue
         if budget <= 0:
             return None
         budget -= 1
-        current = pending.pop()
+        current = children[index]
+        pending[-1] = (children, index + 1)
         if current is target:
             return True
-        if isinstance(current, BaseExceptionGroup):
-            for error in current.exceptions:
-                if id(error) not in seen:
-                    seen.add(id(error))
-                    pending.append(error)
+        identity = id(current)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        if issubclass(type(current), BaseExceptionGroup):
+            children = BaseExceptionGroup.exceptions.__get__(current)
+            pending.append((children, 0))
     return False
 
 
@@ -252,6 +259,7 @@ class SensorExperiment:
         self._prepared = False
         self._resources_closed = False
         self._failure = None
+        self._failure_graph_truncated = False
         self._completed_run = None
         self._session = self._journal = self._bridge = None
         self._open_owner = None
@@ -309,6 +317,11 @@ class SensorExperiment:
     def diagnostics_truncated(self) -> bool:
         """Whether the owned producer exceeded retained diagnostic capacity."""
         return getattr(self._session, "diagnostics_truncated", False)
+
+    @property
+    def failure_graph_truncated(self) -> bool:
+        """Whether bounded failure containment left root membership unknown."""
+        return self._failure_graph_truncated
 
     def _active(self) -> None:
         _require(
@@ -438,10 +451,17 @@ class SensorExperiment:
             # session, journal, and bridge.
             # Drop a root only when it is proved reachable from the other root. An
             # exhausted or inconclusive search retains both rather than losing one.
-            if _contains_error(self._failure, primary) is True:
+            retained_contains_primary = _contains_error(self._failure, primary)
+            if retained_contains_primary is None:
+                self._failure_graph_truncated = True
+            if retained_contains_primary is True:
                 failures = [self._failure]
-            elif _contains_error(primary, self._failure) is not True:
-                failures.insert(0, self._failure)
+            else:
+                primary_contains_retained = _contains_error(primary, self._failure)
+                if primary_contains_retained is None:
+                    self._failure_graph_truncated = True
+                if primary_contains_retained is not True:
+                    failures.insert(0, self._failure)
         if not self._resources_closed:
             self._resources_closed = True
             for resource in (self._session, self._journal, self._bridge):

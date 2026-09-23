@@ -68,6 +68,43 @@ This source milestone makes no published-PyPI-wheel promise.
 
 The [recorded native case](evidence/native-2026-09-10.json) retains CREBAIN `0e16f30f4970066e30c15f079b29c0e18f00cb25` and NCP `9ae64ac1a77c9cd0612284992a8711220428a6e3`.
 
+## Own an installed producer
+
+`owned_sensor_experiment` combines the installed body launcher with canonical command recording.
+Supply the runtime admitted by CREBAIN's installer and the same typed preparation used by `SensorExperiment`.
+The helper enters producer ownership inside the synchronized canonical Prepare callback.
+It infers no executable path and registers no additional runtime.
+
+```python
+from prisoma_agent_bridge.crebain import owned_sensor_experiment
+
+with owned_sensor_experiment(
+    runtime, prepare, "run.jsonl", "capture.ncp", timeout_s=180,
+) as experiment:
+    for tick in range(prepare.planned_ticks):
+        observation = experiment.advance(initial_target if tick == 0 else None)
+        consume(observation)
+    result = experiment.finish()
+```
+
+Call `finish()` explicitly after every planned tick.
+A normal exit without canonical finalization becomes an exceptional owner exit.
+Caught dispatch failures remain retained and prevent successful context completion.
+Distinct execution, recording, and cleanup failures remain available as original exception objects.
+
+Failure deduplication searches exception-group membership only.
+Causes and contexts do not erase separately retained roots.
+Each search inspects at most 4,096 root or child references, including repeated references.
+Temporary traversal storage follows that bound instead of copying a complete child roster.
+An exhausted search retains uncertain roots and sets `experiment.failure_graph_truncated=true`.
+This flag describes the search, without truncating the original exception groups.
+Diagnostic properties and exception formatting do not execute during that search.
+
+After context exit, inspect `process_exit`, `diagnostics`, and `diagnostics_truncated` for the producer observations.
+Those observations retain the installed launcher's scope and limitations.
+The separate `failure_graph_truncated` flag reports incomplete failure-membership analysis.
+Synthetic lifecycle controls do not qualify native producer retirement or scientific results.
+
 ## Readback
 
 `verify_sensor_run` validates the canonical log through the pinned Rust reader.

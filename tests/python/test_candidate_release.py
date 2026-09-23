@@ -422,8 +422,21 @@ elif mode == "setup_failure":
     assert not setup_marker.exists()
 
 
-def test_candidate_audit_passes_but_reports_no_go_pending_state() -> None:
-    result = _run_audit(CANDIDATE_DIR)
+def test_candidate_audit_passes_but_reports_no_go_pending_state(tmp_path: Path) -> None:
+    # This is a pre-commit behavior control. The separate post-commit candidate
+    # audit verifies the checked-in capture against its actual source commit.
+    generator = _load_generator()
+    inventory = generator["capture_stable_inventory"](ROOT)
+    source = generator["source_state_arguments"](inventory)
+    artifacts = generator["build_artifacts"](
+        ROOT,
+        source_head=source["source_head"],
+        source_index_sha256=source["source_index_sha256"],
+        source_worktree_sha256=source["source_worktree_sha256"],
+    )
+    candidate = tmp_path / "candidate"
+    _write_artifact_set(candidate, artifacts)
+    result = _run_audit(candidate)
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert payload["status"] == "pass"
@@ -440,7 +453,8 @@ def test_candidate_audit_passes_but_reports_no_go_pending_state() -> None:
 
 
 def test_candidate_inventory_covers_recorded_source_and_pinned_gitlink() -> None:
-    inventory = _read(CANDIDATE_DIR / "source_inventory.json")
+    generator = _load_generator()
+    inventory = generator["capture_stable_inventory"](ROOT)
     entries = inventory["entries"]
     parent_paths = {
         entry["path"]
@@ -491,6 +505,31 @@ def test_candidate_inventory_covers_recorded_source_and_pinned_gitlink() -> None
             raw = (ROOT / entry["path"]).read_bytes()
             assert working["sha256"] == hashlib.sha256(raw).hexdigest()
             assert working["bytes"] == len(raw)
+
+
+@pytest.mark.parametrize("mutation", ["bytes", "omission"])
+def test_live_candidate_coverage_rejects_stale_source(mutation: str) -> None:
+    generator = _load_generator()
+    auditor = _load_auditor()
+    inventory = generator["capture_stable_inventory"](ROOT)
+    assert auditor["_validate_live_coverage"](ROOT, inventory) == "exact_source_state"
+
+    stale = copy.deepcopy(inventory)
+    row = next(
+        entry
+        for entry in stale["entries"]
+        if entry["inventory_origin"]["kind"] == "parent_repository"
+        and entry["working_tree"]["kind"] == "regular"
+    )
+    if mutation == "bytes":
+        digest = row["working_tree"]["sha256"]
+        row["working_tree"]["sha256"] = ("1" if digest[0] == "0" else "0") + digest[1:]
+    else:
+        stale["entries"].remove(row)
+
+    with pytest.raises(auditor["CandidateError"]) as caught:
+        auditor["_validate_live_coverage"](ROOT, stale)
+    assert caught.value.code == "LIVE_SOURCE_DRIFT"
 
 
 def test_candidate_inventory_bound_admits_current_source_and_rejects_one_over() -> None:

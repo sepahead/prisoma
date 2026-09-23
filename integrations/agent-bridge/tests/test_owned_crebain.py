@@ -1,12 +1,14 @@
 """Owned-context lifecycle controls with synthetic peers, without native processes."""
 
 from contextlib import contextmanager
+import asyncio
 from dataclasses import replace
 import json
 from pathlib import Path
 import tempfile
 import threading
 import time
+import tracemalloc
 import unittest
 from unittest.mock import patch
 
@@ -59,6 +61,7 @@ class BoundedFailureMerge(unittest.TestCase):
         experiment._retired = False
         experiment._resources_closed = False
         experiment._failure = retained
+        experiment._failure_graph_truncated = False
         experiment._session = Resource()
         experiment._journal = Resource()
         experiment._bridge = Resource()
@@ -78,6 +81,10 @@ class BoundedFailureMerge(unittest.TestCase):
                 found = leaves(stopped.exception)
                 self.assertIn(leaf, found)
                 self.assertIn(later, found)
+                self.assertEqual(
+                    experiment.failure_graph_truncated,
+                    depth >= bridge._TRAVERSAL_BUDGET,
+                )
 
     def test_shallow_reachable_root_is_still_collapsed_once(self):
         later = RuntimeError("later failure")
@@ -88,6 +95,7 @@ class BoundedFailureMerge(unittest.TestCase):
         self.assertIs(stopped.exception, retained)
         self.assertEqual(leaves(stopped.exception), [later])
         self.assertEqual(len(closed), 3)
+        self.assertFalse(experiment.failure_graph_truncated)
 
     def test_shared_identity_across_edges_is_visited_once(self):
         leaf = RuntimeError("shared leaf")
@@ -97,6 +105,102 @@ class BoundedFailureMerge(unittest.TestCase):
         self.assertIs(bridge._contains_error(retained, RuntimeError("absent")), False)
         # A budget smaller than the graph reports unknown, never absent.
         self.assertIsNone(bridge._contains_error(retained, leaf, budget=1))
+
+    def test_broad_shared_group_spends_the_budget_on_each_edge(self):
+        leaf, absent = RuntimeError("shared"), RuntimeError("absent")
+        retained = BaseExceptionGroup("broad", [leaf] * 20_000)
+        self.assertIsNone(bridge._contains_error(retained, absent, budget=8))
+        self.assertIs(bridge._contains_error(retained, leaf, budget=2), True)
+        shallow = BaseExceptionGroup("shallow", [leaf, leaf])
+        self.assertIs(bridge._contains_error(shallow, absent, budget=3), False)
+
+    def test_broad_unique_group_does_not_copy_the_child_roster(self):
+        retained = BaseExceptionGroup(
+            "broad", [RuntimeError("leaf") for _ in range(20_000)]
+        )
+        absent = RuntimeError("absent")
+        tracemalloc.start()
+        try:
+            tracemalloc.reset_peak()
+            self.assertIsNone(bridge._contains_error(retained, absent, budget=8))
+            _, peak = tracemalloc.get_traced_memory()
+        finally:
+            tracemalloc.stop()
+        # Input construction is outside this measurement. A small work budget
+        # must not allocate a queue or identity set for the complete broad input.
+        self.assertLess(peak, 65_536)
+
+    def test_subclass_diagnostics_cannot_interrupt_cleanup(self):
+        class HostileGroup(BaseExceptionGroup):
+            @property
+            def exceptions(self):
+                raise AssertionError("diagnostic property must not run")
+
+            def __str__(self):
+                raise AssertionError("diagnostic formatting must not run")
+
+        leaf, later = RuntimeError("first"), asyncio.CancelledError()
+        retained = HostileGroup("retained", [leaf])
+        experiment, closed = self.experiment(retained)
+        with self.assertRaises(BaseExceptionGroup) as stopped:
+            experiment._close(later)
+        self.assertEqual(stopped.exception.exceptions, (retained, later))
+        self.assertEqual(len(closed), 3)
+        self.assertFalse(experiment.failure_graph_truncated)
+
+    def test_chained_context_cycles_do_not_erase_distinct_roots(self):
+        for cycle in ("self", "cross"):
+            with self.subTest(cycle=cycle):
+                first, later = RuntimeError("first"), RuntimeError("later")
+                if cycle == "self":
+                    first.__cause__ = first.__context__ = first
+                    later.__cause__ = later.__context__ = later
+                else:
+                    first.__context__ = later
+                    later.__cause__ = first
+                experiment, closed = self.experiment(first)
+                with self.assertRaises(BaseExceptionGroup) as stopped:
+                    experiment._close(later)
+                self.assertIs(stopped.exception.exceptions[0], first)
+                self.assertIs(stopped.exception.exceptions[1], later)
+                self.assertEqual(len(closed), 3)
+                self.assertFalse(experiment.failure_graph_truncated)
+
+    def test_hostile_class_property_does_not_interrupt_cleanup(self):
+        class HostileError(RuntimeError):
+            @property
+            def __class__(self):
+                raise AssertionError("class property must not run")
+
+        first, cancelled = HostileError("first"), asyncio.CancelledError()
+        experiment, closed = self.experiment(first)
+        with self.assertRaises(BaseExceptionGroup) as stopped:
+            experiment._close(cancelled)
+        self.assertIs(stopped.exception.exceptions[0], first)
+        self.assertIs(stopped.exception.exceptions[1], cancelled)
+        self.assertEqual(len(closed), 3)
+        self.assertFalse(experiment.failure_graph_truncated)
+
+    def test_budget_exhaustion_retains_cleanup_failure_and_cancellation(self):
+        cancelled, later, cleanup = (
+            asyncio.CancelledError(),
+            RuntimeError("later"),
+            OSError("cleanup"),
+        )
+        retained = BaseExceptionGroup("broad", [cancelled] * 20_000)
+        experiment, closed = self.experiment(retained)
+
+        class FailedCleanup:
+            def close(self):
+                closed.append(self)
+                raise cleanup
+
+        experiment._session = FailedCleanup()
+        with self.assertRaises(BaseExceptionGroup) as stopped:
+            experiment._close(later)
+        self.assertEqual(stopped.exception.exceptions, (retained, later, cleanup))
+        self.assertEqual(len(closed), 3)
+        self.assertTrue(experiment.failure_graph_truncated)
 
 
 class CountingSensors(SyntheticSensors):
@@ -216,6 +320,7 @@ class OwnedSensorTests(unittest.TestCase):
         self.assertEqual(experiment.process_exit, {"synthetic": True, "healthy": True})
         self.assertEqual(experiment.diagnostics, b"synthetic bounded output")
         self.assertTrue(experiment.diagnostics_truncated)
+        self.assertFalse(experiment.failure_graph_truncated)
         report = bridge.verify_sensor_run(self.log)
         self.assertEqual(report["completed_ticks"], self.prepare.planned_ticks)
         self.assertEqual(report["raw_bytes"], result.session.raw_bytes)
