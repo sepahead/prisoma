@@ -128,7 +128,10 @@ def read(path, maximum=MAX_FILE):
         "direct_path",
     )
     fd = os.open(selected, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
-    with os.fdopen(fd, "rb") as stream:
+    stream, failures = None, []
+    try:
+        # The descriptor remains ours even if stream construction rejects the file.
+        stream = os.fdopen(fd, "rb", closefd=False)
         before = os.fstat(stream.fileno())
         require(
             stat.S_ISREG(before.st_mode) and 0 <= before.st_size <= maximum,
@@ -142,6 +145,22 @@ def read(path, maximum=MAX_FILE):
             == _identity(selected.lstat()),
             "file_changed",
         )
+    except BaseException as error:
+        failures.append(error)
+    finally:
+        if stream is not None:
+            try:
+                stream.close()
+            except BaseException as error:
+                failures.append(error)
+        try:
+            os.close(fd)
+        except BaseException as error:
+            failures.append(error)
+    if len(failures) == 1:
+        raise failures[0]
+    if failures:
+        raise BaseExceptionGroup("file read and cleanup failed", failures)
     return raw
 
 

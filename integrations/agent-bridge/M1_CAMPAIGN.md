@@ -6,6 +6,7 @@ The [September 23 native evidence](evidence/M1_NATIVE_2026-09-23.md) records a p
 Qualification covers only its frozen engineering case and recorded runtime.
 Both fault cases remain unhealthy, with incomplete captures and separate cleanup observations.
 Synthetic controls establish software behavior only.
+The separate [fixed-schedule baseline](M1_PERFORMANCE.md) owns prospective performance measurement without real-time or release qualification.
 
 The maintained workload is [the original M1 input](tests/fixtures/m1.workload.v1.json).
 Its 3,444 bytes have SHA-256 `f4b8cad4a9daf1f5b95abb9b03409040cd8caa67cf2e14c074a17dcc4a77ecae`.

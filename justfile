@@ -179,6 +179,14 @@ m1-campaign-check python_path out:
     {{ quote(python_path) }} -B integrations/agent-bridge/scripts/check_fault.py --output {{ quote(out) }}/fault
     PRISOMA_M1_OBSERVER_BINARY={{ quote(out) }}/observer/source/darwin_observer {{ quote(python_path) }} -I -B integrations/agent-bridge/scripts/test_m1_supervisor.py
 
+# Fixed-schedule measurement controls. Synthetic children execute no simulator.
+# Select installed Python/Bun and a new output directory outside the source tree.
+m1-performance-check python_path bun_path out:
+    mkdir -m 700 {{ quote(out) }}
+    {{ quote(python_path) }} -B integrations/agent-bridge/scripts/check_observer.py --output {{ quote(out) }}/observer
+    PRISOMA_M1_OBSERVER_BINARY={{ quote(out) }}/observer/source/darwin_observer just application-bridge-check {{ quote(python_path) }}
+    {{ quote(bun_path) }} test ./integrations/agent-bridge/tests/perf_direct.test.ts ./integrations/agent-bridge/tests/perf_metadata.test.ts
+
 # Explicit native local NCP capture gate. Root PID builds remain independent.
 ncp-local-capture-check:
     cargo fmt --manifest-path crates/ncp-local-capture/Cargo.toml -- --check
