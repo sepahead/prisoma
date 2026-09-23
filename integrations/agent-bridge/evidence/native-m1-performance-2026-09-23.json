@@ -1,0 +1,832 @@
+{
+  "schema": "prisoma.m1_performance_evidence.v1",
+  "observed_local_date": "2026-09-23",
+  "status": "COMPLETE_COARSE_MEASUREMENT_WITH_ALL_DEADLINES_MISSED",
+  "scope": "One fixed M1 workload, 32 timing blocks, six route/instrumentation arms, 192 separately owned executions.",
+  "visibility": {
+    "maintained_tools_and_workload": "public",
+    "this_summary": "public",
+    "original_campaign_artifacts": "private_locally_observed",
+    "originals_published": false,
+    "summary_substitutes_for_originals": false
+  },
+  "source": {
+    "prisoma_source_commit": "51d4cc707beb4f252d78fa0ffa52ccfba9b2eed2",
+    "prisoma_published_main_commit": "d63eefed1a05fbecaa38718ed81484c3d0e442cc",
+    "crebain_installed_client_commit": "a5037a23a8e55d39ca0f09da2c25853c5209467b",
+    "crebain_native_runtime_commit": "d397905fe51c687b229a496af3b7dac572595e55",
+    "ncp_sdk_commit": "c0465d40f1f2b9df2caf9793183d11e65ac9ec74",
+    "runtime_manifest_sha256": "82f8bf3c0ef08394c87c3b9f94468d2fc4ef4a610de9cb91315996058d450457",
+    "runtime_source_identity": "01e64ac0db65cd07354a5b24ab94ee020adf752952a07d8d5ad0c7cf0b3dadc3"
+  },
+  "workload": {
+    "repository_path": "integrations/agent-bridge/tests/fixtures/m1.workload.v1.json",
+    "bytes": 3444,
+    "sha256": "f4b8cad4a9daf1f5b95abb9b03409040cd8caa67cf2e14c074a17dcc4a77ecae",
+    "body_ticks_per_case": 24,
+    "payloads_per_case": 44,
+    "original_payload_bytes_per_case": 4326400
+  },
+  "completed_campaign": {
+    "planned_cases": 192,
+    "completed_cases": 192,
+    "failed_cases": 0,
+    "unattempted_cases": 0,
+    "route_cases": {
+      "direct": 64,
+      "body": 64,
+      "canonical": 64
+    },
+    "outer_returncode": 0,
+    "outer_elapsed_ns": 1397851423125,
+    "completed_ticks": 4608,
+    "payloads_total_across_executions": 8448,
+    "original_payload_bytes_total_across_executions": 830668800,
+    "ncp_exchanges_across_body_and_canonical_executions": 60928,
+    "original_payload_bytes_equal": true,
+    "route_deadline_misses": 4608,
+    "export_deadline_misses": 4608,
+    "artifact_bytes_before_terminal_and_report": 2560374210
+  },
+  "schedule": {
+    "frequency_hz": 120,
+    "origin": "per-process preparation completion",
+    "deadline_rule": "120*completion_ns > 120*origin_ns + tick*1000000000",
+    "late_offer_rebased": false,
+    "warmup_ticks": [
+      1,
+      6
+    ],
+    "reported_warm_ticks": [
+      7,
+      24
+    ],
+    "full_samples_per_arm": 768,
+    "warm_samples_per_arm": 576,
+    "quantile_method": "nearest_rank",
+    "p99_9_equals_sample_maximum": true,
+    "steady_state_established": false
+  },
+  "full_24_ticks": {
+    "direct/minimal": {
+      "completed_samples": 768,
+      "route_deadline_misses": 768,
+      "export_deadline_misses": 768,
+      "metrics_nanoseconds": {
+        "route_service_ns": {
+          "n": 768,
+          "p50": 19988083,
+          "p99": 58268875,
+          "p99_9": 64415292,
+          "max": 64415292,
+          "method": "nearest_rank"
+        },
+        "export_service_ns": {
+          "n": 768,
+          "p50": 497459,
+          "p99": 3297250,
+          "p99_9": 17092084,
+          "max": 17092084,
+          "method": "nearest_rank"
+        },
+        "route_offered_delay_ns": {
+          "n": 768,
+          "p50": 160114792,
+          "p99": 280948708,
+          "p99_9": 301970500,
+          "max": 301970500,
+          "method": "nearest_rank"
+        },
+        "export_offered_delay_ns": {
+          "n": 768,
+          "p50": 160684083,
+          "p99": 281685958,
+          "p99_9": 302706167,
+          "max": 302706167,
+          "method": "nearest_rank"
+        },
+        "start_lateness_ns": {
+          "n": 768,
+          "p50": 143136166,
+          "p99": 255728457,
+          "p99_9": 271094875,
+          "max": 271094875,
+          "method": "nearest_rank"
+        }
+      }
+    },
+    "direct/detailed": {
+      "completed_samples": 768,
+      "route_deadline_misses": 768,
+      "export_deadline_misses": 768,
+      "metrics_nanoseconds": {
+        "route_service_ns": {
+          "n": 768,
+          "p50": 20125917,
+          "p99": 58093125,
+          "p99_9": 62127291,
+          "max": 62127291,
+          "method": "nearest_rank"
+        },
+        "export_service_ns": {
+          "n": 768,
+          "p50": 498667,
+          "p99": 4188875,
+          "p99_9": 22357417,
+          "max": 22357417,
+          "method": "nearest_rank"
+        },
+        "route_offered_delay_ns": {
+          "n": 768,
+          "p50": 159745583,
+          "p99": 285783458,
+          "p99_9": 313997958,
+          "max": 313997958,
+          "method": "nearest_rank"
+        },
+        "export_offered_delay_ns": {
+          "n": 768,
+          "p50": 160453791,
+          "p99": 286534958,
+          "p99_9": 314645291,
+          "max": 314645291,
+          "method": "nearest_rank"
+        },
+        "start_lateness_ns": {
+          "n": 768,
+          "p50": 144089207,
+          "p99": 261719124,
+          "p99_9": 283631208,
+          "max": 283631208,
+          "method": "nearest_rank"
+        }
+      }
+    },
+    "body/minimal": {
+      "completed_samples": 768,
+      "route_deadline_misses": 768,
+      "export_deadline_misses": 768,
+      "metrics_nanoseconds": {
+        "route_service_ns": {
+          "n": 768,
+          "p50": 61358833,
+          "p99": 109669083,
+          "p99_9": 214139583,
+          "max": 214139583,
+          "method": "nearest_rank"
+        },
+        "export_service_ns": {
+          "n": 768,
+          "p50": 537750,
+          "p99": 3668958,
+          "p99_9": 42462666,
+          "max": 42462666,
+          "method": "nearest_rank"
+        },
+        "route_offered_delay_ns": {
+          "n": 768,
+          "p50": 543481833,
+          "p99": 1123169417,
+          "p99_9": 1685198625,
+          "max": 1685198625,
+          "method": "nearest_rank"
+        },
+        "export_offered_delay_ns": {
+          "n": 768,
+          "p50": 544112124,
+          "p99": 1123443625,
+          "p99_9": 1686406208,
+          "max": 1686406208,
+          "method": "nearest_rank"
+        },
+        "start_lateness_ns": {
+          "n": 768,
+          "p50": 507863625,
+          "p99": 1077489458,
+          "p99_9": 1497911917,
+          "max": 1497911917,
+          "method": "nearest_rank"
+        }
+      }
+    },
+    "body/detailed": {
+      "completed_samples": 768,
+      "route_deadline_misses": 768,
+      "export_deadline_misses": 768,
+      "metrics_nanoseconds": {
+        "route_service_ns": {
+          "n": 768,
+          "p50": 47642083,
+          "p99": 103845250,
+          "p99_9": 116780583,
+          "max": 116780583,
+          "method": "nearest_rank"
+        },
+        "export_service_ns": {
+          "n": 768,
+          "p50": 539750,
+          "p99": 4396792,
+          "p99_9": 13459584,
+          "max": 13459584,
+          "method": "nearest_rank"
+        },
+        "route_offered_delay_ns": {
+          "n": 768,
+          "p50": 544640875,
+          "p99": 1053075000,
+          "p99_9": 1117001583,
+          "max": 1117001583,
+          "method": "nearest_rank"
+        },
+        "export_offered_delay_ns": {
+          "n": 768,
+          "p50": 545632291,
+          "p99": 1053809208,
+          "p99_9": 1117763874,
+          "max": 1117763874,
+          "method": "nearest_rank"
+        },
+        "start_lateness_ns": {
+          "n": 768,
+          "p50": 503007166,
+          "p99": 982968208,
+          "p99_9": 1024256416,
+          "max": 1024256416,
+          "method": "nearest_rank"
+        }
+      }
+    },
+    "canonical/minimal": {
+      "completed_samples": 768,
+      "route_deadline_misses": 768,
+      "export_deadline_misses": 768,
+      "metrics_nanoseconds": {
+        "route_service_ns": {
+          "n": 768,
+          "p50": 98937750,
+          "p99": 189755083,
+          "p99_9": 291795041,
+          "max": 291795041,
+          "method": "nearest_rank"
+        },
+        "export_service_ns": {
+          "n": 768,
+          "p50": 646666,
+          "p99": 4812666,
+          "p99_9": 40915500,
+          "max": 40915500,
+          "method": "nearest_rank"
+        },
+        "route_offered_delay_ns": {
+          "n": 768,
+          "p50": 1094141250,
+          "p99": 2251642666,
+          "p99_9": 2458809791,
+          "max": 2458809791,
+          "method": "nearest_rank"
+        },
+        "export_offered_delay_ns": {
+          "n": 768,
+          "p50": 1096086250,
+          "p99": 2252411583,
+          "p99_9": 2459681416,
+          "max": 2459681416,
+          "method": "nearest_rank"
+        },
+        "start_lateness_ns": {
+          "n": 768,
+          "p50": 1030808708,
+          "p99": 2148630125,
+          "p99_9": 2298281875,
+          "max": 2298281875,
+          "method": "nearest_rank"
+        }
+      }
+    },
+    "canonical/detailed": {
+      "completed_samples": 768,
+      "route_deadline_misses": 768,
+      "export_deadline_misses": 768,
+      "metrics_nanoseconds": {
+        "route_service_ns": {
+          "n": 768,
+          "p50": 117017625,
+          "p99": 188702042,
+          "p99_9": 294035750,
+          "max": 294035750,
+          "method": "nearest_rank"
+        },
+        "export_service_ns": {
+          "n": 768,
+          "p50": 649583,
+          "p99": 5017459,
+          "p99_9": 22200667,
+          "max": 22200667,
+          "method": "nearest_rank"
+        },
+        "route_offered_delay_ns": {
+          "n": 768,
+          "p50": 1088659834,
+          "p99": 2246036541,
+          "p99_9": 2467612750,
+          "max": 2467612750,
+          "method": "nearest_rank"
+        },
+        "export_offered_delay_ns": {
+          "n": 768,
+          "p50": 1089258292,
+          "p99": 2246773208,
+          "p99_9": 2468563041,
+          "max": 2468563041,
+          "method": "nearest_rank"
+        },
+        "start_lateness_ns": {
+          "n": 768,
+          "p50": 1024264667,
+          "p99": 2096136958,
+          "p99_9": 2257750500,
+          "max": 2257750500,
+          "method": "nearest_rank"
+        }
+      }
+    }
+  },
+  "warmed_ticks_7_through_24": {
+    "direct/minimal": {
+      "completed_samples": 576,
+      "route_deadline_misses": 576,
+      "export_deadline_misses": 576,
+      "metrics_nanoseconds": {
+        "route_service_ns": {
+          "n": 576,
+          "p50": 16508375,
+          "p99": 33763750,
+          "p99_9": 37383375,
+          "max": 37383375,
+          "method": "nearest_rank"
+        },
+        "export_service_ns": {
+          "n": 576,
+          "p50": 479709,
+          "p99": 3052500,
+          "p99_9": 17092084,
+          "max": 17092084,
+          "method": "nearest_rank"
+        },
+        "route_offered_delay_ns": {
+          "n": 576,
+          "p50": 183292666,
+          "p99": 282050416,
+          "p99_9": 301970500,
+          "max": 301970500,
+          "method": "nearest_rank"
+        },
+        "export_offered_delay_ns": {
+          "n": 576,
+          "p50": 183796999,
+          "p99": 282671625,
+          "p99_9": 302706167,
+          "max": 302706167,
+          "method": "nearest_rank"
+        },
+        "start_lateness_ns": {
+          "n": 576,
+          "p50": 167613917,
+          "p99": 263066916,
+          "p99_9": 271094875,
+          "max": 271094875,
+          "method": "nearest_rank"
+        }
+      }
+    },
+    "direct/detailed": {
+      "completed_samples": 576,
+      "route_deadline_misses": 576,
+      "export_deadline_misses": 576,
+      "metrics_nanoseconds": {
+        "route_service_ns": {
+          "n": 576,
+          "p50": 16847292,
+          "p99": 34184542,
+          "p99_9": 35471375,
+          "max": 35471375,
+          "method": "nearest_rank"
+        },
+        "export_service_ns": {
+          "n": 576,
+          "p50": 480625,
+          "p99": 4188875,
+          "p99_9": 22357417,
+          "max": 22357417,
+          "method": "nearest_rank"
+        },
+        "route_offered_delay_ns": {
+          "n": 576,
+          "p50": 183095708,
+          "p99": 287769041,
+          "p99_9": 313997958,
+          "max": 313997958,
+          "method": "nearest_rank"
+        },
+        "export_offered_delay_ns": {
+          "n": 576,
+          "p50": 183939208,
+          "p99": 287969124,
+          "p99_9": 314645291,
+          "max": 314645291,
+          "method": "nearest_rank"
+        },
+        "start_lateness_ns": {
+          "n": 576,
+          "p50": 168658917,
+          "p99": 268378166,
+          "p99_9": 283631208,
+          "max": 283631208,
+          "method": "nearest_rank"
+        }
+      }
+    },
+    "body/minimal": {
+      "completed_samples": 576,
+      "route_deadline_misses": 576,
+      "export_deadline_misses": 576,
+      "metrics_nanoseconds": {
+        "route_service_ns": {
+          "n": 576,
+          "p50": 61358833,
+          "p99": 140002417,
+          "p99_9": 214139583,
+          "max": 214139583,
+          "method": "nearest_rank"
+        },
+        "export_service_ns": {
+          "n": 576,
+          "p50": 536292,
+          "p99": 3830959,
+          "p99_9": 42462666,
+          "max": 42462666,
+          "method": "nearest_rank"
+        },
+        "route_offered_delay_ns": {
+          "n": 576,
+          "p50": 663931458,
+          "p99": 1178064625,
+          "p99_9": 1685198625,
+          "max": 1685198625,
+          "method": "nearest_rank"
+        },
+        "export_offered_delay_ns": {
+          "n": 576,
+          "p50": 664583375,
+          "p99": 1178963792,
+          "p99_9": 1686406208,
+          "max": 1686406208,
+          "method": "nearest_rank"
+        },
+        "start_lateness_ns": {
+          "n": 576,
+          "p50": 614442125,
+          "p99": 1088561459,
+          "p99_9": 1497911917,
+          "max": 1497911917,
+          "method": "nearest_rank"
+        }
+      }
+    },
+    "body/detailed": {
+      "completed_samples": 576,
+      "route_deadline_misses": 576,
+      "export_deadline_misses": 576,
+      "metrics_nanoseconds": {
+        "route_service_ns": {
+          "n": 576,
+          "p50": 41635000,
+          "p99": 94009792,
+          "p99_9": 101223834,
+          "max": 101223834,
+          "method": "nearest_rank"
+        },
+        "export_service_ns": {
+          "n": 576,
+          "p50": 539458,
+          "p99": 4759459,
+          "p99_9": 13459584,
+          "max": 13459584,
+          "method": "nearest_rank"
+        },
+        "route_offered_delay_ns": {
+          "n": 576,
+          "p50": 668357917,
+          "p99": 1072515833,
+          "p99_9": 1117001583,
+          "max": 1117001583,
+          "method": "nearest_rank"
+        },
+        "export_offered_delay_ns": {
+          "n": 576,
+          "p50": 668862625,
+          "p99": 1073336041,
+          "p99_9": 1117763874,
+          "max": 1117763874,
+          "method": "nearest_rank"
+        },
+        "start_lateness_ns": {
+          "n": 576,
+          "p50": 609487125,
+          "p99": 985044416,
+          "p99_9": 1024256416,
+          "max": 1024256416,
+          "method": "nearest_rank"
+        }
+      }
+    },
+    "canonical/minimal": {
+      "completed_samples": 576,
+      "route_deadline_misses": 576,
+      "export_deadline_misses": 576,
+      "metrics_nanoseconds": {
+        "route_service_ns": {
+          "n": 576,
+          "p50": 98937750,
+          "p99": 179232125,
+          "p99_9": 278316167,
+          "max": 278316167,
+          "method": "nearest_rank"
+        },
+        "export_service_ns": {
+          "n": 576,
+          "p50": 624208,
+          "p99": 4738041,
+          "p99_9": 24815833,
+          "max": 24815833,
+          "method": "nearest_rank"
+        },
+        "route_offered_delay_ns": {
+          "n": 576,
+          "p50": 1365945916,
+          "p99": 2304547750,
+          "p99_9": 2458809791,
+          "max": 2458809791,
+          "method": "nearest_rank"
+        },
+        "export_offered_delay_ns": {
+          "n": 576,
+          "p50": 1366633500,
+          "p99": 2306077625,
+          "p99_9": 2459681416,
+          "max": 2459681416,
+          "method": "nearest_rank"
+        },
+        "start_lateness_ns": {
+          "n": 576,
+          "p50": 1259213792,
+          "p99": 2164258124,
+          "p99_9": 2298281875,
+          "max": 2298281875,
+          "method": "nearest_rank"
+        }
+      }
+    },
+    "canonical/detailed": {
+      "completed_samples": 576,
+      "route_deadline_misses": 576,
+      "export_deadline_misses": 576,
+      "metrics_nanoseconds": {
+        "route_service_ns": {
+          "n": 576,
+          "p50": 117017625,
+          "p99": 191270084,
+          "p99_9": 226059417,
+          "max": 226059417,
+          "method": "nearest_rank"
+        },
+        "export_service_ns": {
+          "n": 576,
+          "p50": 638833,
+          "p99": 5072000,
+          "p99_9": 22200667,
+          "max": 22200667,
+          "method": "nearest_rank"
+        },
+        "route_offered_delay_ns": {
+          "n": 576,
+          "p50": 1366630208,
+          "p99": 2265664458,
+          "p99_9": 2467612750,
+          "max": 2467612750,
+          "method": "nearest_rank"
+        },
+        "export_offered_delay_ns": {
+          "n": 576,
+          "p50": 1367097958,
+          "p99": 2265957583,
+          "p99_9": 2468563041,
+          "max": 2468563041,
+          "method": "nearest_rank"
+        },
+        "start_lateness_ns": {
+          "n": 576,
+          "p50": 1268598833,
+          "p99": 2121281624,
+          "p99_9": 2257750500,
+          "max": 2257750500,
+          "method": "nearest_rank"
+        }
+      }
+    }
+  },
+  "paired_whole_route_service_differences_nanoseconds": {
+    "body_minus_direct/minimal": {
+      "n": 576,
+      "p50": 39417292,
+      "p99": 119353959,
+      "p99_9": 183425208,
+      "max": 183425208,
+      "method": "nearest_rank"
+    },
+    "canonical_minus_body/minimal": {
+      "n": 576,
+      "p50": 43780625,
+      "p99": 101006999,
+      "p99_9": 187743500,
+      "max": 187743500,
+      "method": "nearest_rank"
+    },
+    "canonical_minus_direct/minimal": {
+      "n": 576,
+      "p50": 92677125,
+      "p99": 153883542,
+      "p99_9": 245194375,
+      "max": 245194375,
+      "method": "nearest_rank"
+    },
+    "body_minus_direct/detailed": {
+      "n": 576,
+      "p50": 26704416,
+      "p99": 61701167,
+      "p99_9": 66782209,
+      "max": 66782209,
+      "method": "nearest_rank"
+    },
+    "canonical_minus_body/detailed": {
+      "n": 576,
+      "p50": 50612624,
+      "p99": 101509250,
+      "p99_9": 190070542,
+      "max": 190070542,
+      "method": "nearest_rank"
+    },
+    "canonical_minus_direct/detailed": {
+      "n": 576,
+      "p50": 94586209,
+      "p99": 159151168,
+      "p99_9": 211417584,
+      "max": 211417584,
+      "method": "nearest_rank"
+    }
+  },
+  "detailed_minus_minimal_service_observations_nanoseconds": {
+    "direct": {
+      "n": 576,
+      "p50": 6751,
+      "p99": 2734625,
+      "p99_9": 3393834,
+      "max": 3393834,
+      "method": "nearest_rank"
+    },
+    "body": {
+      "n": 576,
+      "p50": 242291,
+      "p99": 5150583,
+      "p99_9": 8604875,
+      "max": 8604875,
+      "method": "nearest_rank"
+    },
+    "canonical": {
+      "n": 576,
+      "p50": 507875,
+      "p99": 39440042,
+      "p99_9": 154172667,
+      "max": 154172667,
+      "method": "nearest_rank"
+    }
+  },
+  "preparation_scopes": {
+    "direct/minimal": "manifest/source join, installed native imports, output setup, and standalone owner admission; full InstalledRuntime verification is separately performed by campaign launcher",
+    "direct/detailed": "manifest/source join, installed native imports, output setup, and standalone owner admission; full InstalledRuntime verification is separately performed by campaign launcher",
+    "body/minimal": "InstalledRuntime.open complete verification, fresh binding publication, and installed Python owner admission",
+    "body/detailed": "InstalledRuntime.open complete verification, fresh binding publication, and installed Python owner admission",
+    "canonical/minimal": "InstalledRuntime.open complete verification, fresh binding publication, and installed Python owner admission",
+    "canonical/detailed": "InstalledRuntime.open complete verification, fresh binding publication, and installed Python owner admission"
+  },
+  "cleanup": {
+    "direct_native_owner_confirmed": 64,
+    "python_sdk_process_exit_confirmed": 128,
+    "outer_commands_exited_zero": 192,
+    "sampled_births_summed_across_cases": 2037,
+    "sampled_birth_count_distribution": {
+      "10": 2,
+      "9": 33,
+      "11": 60,
+      "12": 56,
+      "8": 29,
+      "13": 12
+    },
+    "all_observed_identities_retired": true,
+    "remaining_observed_births": 0,
+    "direct_command_timeouts": 0,
+    "forced_kills": 0,
+    "output_overflows": 0,
+    "signals_to_descendants": 0,
+    "exhaustive_descendant_containment": false
+  },
+  "failed_first_campaign": {
+    "status": "INCOMPLETE",
+    "published_main_commit": "cbf8345526557e282af9d846755bc74c01215cd2",
+    "planned_cases": 192,
+    "completed_cases": 2,
+    "failed_cases": 1,
+    "unattempted_cases": 189,
+    "uncompleted_cases": 190,
+    "failure": "32-hex run identifier rejected by installed NCP before body producer launch",
+    "replacement_or_same_freeze_rerun": false,
+    "separate_successor_freeze": true
+  },
+  "limits": [
+    "Every sample retains its original 120-Hz offer and deadline",
+    "At 576 warm samples per arm, p99.9 is the observed maximum, not a tail guarantee",
+    "Whole-route differences are from separate executions, not isolated transport overhead",
+    "Frame reads include remote service, scheduling, and backpressure",
+    "Detailed/minimal differences include execution noise and cannot be subtracted as exact instrumentation cost",
+    "Preparation spans include different route-specific verification work; compare their declared scopes before interpreting startup costs",
+    "Native copies, allocation counts, GPU resources, long-run and contention qualification remain unmeasured",
+    "Other authorized work was active on this machine; no dedicated-host claim"
+  ],
+  "authority": {
+    "dedicated_quiescent_machine": false,
+    "loaded_bytes_attested": false,
+    "allocator_or_copy_counts": false,
+    "release_qualified": false,
+    "real_time_qualified": false,
+    "scientific_validation": false,
+    "full_W6_resource_acceptance": false,
+    "supported_scale_qualified": false
+  },
+  "original_artifact_identities": [
+    {
+      "retained_relative_path": "native/performance-campaign-002/freeze.json",
+      "bytes": 55656,
+      "sha256": "c304e24731d432453ce8dfe3989eca7b310648631fefa278c4a83161858ebbb9"
+    },
+    {
+      "retained_relative_path": "native/performance-campaign-002/result.json",
+      "bytes": 173176,
+      "sha256": "8103a094eb82381034c591e6d2ace027974b80c23bc6ad44c70fe3480c051987"
+    },
+    {
+      "retained_relative_path": "native/performance-campaign-002/report.json",
+      "bytes": 43653,
+      "sha256": "642b2c8b142575675035418df63f0450d46866756a390dcf71d687f619f18cb4"
+    },
+    {
+      "retained_relative_path": "prisoma-evidence/performance-native-command-002/result.json",
+      "bytes": 1973,
+      "sha256": "a6e07157bb75636fc8d1fdb4e39d37a3d93ccf9870ae281c557a03b79b047c6b"
+    },
+    {
+      "retained_relative_path": "prisoma-evidence/performance-terminal-002/readback.json",
+      "bytes": 149323,
+      "sha256": "bbab7fdf580be154f9cc59ffa115bc0287752fdb8b381a780059a9d08087f1cd"
+    },
+    {
+      "retained_relative_path": "prisoma-evidence/performance-terminal-002/report-command.json",
+      "bytes": 1298,
+      "sha256": "070d400385e333b2bdc564641fab55a3589bdc14baa0199af1a0380e51d4c359"
+    },
+    {
+      "retained_relative_path": "prisoma-evidence/performance-terminal-002/custody.json",
+      "bytes": 3017,
+      "sha256": "69ebcef492c28a4be664c2b3161bb0f86d82a1eb2b2f9160d2adb19b9edcd09b"
+    },
+    {
+      "retained_relative_path": "native/performance-campaign-source-002/custody.json",
+      "bytes": 4451,
+      "sha256": "57e6cfa11551c724c8e8d8e5c94b553ea90454062b5018a9e2391ef39137eea3"
+    },
+    {
+      "retained_relative_path": "prisoma-evidence/performance-operational-freeze-root-review-002.json",
+      "bytes": 1518,
+      "sha256": "512aece0217672ca16c6b9aa5bb5161e611aee471942a8e2ceeea0c059f1dc9e"
+    },
+    {
+      "retained_relative_path": "native/performance-campaign-001/freeze.json",
+      "bytes": 54883,
+      "sha256": "705a3ead913ed8412aa6866bb54a9d03865e023ac56d46df81d474a83eead4a7"
+    },
+    {
+      "retained_relative_path": "native/performance-campaign-001/result.json",
+      "bytes": 48189,
+      "sha256": "c75c855557aab5b8e2967ef163fc94822c58930635e401d9be3af124b3ced255"
+    }
+  ]
+}

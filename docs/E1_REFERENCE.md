@@ -139,11 +139,36 @@ The collection policy and selected action remain distinct from every candidate's
 Closed canonical JSON loaders require selected byte identities and reject contract, feature, solver, and roster drift.
 They use no pickle or executable model loader.
 
-These records do not establish publication time, pre-label ordering, or action execution.
-The future canonical adapter must join C1 decision and execution receipts to these exact bytes.
-It must qualify retained checkpoints, independent restored owners, original payloads, common random numbers, and terminal closure.
+These numerical records alone do not establish publication time, ordering, or action execution.
+The [collector](../experiments/e1_collect.py) joins them through the public [canonical family adapter](../integrations/agent-bridge/FAMILY.md).
 The predictor receives observations and candidate actions, never checkpoint handles or evaluation capabilities.
-This module neither implements that adapter nor invents a checkpoint API.
+
+## Canonical collection
+
+The caller supplies frozen family plans and an installed CREBAIN runtime.
+`collect_study` admits the exact 64/16/32 roster before creating output or starting an owner.
+It checks distinct identities, fixed environment values, seeds, actions, camera geometry, and pressure windows.
+The operational freeze must bind remaining physics values, source bytes, runtime inventory, and resource limits.
+
+The collector records original forecast bytes before canonical continuation or restored labels.
+Canonical continuation reaches tick 36 before the five restored branches produce labels.
+Checkpoint release and canonical Finish follow branch retirement.
+The selected branch must reproduce the canonical pressure bytes, RMS, and final state.
+The neutral comparison uses observed pressure separately from forecast error.
+
+Readback reconstructs features and labels from original captured sensor payloads.
+Derived values remain provisional until the canonical record and every NCP journal pass terminal verification.
+Training artifacts precede development, and the selected model precedes held-out collection.
+Failures retain completed and uncompleted episode identities without replacement.
+
+`collect_qualification_episode` admits only the eight separate qualification IDs.
+It uses the same scene and five actions, with neutral continuation and a persistence commitment.
+It produces no fitted model, forecast score, or study episode.
+The earlier three- and sixteen-endpoint construction controls retain their separate scope.
+
+Fourteen synthetic controls cover collection order, original payload joins, terminal rejection, and qualification separation.
+These controls do not establish native execution, checkpoint validity, or a useful forecast.
+Native qualification and the complete scientific study require their own prospective freeze and terminal evidence.
 
 ## Evaluation and null results
 

@@ -120,7 +120,18 @@ class CampaignControls(unittest.TestCase):
                 tempfile.TemporaryDirectory() as temporary,
             ):
                 directory = Path(temporary).resolve() / "command"
-                with patch.object(p.subprocess, "Popen", side_effect=original):
+                unused_observer = Path(temporary).resolve() / "unused-observer"
+                unused_observer.write_bytes(
+                    b"launch failure must precede observation\n"
+                )
+                with (
+                    patch.object(p.subprocess, "Popen", side_effect=original),
+                    patch.object(
+                        p.o.Observer,
+                        "command",
+                        side_effect=AssertionError("observer must not execute"),
+                    ) as observe,
+                ):
                     context = (
                         patch.object(p.os, "fsync", side_effect=later)
                         if fails_sync
@@ -131,7 +142,7 @@ class CampaignControls(unittest.TestCase):
                             [sys.executable, "-I", "-B", "-c", "pass"],
                             {"PATH": "/usr/bin:/bin"},
                             directory,
-                            observer or "/unselected-observer-not-invoked",
+                            unused_observer,
                             {
                                 "session_seconds": 3,
                                 "cleanup_seconds": 1,
@@ -139,6 +150,7 @@ class CampaignControls(unittest.TestCase):
                             },
                             time.monotonic() + 10,
                         )
+                    observe.assert_not_called()
                 rendered = json.dumps(result["failure"])
                 self.assertIn("LaunchFailure", rendered)
                 self.assertIn("original launch", rendered)

@@ -1,8 +1,10 @@
 # Fixed-schedule M1 performance baseline
 
-Status: the first native performance campaign is **INCOMPLETE**.
-A successor campaign requires a new reviewed freeze.
-Scope: prospective installed M1 engineering measurements on one selected Darwin host.
+Status: the separately frozen successor completed **192/192** native executions.
+All **4,608** original route and export deadlines were missed.
+Read the [dated observations](evidence/M1_PERFORMANCE_2026-09-23.md) for timings, identities, and limitations.
+The incomplete first campaign remains preserved below.
+Scope: installed M1 engineering measurements on one selected Darwin host.
 This study cannot grant NCP v1 release or real-time qualification.
 The owner-approved broader performance and resource profile remains unavailable.
 

@@ -58,9 +58,12 @@ See the [adapter boundaries](ARCHITECTURE.md#34-viewer-layer-pid-rerun).
 | [NCP capture](integrations/ncp-transcript/README.md) | Preserve original exchanges for independently selected peers, including large frame sequences | Separate native NEST and CREBAIN source runs; complete embodied experiment remains open |
 | [Agent Bridge](ARCHITECTURE.md#32-contract-layer-pid-bridge) | Dispatch typed local operations and record accepted requests and responses | Local profiles, not a qualified remote-security system |
 | [CREBAIN sensor execution](integrations/agent-bridge/README.md) | Control a selected sensor session through Agent Bridge and reconstruct its original NCP exchanges | Native M1 RGB/thermal/acoustic comparison; no learned policy, branch labels, or real-time qualification |
+| [Checkpoint collection](docs/E1_REFERENCE.md#canonical-collection) | Record forecasts, canonical continuation, and independent restored labels | Adapter and collector controls; complete native E1 study remains open |
 | [Rerun export](ARCHITECTURE.md#34-viewer-layer-pid-rerun) | Inspect schema-checked run-log projections | Derived inspection, not scientific validation |
 
 The [capability matrix](docs/CAPABILITY_MATRIX.md) records the reviewed evidence for each cataloged surface.
+The [M1 performance campaign](integrations/agent-bridge/evidence/M1_PERFORMANCE_2026-09-23.md) completed 192 executions with identical payloads across routes.
+Every 120-Hz deadline was missed.
 Successful computation does not establish model quality, causal validity, or deployment safety.
 
 ## Start with the decision reference
