@@ -58,12 +58,13 @@ See the [adapter boundaries](ARCHITECTURE.md#34-viewer-layer-pid-rerun).
 | [NCP capture](integrations/ncp-transcript/README.md) | Preserve original exchanges for independently selected peers, including large frame sequences | Separate native NEST and CREBAIN source runs; complete embodied experiment remains open |
 | [Agent Bridge](ARCHITECTURE.md#32-contract-layer-pid-bridge) | Dispatch typed local operations and record accepted requests and responses | Local profiles, not a qualified remote-security system |
 | [CREBAIN sensor execution](integrations/agent-bridge/README.md) | Control a selected sensor session through Agent Bridge and reconstruct its original NCP exchanges | Native M1 RGB/thermal/acoustic comparison; no learned policy, branch labels, or real-time qualification |
-| [Checkpoint collection](docs/E1_REFERENCE.md#canonical-collection) | Record forecasts, canonical continuation, and independent restored labels | Adapter and collector controls; complete native E1 study remains open |
+| [Checkpoint collection](docs/E1_REFERENCE.md#canonical-collection) | Record forecasts, canonical continuation, and independent restored labels | Native E1 completed 112 study episodes; the useful forecast margin was not met |
 | [Rerun export](ARCHITECTURE.md#34-viewer-layer-pid-rerun) | Inspect schema-checked run-log projections | Derived inspection, not scientific validation |
 
 The [capability matrix](docs/CAPABILITY_MATRIX.md) records the reviewed evidence for each cataloged surface.
 The [M1 performance campaign](integrations/agent-bridge/evidence/M1_PERFORMANCE_2026-09-23.md) completed 192 executions with identical payloads across routes.
 Every 120-Hz deadline was missed.
+The [native E1 study](integrations/agent-bridge/evidence/E1_NATIVE_2026-09-23.md) retained a null or inconclusive forecast result under its frozen criterion.
 Successful computation does not establish model quality, causal validity, or deployment safety.
 
 ## Start with the decision reference
@@ -145,7 +146,8 @@ Its dated evidence separates application cleanup from observed process retiremen
 The historical September 10 native case used two RGB cameras and one microphone.
 It reconstructed eight commands, 150 exchanges, and 11 payloads totaling 1,542,400 bytes.
 This case establishes recorded execution and readback within its declared scope.
-Learned forecasts, independently restored labels, and the complete embodied comparison remain open.
+The separate E1 study now records forecasts and independently restored labels.
+General model quality and complete policy comparisons remain open.
 
 The [recorded execution guide](integrations/agent-bridge/GUIDE.md) defines sensor identity, timing, units, storage bounds, and exchange arithmetic.
 Its [illustrated PDF](output/pdf/Recorded_Sensor_Execution.pdf) presents the same case.
@@ -165,7 +167,7 @@ Each composition needs its own application-completion and installed-runtime chec
 It constructs a NEST network and experiment, runs CREBAIN through NCP, and reports results.
 Prisoma can supply selected experiment comparisons, world-model evaluation, or capture.
 Current native compositions start from explicit network and scene inputs.
-They do not establish arbitrary-paper reproduction or the complete forecasting and restored-label experiment.
+They do not establish arbitrary-paper reproduction or general learned-policy benefit.
 
 The affine reference and offline workflows remain runnable without CREBAIN.
 This preserves the [dependency firebreak](grandplan.md#893-dependency-firebreak).

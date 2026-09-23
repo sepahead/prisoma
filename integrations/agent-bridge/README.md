@@ -10,6 +10,7 @@ The [fixed-schedule performance baseline](M1_PERFORMANCE.md) completed 192 execu
 All 4,608 route deadlines and 4,608 export deadlines were missed.
 The [dated evidence](evidence/M1_PERFORMANCE_2026-09-23.md) preserves both campaigns and their different outcomes.
 The [checkpoint-family adapter](FAMILY.md) records restored branches through one canonical timeline and independently bound NCP journals.
+The [native E1 study](evidence/E1_NATIVE_2026-09-23.md) completed 112 study episodes and retained a null or inconclusive forecast result.
 The transfer campaign's [September 23 native evidence](evidence/M1_NATIVE_2026-09-23.md) compares 44 payloads totaling 4,326,400 bytes across body-only and canonical execution.
 The earlier eight-command, 1,542,400-byte case remains historical evidence.
 Neither case supplies learned-policy, exact-fork, statistical, or real-time qualification.

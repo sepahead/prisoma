@@ -8,6 +8,9 @@ The experiment identifier is `NCP-E1-ACTION-CONDITIONED-PRESSURE-FORECAST`.
 This small learned reference remains separate from advertised product-model qualification.
 W1–W3, the release review, and the candidate promotion states remain unchanged.
 
+The [September 23 native campaign](../integrations/agent-bridge/evidence/E1_NATIVE_2026-09-23.md) completed eight qualification cases and all 112 study episodes.
+Its forecast result was null or inconclusive under the frozen useful-margin requirement.
+
 ## Exact study and population
 
 The [study fixture](../tests/fixtures/e1/study.v1.json) binds the numerical choices.
@@ -168,7 +171,7 @@ The earlier three- and sixteen-endpoint construction controls retain their separ
 
 Fourteen synthetic controls cover collection order, original payload joins, terminal rejection, and qualification separation.
 These controls do not establish native execution, checkpoint validity, or a useful forecast.
-Native qualification and the complete scientific study require their own prospective freeze and terminal evidence.
+The dated native evidence records its separate prospective freeze and terminal verification.
 
 ## Evaluation and null results
 

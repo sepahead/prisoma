@@ -1,0 +1,218 @@
+{
+  "authority": {
+    "calibrated_posterior": false,
+    "general_model_qualification": false,
+    "learned_policy_benefit_established": false,
+    "real_time_qualified": false,
+    "release_qualified": false,
+    "scientific_validation": false
+  },
+  "completion": {
+    "completed_commands": [
+      "e1-qualification-000",
+      "e1-qualification-001",
+      "e1-qualification-002",
+      "e1-qualification-003",
+      "e1-qualification-004",
+      "e1-qualification-005",
+      "e1-qualification-006",
+      "e1-qualification-007",
+      "study"
+    ],
+    "failure": null,
+    "freeze_sha256": "fabfc110c7fb1abfd21495e908025809d8303eac4cbb622b458c77cfca099263",
+    "qualification_completed": 8,
+    "release_qualified": false,
+    "replacement_allowed": false,
+    "schema": "local.e1-campaign-terminal.v1",
+    "scientific_validation": false,
+    "study_completed": 112,
+    "study_descendant_observation": null,
+    "uncompleted_commands": []
+  },
+  "custody": {
+    "original_artifacts_public": false,
+    "public_summary_replaces_original_replay": false,
+    "statement": "Original captures, inventories, and command receipts remain private local artifacts. Hashes identify bytes without attesting their producer or loaded code."
+  },
+  "date": "2026-09-23",
+  "experiment": "NCP-E1-ACTION-CONDITIONED-PRESSURE-FORECAST",
+  "forecast_report": {
+    "action_rows": 160,
+    "authority": {
+      "calibrated_posterior": false,
+      "canonical_order_verified": false,
+      "native_label_ancestry_verified": false,
+      "release_qualified": false,
+      "scientific_validation": false
+    },
+    "bootstrap_indices_sha256": "2f2e3aa4f7869010334213e1ac4bd7b0e25d2b7892ef3c80cff6208fccb1d203",
+    "comparisons": {
+      "constant": {
+        "episode_differences_pa": [
+          -0.00017433448312930973,
+          0.0011594333239654765,
+          0.001483959179550587,
+          0.0009506570574568481,
+          0.0011124211720108911,
+          0.0005077112617117755,
+          0.0008414981095373364,
+          0.00024051684930620628,
+          0.00029792516807005266,
+          7.91993442231853e-05,
+          0.0016212671555498116,
+          0.00034887876305124,
+          0.0008395239418759861,
+          0.00024472499857051966,
+          0.0007993583050312571,
+          0.0011126389342550724,
+          0.0010993064865849847,
+          0.0007386057876505939,
+          0.0012851975281567743,
+          0.0007474533083778809,
+          -0.00014359821305240242,
+          0.0011696345090005155,
+          4.31537293500442e-05,
+          0.0010195004165612018,
+          0.0005549833436608684,
+          0.0011364546833369446,
+          0.00041575333620125633,
+          0.0004416704373212178,
+          -0.00020910654802931277,
+          0.00102640958485829,
+          -7.571859294022384e-07,
+          0.0013613958408518728
+        ],
+        "interval_95_pa": [
+          0.0005154182192769615,
+          0.0008627328077430191
+        ],
+        "mean_difference_pa": 0.0006922323789355707
+      },
+      "persistence": {
+        "episode_differences_pa": [
+          0.03829911587060183,
+          0.03790977790029377,
+          0.03741578398224747,
+          0.038017219450316546,
+          0.039263101105308236,
+          0.03811201115325245,
+          0.03914190628932881,
+          0.03827322769259698,
+          0.038421183649396534,
+          0.03865224051131309,
+          0.037236791218530865,
+          0.03869598593908068,
+          0.037950519194419864,
+          0.038707814550353235,
+          0.03899685467000088,
+          0.03919473961150528,
+          0.037975046018156586,
+          0.038143120759108626,
+          0.03739472781917881,
+          0.038934229356107186,
+          0.038063198590224785,
+          0.039224436729355106,
+          0.038648005849071854,
+          0.037855515008298424,
+          0.03883077943923866,
+          0.03921061949838663,
+          0.03800320909246798,
+          0.03814259181801467,
+          0.03838530581172187,
+          0.03921649711499206,
+          0.03826014820756077,
+          0.03750065195526368
+        ],
+        "interval_95_pa": [
+          0.03817627530569004,
+          0.03857773254131394
+        ],
+        "mean_difference_pa": 0.03837738612049044
+      }
+    },
+    "conclusion": "null_or_inconclusive",
+    "contract_sha256": "9766af255a0434f7368f8ba24f253f76c1bd529a3d6877c569dff366ed74977e",
+    "episodes": 32,
+    "heldout_sha256": "8b9204c673a284f3ae5da998a469f49b18345ae3318ef05de051223f562ceec8",
+    "policy_comparison": "requires_separate_qualified_actual_selected_and_restored_neutral_execution_join",
+    "schema": "prisoma.e1-reference-forecast-report.v1",
+    "selection_sha256": "21472a0147e49be789ff93cefef011db1e805409b6c062ac0e9519750e05e29d",
+    "training_action_variation": true,
+    "uninformative_reasons": [],
+    "useful_margin_pa": 0.002484386850832278
+  },
+  "heldout_action_rows": 160,
+  "limitations": [
+    "The constant-baseline contrast fails the frozen useful margin.",
+    "Forecast error does not establish selected-policy benefit.",
+    "The study has no independent descendant observation.",
+    "The finite simulator design supplies no physical or general model validation.",
+    "M2, W1-W3, and release promotion remain open."
+  ],
+  "original_artifacts": {
+    "environment": {
+      "bytes": 1205453,
+      "sha256": "d64f3a37d0d56bb453d555af71b157cbe1740067b5382f86607f7c0d951a11f5"
+    },
+    "forecast_report": {
+      "bytes": 2508,
+      "sha256": "11e6fd6aaa3f326ea9760ae22e66fbc442fff083e02b65d32ad7dd1cedbcf513"
+    },
+    "freeze": {
+      "bytes": 6026,
+      "sha256": "fabfc110c7fb1abfd21495e908025809d8303eac4cbb622b458c77cfca099263"
+    },
+    "outer_command": {
+      "bytes": 889,
+      "sha256": "557094a7990a23443e8782839feda8adc16cbf86783a69168c32ca6b98c95953"
+    },
+    "plans": {
+      "bytes": 572478,
+      "sha256": "11649251d7861ff01e039612343c91355c295a3e722616b68cd1045d68df6ddd"
+    },
+    "selected_model": {
+      "bytes": 4310,
+      "sha256": "68bcf876c477c6048b8077c523fa7a9378f3756f4023a13ec5983ff21c9b1400"
+    },
+    "selection": {
+      "bytes": 561,
+      "sha256": "21472a0147e49be789ff93cefef011db1e805409b6c062ac0e9519750e05e29d"
+    },
+    "study_roster": {
+      "bytes": 611508,
+      "sha256": "bd18fafdbe7f7d0dd0faa841367509adf2997b353da3c53f3e20e985c295c21d"
+    },
+    "terminal": {
+      "bytes": 551,
+      "sha256": "d13380127567b372003cec027a78227cc46a19bbe245fc096c90e48386da046a"
+    }
+  },
+  "process_evidence": {
+    "exhaustive_descendant_containment": false,
+    "qualification_observed_births_remaining": 0,
+    "qualification_sampled_births": 400,
+    "study_descendant_observation": null,
+    "study_sdk_root_cleanup_confirmed": true
+  },
+  "runtime": {
+    "loaded_bytes_attestation": false,
+    "numpy": "2.4.6",
+    "python": "3.11.15"
+  },
+  "schema": "prisoma.native-e1-evidence.v1",
+  "scope": "One-body simulator pressure forecasting with original canonical and NCP readback",
+  "selected_ridge_penalty": 1,
+  "sources": {
+    "collector": "25daddc2718782b875b7eb6b746e34667e4c04d1",
+    "crebain": "50f1e214a19f6778d581f1ebef375df3b4602ba9",
+    "installed_bridge": "7a1730e4cc1c7a62fa207e2baa0d6f231454bd3f",
+    "ncp_sdk": "c0465d40f1f2b9df2caf9793183d11e65ac9ec74"
+  },
+  "splits": {
+    "development": 16,
+    "heldout": 32,
+    "qualification": 8,
+    "training": 64
+  }
+}
