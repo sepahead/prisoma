@@ -268,6 +268,8 @@ The frozen intake, scientific registries, holdout boundaries, and negative evide
 
 ## License and citation
 
+Author and maintainer: **[Sepehr Mahmoudian](https://github.com/sepahead)**.
+
 Prisoma source uses [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE).
 External code, weights, data, and assets retain their separate terms.
 See [third-party notices](THIRD_PARTY_NOTICES.md) and the LeWM guide's unresolved historical notice boundary.

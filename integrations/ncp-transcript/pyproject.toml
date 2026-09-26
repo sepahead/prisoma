@@ -5,6 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "prisoma-ncp-transcript"
 version = "0.1.0"
+authors = [{ name = "Sepehr Mahmoudian" }]
 description = "Bounded durable capture of modular NCP exchanges on host-owned streams"
 readme = "README.md"
 license = "MIT OR Apache-2.0"

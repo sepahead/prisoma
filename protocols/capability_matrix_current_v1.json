@@ -130,7 +130,7 @@
       "feature_id": "bridge.crebain_sensor_execution",
       "feature": "Optional canonical CREBAIN sensor execution",
       "status": "tested",
-      "exact_revision": "local-sha256:e7b4742368fc920f13e14774c9ec0e21c195ddfc061060043abf11d83eaba518",
+      "exact_revision": "local-sha256:d56215db30ab9db3c2522dd86b5f1ce67d0a86fee9e97cfc8ac59dab1feca966",
       "revision_inputs": [
         "crates/agent-bridge-python",
         "crates/pid-bridge",
@@ -849,7 +849,7 @@
       "feature_id": "observer.engram_managed_read_only",
       "feature": "Read-only Engram Host API 2 managed observer",
       "status": "tested",
-      "exact_revision": "local-sha256:642d8d5b5d7311f09a490715be1a9feb7a9164173171b2240f6f072bb90d5b03",
+      "exact_revision": "local-sha256:8762cb26058f8b935c4f150a5eb9c2925489ddd3df5379b4cc3b3a962eae80c3",
       "revision_inputs": [
         "crates/engram-managed-observer",
         "integrations/engram/managed-observer",
@@ -1197,7 +1197,7 @@
         },
         {
           "path": "README.md",
-          "sha256": "ae39d2287d00185819af1aae20568231ec48d7a3ed975cbb9dd4f60f8ad3a337"
+          "sha256": "a6eed610165ec50fd3a6c928e87d4c6d59b6dc0503164d7e1dfe6c17a8d0fec0"
         }
       ],
       "known_limitations": "The scripted push-to-goal fixture is a deterministic software cross-check, not a real VLA policy/environment choice, external adapter, validated simulator, or physical repeatability study.",

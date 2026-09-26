@@ -5,6 +5,7 @@ build-backend = "maturin"
 [project]
 name = "prisoma-agent-bridge"
 version = "0.1.0"
+authors = [{ name = "Sepehr Mahmoudian" }]
 description = "Canonical Prisoma application execution through the Rust Agent Bridge"
 readme = "README.md"
 requires-python = ">=3.11"
