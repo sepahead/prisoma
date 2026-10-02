@@ -38,7 +38,7 @@ PID-specific method selection and publication also follow
 | H2 | A deterministic synthetic fixed-horizon/IPCW/alarm arithmetic reference is runnable. | A proper observed-data score, a frozen aligned prediction-object contract, prospective prediction, calibration validity, warning benefit, comparator superiority, safety gain, or deployment validity. |
 | H3 | **Not eligible.** Population is open/unfrozen. Measure is not adjudicated. The current atom-estimator and continuous-application gates are blocked. High-dimensional MI/coherence is NO-GO. | Interpretable PID atoms on real embeddings, eligible-only promotion, or full-target held-out incremental policy value. |
 | H4 | A small reference-model attribution path exercises logging and a group-level deletion-ranking-sensitivity control. | Causal or mechanistic faithfulness, representational availability, natural policy use, or divergence between availability and the effect of a tested intervention in a real VLA. |
-| NCP observer | Optional, workspace-excluded, read-only wire-0.8 experimental component. | Final protocol interoperability, a live Engram integration, transport completeness, security validation, EC1, or a scientific result. |
+| NCP observer | Optional, workspace-excluded, read-only wire-1.0 experimental component (NCP `1.0.0-rc.1` candidate). | Final protocol interoperability, a live Engram integration, transport completeness, security validation, EC1, or a scientific result. |
 
 The detailed claim definitions and stop rules are in
 [`grandplan.md` §4](grandplan.md#4-confirmatory-claim-template-registry),
@@ -299,29 +299,26 @@ bridge remotely.
 
 ## NCP and ecosystem limitations
 
-The optional NCP observer is built separately against immutable NCP wire 0.8. The deterministic
-fault observatory exercises a finite local fixture and records a known whole-tick-omission blind
-spot; it does not measure live timing, delivery completeness, QoS, reconnect behavior,
-authentication, ACL enforcement, or producer noninterference. The observer's visible-receipt
-capture grade is a join/publication grade, not proof that every source event was delivered.
-Schema-1 publication receipts accept only the frozen `v0.8.0` tag, revision, wire, and compact
-hash; another wire needs a separately reviewed receipt schema and consumer.
-Official NCP main was observed at `1a04294c90c1b50eba06ae1c6afe9c951319250d` on
-2026-08-13. That commit is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire
-1.0; compact proto contract hash `163acc57d8a62b66`). The latest immutable release is `v0.8.0`,
-which uses a different wire. NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not
-dependency-ready, and **NOT RUN**. `P03` covers fault-observatory migration and Prisoma
-observer-role qualification. The refined low-overhead architecture and prepared-stream-monitor
-gap record are coordination-only. B01 remains `IN_PROGRESS` with no passing receipt. See the
-[verified NCP task ledger](https://github.com/sepahead/NCP/blob/1a04294c90c1b50eba06ae1c6afe9c951319250d/evidence/implementation/task-ledger.v1.json).
-The Zenoh 1.9 dependency graph retains `lz4_flex` 0.10.0, which is affected by the
-high-severity RUSTSEC-2026-0041 block-decompression information disclosure. The checked profile
-does not enable Zenoh's `transport_compression`, so the affected call is cfg-elided, and CI fails
-if that feature appears. The vulnerable package is still present in the optional lock: this is
-not a clean audit, does not qualify the NCP binary for release or live use, and must be removed by
-a qualified NCP/Zenoh pin admitting `lz4_flex` 0.11.6 or newer. The graph also retains the
-unmaintained (not known vulnerable) `rustls-pemfile` 2.2.0 because no compatible replacement
-exists. The observer graph also retains the unmaintained `paste` 1.0.15 proc-macro through Zenoh.
+The optional NCP observer is built separately against the unreleased, release-blocked NCP
+`1.0.0-rc.1` candidate, pinned to its exact commit `2819dae3b6338bb1df6d105ebb5b7433936a993d` (wire 1.0;
+compact proto contract hash `163acc57d8a62b66`). Wire 0.8 is retired; its last pin, `v0.8.0` at
+`2f5bd586`, remains in the history. The deterministic fault observatory exercises a finite local
+fixture and records a known whole-tick-omission blind spot; it does not measure live timing,
+delivery completeness, QoS, reconnect behavior, authentication, ACL enforcement, or producer
+noninterference. The observer's visible-receipt capture grade is a join/publication grade, not
+proof that every source event was delivered. Schema-2 publication receipts belong to run logs
+that carry the exact candidate label, revision, wire, and compact hash; schema-1 receipts belong to
+retired wire-0.8 run logs and are rejected. The repin changed no fault semantics: the injection
+truth and every receipt's metadata are identical, and reverting the wire version and the two new
+nullable frame fields (`receipt`, `authority`) reproduces every wire-0.8 golden digest. NCP's own
+ledger keeps tasks `P01`, `P02`, and `P03` OPEN, not dependency-ready, and **NOT RUN**: this
+repin is local implementation work, not observer-role qualification (`P03`), and no independent
+or live receipt exists. B01 remains `IN_PROGRESS` with no passing receipt. See the
+[NCP task ledger at the pinned commit](https://github.com/sepahead/NCP/blob/2819dae3b6338bb1df6d105ebb5b7433936a993d/evidence/implementation/task-ledger.v1.json).
+The observer root patches Zenoh 1.9's `zenoh-transport` to the reviewed backport `9045545b` that
+NCP applies, so its lock resolves `lz4_flex` 0.11.6 and RUSTSEC-2026-0041 no longer applies; the
+build guard fails if the lock leaves that backport. The graph also retains the unmaintained (not
+known vulnerable) `rustls-pemfile` 2.2.0 because no compatible replacement exists. The observer graph also retains the unmaintained `paste` 1.0.15 proc-macro through Zenoh.
 Rapier 0.34 removed `paste` from the root graph. `deny.toml` records these temporary observer
 exceptions.
 

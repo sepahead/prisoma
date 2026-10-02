@@ -1109,12 +1109,15 @@ struct OfflineNcpPublicationReceipt {
     capture_integrity: String,
 }
 
-const LEGACY_NCP_TAG: &str = "v0.8.0";
-const LEGACY_NCP_REVISION: &str = "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e";
-const LEGACY_NCP_WIRE: &str = "0.8";
-const LEGACY_NCP_COMPACT_HASH: &str = "d1b50a2d8a265276";
+// The NCP candidate the observer speaks: the untagged 1.0.0-rc.1 commit, wire 1.0.
+// Schema-1 receipts belong to retired wire-0.8 run logs; schema 2 binds this identity.
+const PINNED_NCP_TAG: &str = "v1.0.0-rc.1";
+const PINNED_NCP_REVISION: &str = "2819dae3b6338bb1df6d105ebb5b7433936a993d";
+const PINNED_NCP_WIRE: &str = "1.0";
+const PINNED_NCP_COMPACT_HASH: &str = "163acc57d8a62b66";
+const NCP_PUBLICATION_RECEIPT_SCHEMA_VERSION: u32 = 2;
 
-fn has_frozen_legacy_ncp_config(events: &[RunLogEvent]) -> bool {
+fn has_pinned_ncp_config(events: &[RunLogEvent]) -> bool {
     let mut configs = events.iter().filter_map(|event| match event {
         RunLogEvent::ConfigLogged { config, .. } => Some(config),
         _ => None,
@@ -1126,11 +1129,11 @@ fn has_frozen_legacy_ncp_config(events: &[RunLogEvent]) -> bool {
         return false;
     }
     config.get("component").and_then(Value::as_str) == Some("ncp-observer")
-        && config.pointer("/ncp/tag").and_then(Value::as_str) == Some(LEGACY_NCP_TAG)
-        && config.pointer("/ncp/revision").and_then(Value::as_str) == Some(LEGACY_NCP_REVISION)
-        && config.pointer("/ncp/wire").and_then(Value::as_str) == Some(LEGACY_NCP_WIRE)
+        && config.pointer("/ncp/tag").and_then(Value::as_str) == Some(PINNED_NCP_TAG)
+        && config.pointer("/ncp/revision").and_then(Value::as_str) == Some(PINNED_NCP_REVISION)
+        && config.pointer("/ncp/wire").and_then(Value::as_str) == Some(PINNED_NCP_WIRE)
         && config.pointer("/ncp/contract_hash").and_then(Value::as_str)
-            == Some(LEGACY_NCP_COMPACT_HASH)
+            == Some(PINNED_NCP_COMPACT_HASH)
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -2845,8 +2848,8 @@ pub fn read_offline_vlda_dataset_with_hash_and_limits(
                     receipt_path.display()
                 )
             })?;
-        if receipt.schema_version != 1 || !receipt.committed {
-            bail!("NCP publication receipt is not a committed schema-1 receipt");
+        if receipt.schema_version != NCP_PUBLICATION_RECEIPT_SCHEMA_VERSION || !receipt.committed {
+            bail!("NCP publication receipt is not a committed schema-2 receipt");
         }
         if receipt.capture_integrity != integrity {
             bail!("NCP publication receipt capture grade does not match the dataset");
@@ -2887,9 +2890,9 @@ pub fn read_offline_vlda_dataset_with_hash_and_limits(
         if validation.errors > 0 {
             bail!("NCP publication receipt points to an invalid canonical run log");
         }
-        if !has_frozen_legacy_ncp_config(&events) {
+        if !has_pinned_ncp_config(&events) {
             bail!(
-                "NCP schema-1 publication receipt does not bind the frozen {LEGACY_NCP_TAG} wire {LEGACY_NCP_WIRE} contract identity"
+                "NCP schema-2 publication receipt does not bind the pinned {PINNED_NCP_TAG} wire {PINNED_NCP_WIRE} contract identity"
             );
         }
         if !events.iter().any(|event| {
@@ -14444,14 +14447,14 @@ mod tests {
         );
     }
 
-    fn legacy_ncp_fixture_config() -> serde_json::Value {
+    fn pinned_ncp_fixture_config() -> serde_json::Value {
         json!({
             "component": "ncp-observer",
             "ncp": {
-                "tag": LEGACY_NCP_TAG,
-                "revision": LEGACY_NCP_REVISION,
-                "wire": LEGACY_NCP_WIRE,
-                "contract_hash": LEGACY_NCP_COMPACT_HASH,
+                "tag": PINNED_NCP_TAG,
+                "revision": PINNED_NCP_REVISION,
+                "wire": PINNED_NCP_WIRE,
+                "contract_hash": PINNED_NCP_COMPACT_HASH,
             },
             "fixture": "ncp-publication",
         })
@@ -14530,7 +14533,7 @@ mod tests {
         std::fs::write(&runlog_path, &runlog_bytes).unwrap();
 
         let receipt = json!({
-            "schema_version": 1,
+            "schema_version": NCP_PUBLICATION_RECEIPT_SCHEMA_VERSION,
             "committed": true,
             "dataset_uri": std::fs::canonicalize(&dataset_path).unwrap().display().to_string(),
             "dataset_sha256": pid_runlog::sha256_hex(&dataset_bytes),
@@ -14543,7 +14546,7 @@ mod tests {
     }
 
     fn write_ncp_publication_fixture(integrity: &str) -> (std::path::PathBuf, std::path::PathBuf) {
-        write_ncp_publication_fixture_with_config(integrity, legacy_ncp_fixture_config())
+        write_ncp_publication_fixture_with_config(integrity, pinned_ncp_fixture_config())
     }
 
     #[test]
@@ -14694,7 +14697,7 @@ mod tests {
             json!({"fixture": "ncp-publication"}),
         );
         let error = read_offline_vlda_dataset(&dataset_path).unwrap_err();
-        assert!(error.to_string().contains("does not bind the frozen"));
+        assert!(error.to_string().contains("does not bind the pinned"));
         std::fs::remove_dir_all(dir).ok();
 
         for (pointer, drifted_value) in [
@@ -14703,45 +14706,62 @@ mod tests {
                 "/ncp/revision",
                 json!("1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68"),
             ),
-            ("/ncp/wire", json!("1.0")),
-            ("/ncp/contract_hash", json!("163acc57d8a62b66")),
+            ("/ncp/wire", json!("0.8")),
+            ("/ncp/contract_hash", json!("d1b50a2d8a265276")),
         ] {
-            let mut config = legacy_ncp_fixture_config();
+            let mut config = pinned_ncp_fixture_config();
             *config.pointer_mut(pointer).unwrap() = drifted_value;
             let (dataset_path, dir) = write_ncp_publication_fixture_with_config("complete", config);
             let error = read_offline_vlda_dataset(&dataset_path).unwrap_err();
             assert!(
-                error.to_string().contains("does not bind the frozen"),
-                "schema-1 receipt accepted drift at {pointer}: {error}"
+                error.to_string().contains("does not bind the pinned"),
+                "schema-2 receipt accepted drift at {pointer}: {error}"
             );
             std::fs::remove_dir_all(dir).ok();
         }
     }
 
     #[test]
-    fn frozen_legacy_identity_requires_exactly_one_config_event() {
+    fn pinned_identity_requires_exactly_one_config_event() {
         let exact = RunLogEvent::ConfigLogged {
             timestamp_ns: 0,
             config_hash: "exact".to_string(),
-            config: legacy_ncp_fixture_config(),
+            config: pinned_ncp_fixture_config(),
         };
-        assert!(has_frozen_legacy_ncp_config(std::slice::from_ref(&exact)));
+        assert!(has_pinned_ncp_config(std::slice::from_ref(&exact)));
 
-        let confounding = RunLogEvent::ConfigLogged {
+        let retired = RunLogEvent::ConfigLogged {
             timestamp_ns: 1,
-            config_hash: "confounding".to_string(),
+            config_hash: "retired".to_string(),
             config: json!({
-                "component": "ncp-observer10",
+                "component": "ncp-observer",
                 "ncp": {
-                    "tag": "1.0.0-rc.1",
-                    "revision": "1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68",
-                    "wire": "1.0",
-                    "contract_hash": "163acc57d8a62b66",
+                    "tag": "v0.8.0",
+                    "revision": "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e",
+                    "wire": "0.8",
+                    "contract_hash": "d1b50a2d8a265276",
                 },
             }),
         };
-        assert!(!has_frozen_legacy_ncp_config(&[exact, confounding]));
-        assert!(!has_frozen_legacy_ncp_config(&[]));
+        assert!(!has_pinned_ncp_config(std::slice::from_ref(&retired)));
+        assert!(!has_pinned_ncp_config(&[exact, retired]));
+        assert!(!has_pinned_ncp_config(&[]));
+    }
+
+    #[test]
+    fn schema_one_receipt_from_retired_wire_is_rejected() {
+        let (dataset_path, dir) = write_ncp_publication_fixture("complete");
+        let receipt_path = dir.join("dataset.json.publication.json");
+        let mut receipt: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&receipt_path).unwrap()).unwrap();
+        receipt["schema_version"] = json!(1);
+        std::fs::write(&receipt_path, serde_json::to_vec_pretty(&receipt).unwrap()).unwrap();
+        let error = read_offline_vlda_dataset(&dataset_path).unwrap_err();
+        assert!(
+            format!("{error:#}").contains("not a committed schema-2 receipt"),
+            "{error:#}"
+        );
+        std::fs::remove_dir_all(dir).ok();
     }
 
     #[test]

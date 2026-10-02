@@ -37,7 +37,7 @@ fn git_worktree_clean(repo: &Path) -> bool {
 
 fn main() {
     let manifest = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap_or_default());
-    pin_guard::verify_frozen_legacy_ncp_pin(&manifest);
+    pin_guard::verify_exact_ncp_pin(&manifest);
     let repo = manifest
         .parent()
         .and_then(Path::parent)

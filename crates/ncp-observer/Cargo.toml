@@ -14,13 +14,13 @@ publish = false
 [lints.rust]
 unsafe_code = "deny"
 
-# Cross-repo dependency on the NCP standard SDK, pinned to the published repo
-# (canonical home: https://github.com/sepahead/NCP). This resolves standalone on a
-# fresh checkout (no sibling required). This legacy surface is frozen at wire 0.8;
-# a different wire requires a separate consumer and qualification path.
+# Cross-repo dependency on the NCP standard SDK (canonical home:
+# https://github.com/sepahead/NCP), pinned to the exact commit of the untagged
+# 1.0.0-rc.1 candidate (wire 1.0, compact contract 163acc57d8a62b66). The commit is
+# the candidate's identity; repin to the v1.0.0 tag once NCP cuts it.
 [dependencies]
-ncp-core = { git = "https://github.com/sepahead/NCP", tag = "v0.8.0" }
-ncp-zenoh = { git = "https://github.com/sepahead/NCP", tag = "v0.8.0" }
+ncp-core = { git = "https://github.com/sepahead/NCP", rev = "2819dae3b6338bb1df6d105ebb5b7433936a993d" }
+ncp-zenoh = { git = "https://github.com/sepahead/NCP", rev = "2819dae3b6338bb1df6d105ebb5b7433936a993d" }
 pid-runlog = { path = "../../pid-rs/crates/pid-runlog" }
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -39,3 +39,9 @@ path = "src/bin/observe.rs"
 [[bin]]
 name = "ncp-fault-observatory"
 path = "src/bin/fault_observatory.rs"
+
+[patch.crates-io]
+# Narrow reviewed security backport for Zenoh 1.9.0 (RUSTSEC-2026-0041: lz4_flex
+# 0.10 can leak uninitialised memory on invalid input). It is the same immutable
+# revision that NCP applies; Cargo.lock must resolve this exact Git object.
+zenoh-transport = { git = "https://github.com/sepahead/zenoh-transport-lz4-backport", rev = "9045545b72a77602a87f40203cb614b48157b4bc" }

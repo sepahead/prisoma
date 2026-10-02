@@ -41,7 +41,7 @@ const SAMPLE_VALUE_PROJECTION_REVISION: &str = "ncp_vlda_sample_value_without_st
 const RUNLOG_PROJECTION_REVISION: &str = "ncp_runlog_publication_normalized_v2";
 const TYPED_RECEIPT_PROJECTION_REVISION: &str = "ncp_typed_receipt_v2";
 const TRACE_SCOPE: &str = "deterministic_offline_ncp_wire_observatory";
-const NCP_TAG: &str = "v0.8.0";
+const NCP_TAG: &str = "v1.0.0-rc.1";
 const SYNTHETIC_SESSION: &str = "observatory";
 const SYNTHETIC_REALM: &str = "engram/ncp";
 const EPOCH_A: &str = "00000000-0000-4000-8000-0000000000a1";
@@ -425,61 +425,66 @@ impl FaultScenario {
     }
 
     /// Hand-reviewed v1 hash for the built-in raw fixture and compiled plan.
+    ///
+    /// Re-reviewed for wire 1.0 on 2 October 2026: the injection truth and every
+    /// receipt's metadata are unchanged, and reverting the wire version, the nullable
+    /// observation `receipt` and the nullable command `authority` in each payload
+    /// reproduces every wire-0.8 digest byte for byte.
     pub fn golden_schedule_sha256(self) -> &'static str {
         match self {
             Self::CleanBaseline => {
-                "1dd4f3118ad1f88d0e8b5812d0a44f2df6421c0dd8506843979cf6728f66a4ed"
+                "82dec9052f833b629575282ab51346c4c568bf2d80cd3927260ff01e56b5dc96"
             }
             Self::ExactRedelivery => {
-                "fedef518181e48d0e06cee9e28ecfae7b99ff7e96fc50d01b4a1ec508254efd5"
+                "e799807398df8310c6714a359ba823f168cecaadb65fe9d55e9ef376b4693c2a"
             }
             Self::ConflictingDuplicate => {
-                "0a8a3aaae252b34a32f253b19d2ecdc3314b435ff4475280a902208bc85df902"
+                "bfb200bb9513c8717bc62a59c83e615f0fec59d414af2a6c512e71c8c8e36314"
             }
             Self::ConflictingDuplicateAfterClosure => {
-                "869af25893633b4b309050a602cbab5584d442bd04a11416ceab48b56608d171"
+                "c27335a26fe55c4f9c27ac187bbd313848c3e1bc4762b5dec3a1502eac312314"
             }
             Self::OnePlaneOmission => {
-                "cb2b59ee88dc25077936e7d9f9e6285fa74cd3e488284de4d496a1f0cf98531f"
+                "795adde346e82f9336e38cb01fa166d088b682659b677cf6fe1384259bc60753"
             }
             Self::WholeTickOmission => {
-                "0545176b1a3c93680053403f1bfdba0479659290213526bb88e4f95b81ea2637"
+                "058290a8cab75bf3a7b51c27300e4b76c3f0097ae0edc760d32d9a32d1531631"
             }
             Self::ReorderWithinGrace => {
-                "b03eeead448885973892aa261d99a4dc6ab6a36d16fdf31065a0b7d3e3259be1"
+                "836f7f7f9ad8f6311c1db24f3c46c9dc4ba509284554044d4fcf5f1a0ded6386"
             }
             Self::LogicalReceiptPause => {
-                "d6c4149c94b2bf446e9bbe373c43815452eeb3652f3fd25637cda9f9db6b33f2"
+                "ae54aabe89324f39d6369b697a0df12adcfe818131cca0682e0f552c6a95689e"
             }
             Self::ObservationAfterGrace => {
-                "fe2244c983f3e9ef6fa882471c4e8bf47c92d088e952488da26eca812e9665b7"
+                "2d5845036f7ef1898b15262fa4438a05858c93ba2453bc83381cc08f693c38b8"
             }
             Self::VersionMismatch => {
-                "d216dcc9c0e105f07990a5c5e7c32ded247fa7c981aedf297fe3d19478deabb1"
+                "d9aa71459003c9f9a1674f5a49ea1f1f203b3667d90fdb90e96731ac8d604670"
             }
             Self::DuplicateJsonKey => {
-                "fec2f45036321dfb51b68e96238b847380487c60c3e6f410523d238e03fb6afb"
+                "e820a46839541539b228cf5968476e14ce98aa1cbf21ba524ec928243e428a10"
             }
             Self::MalformedNonUtf8 => {
-                "aaa40344fa2db897fb5598f945eeef32f31f416abe14549bb9cb62a6c6c74b78"
+                "ee86dffe5624707c297be7491b5cee9a860a230f2d8e3751630caab45b3074b8"
             }
             Self::TraceTruncation => {
-                "5f7f427a322fc5fdf1e85ed7d924e6c75484fb93b1631abc4e5dc2ef42337a83"
+                "300c06245220fdcbbe9d81f360507f94968e3bcb7435bf9808f7afaa36cf0169"
             }
             Self::NewStreamEpoch => {
-                "89c2780ece9ad77c67baa4f7051d01d34dd27bcc19907f5772691495ff33d8c3"
+                "eb0822cc36ea9e0ce67f8bbb0f3d16f62786b9daee807405f44fc435b24c5def"
             }
             Self::IdentityCollision => {
-                "bde887ae2f691fcb4cf8c6b80a98e56bc30d153ed569f2c1df5897b64dea7cb4"
+                "d3859aced951138fe1c7e90708bacee8659f028fd79abea9d84362978d0a0487"
             }
             Self::RouteMismatch => {
-                "8b06d0d7ff2f74743123235dadbffd36fc35b57894ac1465dcab36cbcaee8e3a"
+                "6eb382e739baab72e630711df5e66fd443ce4b5681b1571dbc4fafbb4ba0c4c5"
             }
             Self::OversizedPayload => {
-                "a24849ce984fd9e2f80eb8a7391fa515605229b7b707edefd599135cd72312d4"
+                "53d997802582ca7b306808c6ff05bccb0f44d7c7cf369947967514187007cf56"
             }
             Self::SecurityProfileClaimGuard => {
-                "b9b961dfdedba8fcfee1dc3bb701ceef69e8c40c09927e537cc6d34a0b9a3fc3"
+                "218b24e7740fbe88b7b7603ba3df22885ec7a044b785513dc787aac4b3f66184"
             }
         }
     }
@@ -2298,7 +2303,7 @@ fn verify_replay_bundle(
         .to_str()
         .ok_or_else(|| anyhow::anyhow!("receipt canonical path is not UTF-8"))?
         .to_string();
-    if receipt.schema_version != 1
+    if receipt.schema_version != crate::PUBLICATION_RECEIPT_SCHEMA_VERSION
         || !receipt.committed
         || receipt.dataset_uri != dataset_uri
         || receipt.runlog_uri != runlog_uri
@@ -4591,7 +4596,7 @@ mod tests {
             validate_trace_bytes(encoded_trace(), limits, ObserverLimits::default()).unwrap();
         assert_eq!(validated.receipts.len(), BASELINE_TICKS * 3);
         assert_eq!(validated.baseline_sample_ids.len(), BASELINE_TICKS);
-        assert_eq!(validated.trace.ncp_wire, "0.8");
+        assert_eq!(validated.trace.ncp_wire, NCP_VERSION);
         assert_eq!(validated.trace.ncp_contract_hash, CONTRACT_HASH);
         assert_eq!(validated.trace.terminal, TraceEndReason::ProducerClose);
         assert!(validated

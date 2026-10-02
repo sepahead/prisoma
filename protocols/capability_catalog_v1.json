@@ -627,23 +627,23 @@
     },
     {
       "feature_id": "observer.ncp_fault_observatory",
-      "feature": "Deterministic NCP wire-0.8 protocol-fault observatory",
+      "feature": "Deterministic NCP wire-1.0 protocol-fault observatory",
       "status": "tested",
       "revision_inputs": [
         "crates/ncp-observer",
         "pid-rs"
       ],
-      "external_revision": "NCP@v0.8.0#2f5bd586d4bb20c90362bb6f5698b7f64057ba4e",
+      "external_revision": "NCP@2819dae3b6338bb1df6d105ebb5b7433936a993d",
       "test_command": "just ncp-fault-observatory",
       "evidence_artifacts": [
         "crates/ncp-observer/src/observatory.rs",
         "crates/ncp-observer/README.md",
         "NCP_DEV_PROMPT.md"
       ],
-      "known_limitations": "The 18 frozen scenarios cover only the frozen v0.8.0 base-route wire surface. Whole-tick omission is a known native blind spot. No live timing, QoS, reconnect, authentication, ACL, security, E4, or EC1 result follows. P01, P02, and P03 are OPEN, not dependency-ready, and NOT RUN. P03 covers fault-observatory migration and Prisoma observer-role qualification.",
+      "known_limitations": "The 18 scenarios cover only the base-route surface of the pinned 1.0.0-rc.1 candidate. Their fault semantics are unchanged from wire 0.8: the injection truth and receipt metadata are identical, and reverting the wire version and the two new nullable frame fields reproduces every wire-0.8 digest. Whole-tick omission is a known native blind spot. No live timing, QoS, reconnect, authentication, ACL, security, E4, or EC1 result follows. P01, P02, and P03 are OPEN, not dependency-ready, and NOT RUN. P03 covers fault-observatory migration and Prisoma observer-role qualification.",
       "evidence_level": "E2",
       "evidence_basis": "declared_immutable_dependency",
-      "evidence_scope": "immutable NCP v0.8.0 wire-0.8 contract pin plus a reproducibility-bound local fixture execution covering the base-route decoder, finalization, and replay; no conforming external producer is compiled, so this is not producer-consumer E3",
+      "evidence_scope": "exact NCP 1.0.0-rc.1 candidate commit pin plus a reproducibility-bound local fixture execution covering the base-route decoder, finalization, and replay; no conforming external producer is compiled, so this is not producer-consumer E3",
       "thesis_dependency": "optional",
       "claim_ids": [
         "EC1"
@@ -651,13 +651,13 @@
     },
     {
       "feature_id": "observer.ncp_read_only",
-      "feature": "Read-only NCP wire-0.8 observer",
+      "feature": "Read-only NCP wire-1.0 observer",
       "status": "tested",
       "revision_inputs": [
         "crates/ncp-observer",
         "pid-rs"
       ],
-      "external_revision": "NCP@v0.8.0#2f5bd586d4bb20c90362bb6f5698b7f64057ba4e",
+      "external_revision": "NCP@2819dae3b6338bb1df6d105ebb5b7433936a993d",
       "test_command": "just ncp-observer-test",
       "evidence_artifacts": [
         "crates/ncp-observer/Cargo.lock",
@@ -666,10 +666,10 @@
         "crates/pid-sim/src/offline_harness.rs",
         "crates/ncp-observer/README.md"
       ],
-      "known_limitations": "This is a frozen v0.8.0 base-route-only observer and has no command authority. No conforming public live producer provides honest L, split, episode, and outcome structure; open/secure choice is declared but live security and noninterference are unvalidated. P01, P02, and P03 are OPEN, not dependency-ready, and NOT RUN. P03 covers fault-observatory migration and Prisoma observer-role qualification.",
+      "known_limitations": "This is a base-route-only observer of the pinned 1.0.0-rc.1 candidate and has no command authority. No conforming public live producer provides honest L, split, episode, and outcome structure; open/secure choice is declared but live security and noninterference are unvalidated. P01, P02, and P03 are OPEN, not dependency-ready, and NOT RUN. P03 covers fault-observatory migration and Prisoma observer-role qualification.",
       "evidence_level": "E2",
       "evidence_basis": "declared_immutable_dependency",
-      "evidence_scope": "exact immutable NCP v0.8.0 tag/revision, wire-0.8 compact identity, and tested workspace-excluded local consumer/receipt fixtures; no conforming external producer is compiled, so this is not producer-consumer E3",
+      "evidence_scope": "exact NCP 1.0.0-rc.1 candidate commit, wire-1.0 compact identity, and tested workspace-excluded local consumer/receipt fixtures; no conforming external producer is compiled, so this is not producer-consumer E3",
       "thesis_dependency": "optional",
       "claim_ids": [
         "EC1"

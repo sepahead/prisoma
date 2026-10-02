@@ -27,18 +27,13 @@ unmaintained = "all"
 # to the separately checked `ncp-observer` Zenoh graph. Remove each exception when that upstream
 # graph permits it.
 ignore = [
-    # HIGH/CVSS 8.2 lz4_flex block-decompression information disclosure. Zenoh 1.9.0
-    # pins the affected 0.10 line even when `transport_compression` is disabled. The
-    # affected call is cfg-elided in the checked NCP profile, and CI fails if that feature
-    # becomes enabled. This is still an open advisory, not a clean-audit claim; remove the
-    # exception when a qualified NCP/Zenoh pin admits lz4_flex >=0.11.6.
-    "RUSTSEC-2026-0041",
     # paste — unmaintained proc-macro (not a known vulnerability), transitive through Zenoh in
     # the observer graph. Rapier 0.34 removed it from the root graph. No compatible observer fix.
     "RUSTSEC-2024-0436",
     # rustls-pemfile — unmaintained (no vulnerability), transitive through Zenoh's
-    # mandatory TLS/QUIC link stack. Zenoh 1.9 has no replacement release; NCP
-    # v0.8.0 records the same temporary exception. Remove on the next qualified pin.
+    # mandatory TLS/QUIC link stack. Zenoh 1.9 has no replacement release; the NCP
+    # 1.0.0-rc.1 candidate records the same temporary exception. Remove when a Zenoh
+    # release drops it.
     "RUSTSEC-2025-0134",
 ]
 
@@ -87,4 +82,7 @@ unknown-git = "deny"
 allow-git = [
     # ncp-observer git-depends on the published NCP SDK (ncp-core / ncp-zenoh).
     "https://github.com/sepahead/NCP",
+    # ncp-observer patches zenoh-transport to the reviewed Zenoh 1.9.0 security backport
+    # that NCP applies at every consuming root (RUSTSEC-2026-0041, lz4_flex >= 0.11.6).
+    "https://github.com/sepahead/zenoh-transport-lz4-backport",
 ]

@@ -137,7 +137,7 @@ information. Prisoma never infers either declaration from observed values.
 program. It validates content-bound SAFE input bundles. Current committed outputs are synthetic
 software proofs. It is not the primary W1/W2 model path.
 
-The optional `ncp-observer` is a read-only producer adapter for NCP wire 0.8. It is workspace-
+The optional `ncp-observer` is a read-only producer adapter for NCP wire 1.0 (the `1.0.0-rc.1` candidate). It is workspace-
 excluded. NCP and Zenoh therefore stay outside the default dependency graph.
 
 ## 4. Runtime data paths

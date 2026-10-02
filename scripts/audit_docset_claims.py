@@ -379,7 +379,10 @@ SPZ_DISCLAIMER_RE = re.compile(
 )
 
 NCP_NAME_RE = re.compile(r"\b(?:NCP|Neuro[- ]Cybernetic Protocol)\b", re.IGNORECASE)
-SEMVER_TAG_RE = re.compile(r"\bv\d+\.\d+\.\d+\b", re.IGNORECASE)
+# A release label, with an optional prerelease suffix such as `v1.0.0-rc.1`.
+SEMVER_TAG_RE = re.compile(
+    r"\bv\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?\b", re.IGNORECASE
+)
 NCP_PIN_CUE_RE = re.compile(
     r"\b(?:pin(?:ned)?|tag|dependency|version|tap|repo|synced|currently|update)\b",
     re.IGNORECASE,
@@ -816,25 +819,50 @@ def _spz_finding(path: Path, context: LineContext) -> Finding | None:
     return None
 
 
+def _ncp_consumer_label(manifest: Path, revision: str) -> str:
+    """Return the release label that `.ncp-consumer` binds to this manifest revision."""
+
+    root = Path(__file__).resolve().parents[1]
+    locator = root / ".ncp-consumer"
+    if not locator.is_file():
+        return ""
+    for raw in locator.read_text(encoding="utf-8").splitlines():
+        fields = raw.split()
+        if len(fields) != 4 or fields[0] != "cargo_rev":
+            continue
+        _, relative, label, bound = fields
+        if bound == revision and (root / relative).resolve() == manifest.resolve():
+            return label
+    return ""
+
+
 def ncp_manifest_pin(path: Path) -> tuple[str, list[Finding]]:
-    """Read the shared NCP git tag and report malformed/inconsistent dependency pins."""
+    """Read the shared NCP pin label and report malformed/inconsistent dependency pins.
+
+    A git ``tag`` is its own label. An exact ``rev`` takes the release label that the
+    repository's ``.ncp-consumer`` binds to that revision for this manifest.
+    """
 
     data = tomllib.loads(path.read_text(encoding="utf-8"))
     dependencies = data.get("dependencies", {})
     pins: dict[str, str] = {}
     for name in ("ncp-core", "ncp-zenoh"):
         dependency = dependencies.get(name)
-        if not isinstance(dependency, dict) or not isinstance(
-            dependency.get("tag"), str
-        ):
+        label = ""
+        if isinstance(dependency, dict) and isinstance(dependency.get("tag"), str):
+            label = dependency["tag"]
+        elif isinstance(dependency, dict) and isinstance(dependency.get("rev"), str):
+            label = _ncp_consumer_label(path, dependency["rev"])
+        if not label:
             finding = Finding(
                 "ncp_manifest_pin_missing",
                 path,
                 1,
-                f"{name} must be a git dependency with an explicit tag",
+                f"{name} must be a git dependency with an explicit tag, or an exact rev "
+                "that .ncp-consumer labels",
             )
             return "", [finding]
-        pins[name] = dependency["tag"]
+        pins[name] = label
 
     unique_pins = set(pins.values())
     if len(unique_pins) != 1:

@@ -1780,7 +1780,7 @@ mod tests {
             manifest["requested_capabilities"],
             json!(["status.read", "artifacts.read", "bridge.safe-read"])
         );
-        assert_eq!(manifest["ncp"]["wire"], "0.8");
+        assert_eq!(manifest["ncp"]["wire"], "1.0");
         assert_eq!(manifest["ncp"]["engram_wire"], "1.0");
         assert_eq!(manifest["ncp"]["compatible"], false);
         assert_eq!(

@@ -12,16 +12,15 @@
 > This brief is self-contained. Read it top to
 > bottom before touching code.
 
-> **Compatibility boundary (rechecked 2026-08-13):** keep the latest immutable NCP
-> `v0.8.0` release / wire 0.8. Official NCP main was observed at
-> `1a04294c90c1b50eba06ae1c6afe9c951319250d` during this check. That commit is the
-> unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0;
-> compact proto contract hash `163acc57d8a62b66`). It uses a different wire.
+> **Compatibility boundary (rechecked 2026-10-02):** the observer pins the unreleased,
+> release-blocked NCP `1.0.0-rc.1` candidate at its exact commit
+> `2819dae3b6338bb1df6d105ebb5b7433936a993d` (wire 1.0; compact proto contract hash `163acc57d8a62b66`).
+> The earlier `v0.8.0` release and wire 0.8 are retired.
 > NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and
 > **NOT RUN**. They cover the native-1.0 observer, missing-variable and research-claim
 > semantics, and fault-observatory migration plus Prisoma observer-role qualification.
 > New low-overhead architecture prose is coordination-only. B01 remains `IN_PROGRESS` with no
-> passing receipt. See the [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1a04294c90c1b50eba06ae1c6afe9c951319250d/evidence/implementation/task-ledger.v1.json).
+> passing receipt. See the [NCP task ledger at the pinned commit](https://github.com/sepahead/NCP/blob/2819dae3b6338bb1df6d105ebb5b7433936a993d/evidence/implementation/task-ledger.v1.json).
 
 ## 1. Context (what this is and is not)
 
@@ -54,8 +53,8 @@ feed the rigorous analysis*, not to make the project depend on it.
 whether gated information summaries are useful for *design-time* NCP codec priorities under
 a low-bandwidth link. The current observer flattens channels into V/L/D/A axes and the current
 harness runs axis-pair screens; it does not yet implement a per-channel prioritization policy.
-See `crates/ncp-observer/README.md` and the wire-0.8
-[`RESILIENCE.md`](https://github.com/sepahead/NCP/blob/v0.8.0/RESILIENCE.md).
+See `crates/ncp-observer/README.md` and the candidate's
+[`RESILIENCE.md`](https://github.com/sepahead/NCP/blob/2819dae3b6338bb1df6d105ebb5b7433936a993d/RESILIENCE.md).
 
 ## 2. The adapter-side promotion bar (not EC1 completion)
 
@@ -152,11 +151,11 @@ this fixture evidence to E4, EC1, live Engram validation, security validation, o
 
 ### Gap 1 — D alignment on `StreamPosition` (exact-only in-repo; residual is the live producer)
 
-**Update (NCP `v0.8.0`, wire 0.8):** a plane-published `ObservationFrame.source` echoes
-the driving `SensorFrame.stream` as the full `{epoch, seq}` correlation key. A source-less
-observation is the valid pull/RPC form, but it has no exact driving tick and is therefore
-dropped and counted by this plane observer. The manifest and lockfile pin the immutable
-`v0.8.0` release.
+**Historical update (NCP `v0.8.0`, wire 0.8):** a plane-published `ObservationFrame.source`
+echoes the driving `SensorFrame.stream` as the full `{epoch, seq}` correlation key. A
+source-less observation is the valid pull/RPC form, but it has no exact driving tick and is
+therefore dropped and counted by this plane observer. Wire 1.0 keeps this correlation, and the
+manifest and lockfile now pin the exact `1.0.0-rc.1` candidate commit.
 
 `Observer::on_observation` stores each readout under its source `StreamPosition`; completed ticks
 are held for a reorder grace window so a matching readout that arrives *after* its
@@ -224,7 +223,7 @@ only if a `success_channel` is configured — so the strict gates and the PID-ne
 
 `ncp-observer` is **kept off the default cargo workspace** (`Cargo.toml` `exclude`)
 to keep NCP/Zenoh off the critical path; it git-depends on the published NCP repo
-<https://github.com/sepahead/NCP> (tag `v0.8.0`). Build/test it explicitly:
+<https://github.com/sepahead/NCP> (the `1.0.0-rc.1` candidate at commit `2819dae`). Build/test it explicitly:
 
 ```bash
 # Build + test the workspace-excluded observer directly:
@@ -249,15 +248,16 @@ cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- -
 ```
 
 The harness verifies `outputs/ncp_vlda.json.publication.json` and rejects degraded/invalid
-captures. Schema-1 receipts must bind the exact legacy `v0.8.0` tag, revision, wire, and
-compact hash; missing or different-wire identity fails closed. This command requests no PID
+captures. Schema-2 receipts must bind the exact `1.0.0-rc.1` label, revision, wire, and
+compact hash; schema-1 receipts from retired wire-0.8 run logs and missing or different-wire
+identity fail closed. This command requests no PID
 because the adapter declares no population support.
 Continuous KSG/shared-exclusions requests would abstain rather than infer support from the
 observed sample. Fitted categorical MGW shared exclusions would remain non-evidentiary with
 population `NotEvaluated` and application `Blocked`.
 
-The `ncp-core` / `ncp-zenoh` dependencies pin the immutable published `v0.8.0` tag in
-lockstep. The crate stays off the default workspace so NCP/Zenoh resolution cannot break
+The `ncp-core` / `ncp-zenoh` dependencies pin the exact `1.0.0-rc.1` candidate commit
+`2819dae` in lockstep. The crate stays off the default workspace so NCP/Zenoh resolution cannot break
 root workspace resolution; scientific PID gates remain a separate question.
 
 ## 7. References
@@ -265,7 +265,7 @@ root workspace resolution; scientific PID gates remain a separate question.
 - `crates/ncp-observer/README.md` — what it does + the closed-loop payoff.
 - `crates/ncp-observer/src/lib.rs` — `Observer` (full-`StreamPosition` source join,
   full-key `d_by_key`, retained receipts, `emit_ready`).
-- Wire-0.8 [`NEURO_CYBERNETIC_PROTOCOL.md`](https://github.com/sepahead/NCP/blob/v0.8.0/NEURO_CYBERNETIC_PROTOCOL.md)
+- The candidate's [`NEURO_CYBERNETIC_PROTOCOL.md`](https://github.com/sepahead/NCP/blob/2819dae3b6338bb1df6d105ebb5b7433936a993d/NEURO_CYBERNETIC_PROTOCOL.md)
   — the pinned NCP specification for this consumer (Gap 1 lives here).
 - `experiments/safe_adapter/` — the reference `(V,L,D,A)` contract adapter to mirror for
   provenance and split/label structure; real capture and protocol preflights remain open.

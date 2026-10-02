@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Moved the read-only `ncp-observer` from NCP `v0.8.0` (wire 0.8) to the NCP `1.0.0-rc.1`
+  candidate at commit `2819dae` (wire 1.0, compact hash `163acc57d8a62b66`). Wire 0.8 is retired.
+  The build guard requires this exact revision and the reviewed `zenoh-transport` 1.9.0 security
+  backport. The lock resolves `lz4_flex` 0.11.6, so the RUSTSEC-2026-0041 exception is removed.
+  Publication receipts use schema 2. Schema-1 receipts belong to retired wire-0.8 run logs.
+- Re-reviewed the 18 fault-observatory schedule digests for wire 1.0. The injection truth and
+  receipt metadata did not change. Wire 1.0 adds a nullable observation `receipt` and a nullable
+  command `authority`. Removal of those two fields and the version change reproduces every
+  wire-0.8 digest.
+- Updated the offline harness, the Engram descriptor (wire 1.0, no compatibility claim), the
+  truth audit, the ecosystem overlay, the capability catalog and matrix, and the current docs to
+  the new pin. NCP tasks P01, P02, and P03 stay OPEN. This change is not observer-role
+  qualification.
 - Added an ASD-STE100 Issue 9 writing policy to the contributor guidance. The policy uses
   “STE-aligned” language and preserves technical, scientific, legal, generated, and immutable
   content boundaries.

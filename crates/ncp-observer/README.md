@@ -9,20 +9,20 @@ records a preserved in-progress Paper2Brain migration that targets candidate wir
 an installed or qualified integration.
 Prisoma has a read-only headless-runtime descriptor. Its generic host adapter reads only
 describe, session, and status. This path is not NCP and grants no authority. There is no compatible
-live publisher or bridge for NCP wire 0.8. This crate is a **read-only observer**: it subscribes to
+live publisher or bridge for NCP wire 1.0. This crate is a **read-only observer**: it subscribes to
 the NCP data-plane keys over Zenoh and never drives anything (the Agent Bridge stays the only
 control plane).
 
-> **Compatibility boundary (rechecked 2026-08-13):** this crate pins the latest immutable
-> NCP `v0.8.0` release and wire 0.8. Official NCP main was observed at
-> `1a04294c90c1b50eba06ae1c6afe9c951319250d` during this check. That commit is the
-> unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0;
-> compact proto contract hash `163acc57d8a62b66`). It uses a different wire.
+> **Compatibility boundary (rechecked 2026-10-02):** this crate pins the unreleased,
+> release-blocked NCP `1.0.0-rc.1` candidate at its exact commit
+> `2819dae3b6338bb1df6d105ebb5b7433936a993d` (wire 1.0;
+> compact proto contract hash `163acc57d8a62b66`). The earlier `v0.8.0` release and
+> wire 0.8 are retired.
 > NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and
 > **NOT RUN**. They cover the native-1.0 observer, missing-variable and research-claim
 > semantics, and fault-observatory migration plus Prisoma observer-role qualification.
 > New low-overhead architecture prose is coordination-only. B01 remains `IN_PROGRESS` with no
-> passing receipt. See the [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1a04294c90c1b50eba06ae1c6afe9c951319250d/evidence/implementation/task-ledger.v1.json).
+> passing receipt. See the [NCP task ledger at the pinned commit](https://github.com/sepahead/NCP/blob/2819dae3b6338bb1df6d105ebb5b7433936a993d/evidence/implementation/task-ledger.v1.json).
 
 It uses the canonical Rust NCP SDK (`ncp-core` + `ncp-zenoh`) from the published
 NCP repo **<https://github.com/sepahead/NCP>**. Spec: `NEURO_CYBERNETIC_PROTOCOL.md`
@@ -67,9 +67,10 @@ registered D2/EC1 evaluation until the gaps below close:
    a small hash-binding publication receipt is installed last as the commit
    marker. `pid-offline-harness` verifies the receipt, both hashes, the canonical
    run log, its exact dataset artifact identity, the capture grade, and the exact
-   `v0.8.0` tag/revision/wire/compact-hash configuration before accepting an NCP
-   artifact. Receipt schema 1 is the frozen wire-0.8 path; it rejects missing or
-   different-wire identity. Publication requires an explicitly bound session
+   `1.0.0-rc.1` label/revision/wire/compact-hash configuration before accepting an NCP
+   artifact. Receipt schema 2 binds the wire-1.0 path; schema-1 receipts belong to
+   retired wire-0.8 run logs and are rejected, as is any missing or different-wire
+   identity. Publication requires an explicitly bound session
    and UTF-8-representable canonical targets. Append/hash/write/fsync failures
    preserve exact same-path retry state; retries pin all three canonical targets
    and adopt only byte-identical bounded regular files.
@@ -82,7 +83,7 @@ registered D2/EC1 evaluation until the gaps below close:
    run. Passing these adapter gates would still not clear the four PID gates or implement
    H1 Protocol A/B, prospective H2, conditional H3, or H4 interventions.
 5. **Protocol-fault observatory — deterministic fixture evidence only.** The
-   `ncp-fault-observatory` binary replays a bounded, content-addressed, complete wire-0.8
+   `ncp-fault-observatory` binary replays a bounded, content-addressed, complete wire-1.0
    baseline through the same exact-route classifier and raw decoder as live capture. Its frozen
    logical schedules cover omission, duplicate/conflict, reorder, pause, late receipt, malformed
    input, version/identity/route/size faults, trace truncation, stream transition, and a
@@ -193,7 +194,7 @@ cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- -
     --pid-mode none --summary-json outputs/ncp_summary.json \
     --runlog outputs/ncp_baseline_runlog.jsonl
 
-# run the complete deterministic offline wire-0.8 fault suite; an existing path
+# run the complete deterministic offline wire-1.0 fault suite; an existing path
 # is accepted only when every published artifact is exact and no entry is unbound
 cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml \
     --bin ncp-fault-observatory -- --out-dir outputs/ncp_fault_observatory
@@ -248,8 +249,8 @@ workflow remains a research proposal, and both sides must stay non-invasive:
    observer flattens channels into V/L/D/A axes and the harness runs axis-pair screens;
    it does **not** implement per-channel prioritization. A separate, scientifically gated
    per-channel analysis could test whether information summaries help choose static codec
-   priorities under a poor link (see wire-0.8
-   [`RESILIENCE.md`](https://github.com/sepahead/NCP/blob/v0.8.0/RESILIENCE.md)).
+   priorities under a poor link (see the candidate's
+   [`RESILIENCE.md`](https://github.com/sepahead/NCP/blob/2819dae3b6338bb1df6d105ebb5b7433936a993d/RESILIENCE.md)).
    Any adopted priorities belong in a versioned, human-reviewed NCP configuration, never
    in a write/control path from this observer.
 
@@ -257,15 +258,18 @@ Thus the only current arrow is NCP → read-only capture → offline analysis. P
 per-tick runtime computation. Per-channel codec selection and a sim-vs-hardware fidelity
 metric remain candidate studies that require their own estimand, gates, fixtures, and
 conformance evidence (wire-0.8
-[`NEUROMORPHIC.md` §5](https://github.com/sepahead/NCP/blob/v0.8.0/NEUROMORPHIC.md#5-an-information-theoretic-analysis-client-as-a-sim-to-hardware-fidelity-metric)).
+[`NEUROMORPHIC.md` §5](https://github.com/sepahead/NCP/blob/2f5bd586d4bb20c90362bb6f5698b7f64057ba4e/NEUROMORPHIC.md#5-an-information-theoretic-analysis-client-as-a-sim-to-hardware-fidelity-metric);
+the 1.0 candidate no longer carries that section).
 
 ## Compatibility & versioning
 
-The manifest and lockfile pin the immutable NCP **`v0.8.0`** tag
-(`NCP_VERSION = 0.8`, `CONTRACT_HASH = d1b50a2d8a265276`) — the wire-0.8
-stream-identity release — and resolve it from the published repository; no sibling
-checkout or path override is required.
-Wire 0.8 splits the overloaded top-level `seq` into a typed `stream` (this frame's
+The manifest and lockfile pin the NCP **`1.0.0-rc.1`** candidate at commit
+`2819dae3b6338bb1df6d105ebb5b7433936a993d` (`NCP_VERSION = 1.0`, `CONTRACT_HASH = 163acc57d8a62b66`)
+and resolve it from the published repository; no sibling checkout or path override is
+required. The build guard rejects any other NCP selector, version or locked revision, and a
+lock whose `zenoh-transport` is not the reviewed 1.9.0 security backport. Wire 1.0 adds a
+nullable operation `receipt` to observations and a nullable authority lease to commands; a
+read-only observer carries neither. Wire 0.8 introduced, and wire 1.0 keeps, the split the overloaded top-level `seq` into a typed `stream` (this frame's
 own position) and `source` (the frame that drove it), carries `session_id` +
 `session.generation` on the data plane, and this tap drops/counts every
 version-less, incompatible, wrong-kind, duplicate-key, source-less-plane, or
@@ -313,7 +317,7 @@ estimand, fixtures, conformance evidence, and scientific validation.
 ## Build note
 
 This crate git-depends on the NCP repo <https://github.com/sepahead/NCP>
-(pinned to the immutable `v0.8.0` tag, wire 0.8) and pulls Zenoh, so it is heavier
+(pinned to the exact `1.0.0-rc.1` candidate commit, wire 1.0) and pulls Zenoh, so it is heavier
 than the pure-PID crates. The
 estimator gates (`just exp0`, `just exp0-bin`, etc.) run the pid-rs crates via
 `--manifest-path pid-rs/crates/...` and are unaffected.

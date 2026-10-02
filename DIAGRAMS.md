@@ -165,7 +165,7 @@ Computation status and gate status remain separate in reports and ledgers.
 flowchart LR
     Safe["SAFE adapter"] --> Contract["strict (V,L,D,A) contract"]
     Toy["deterministic local fixtures"] --> Contract
-    NCP["optional NCP wire-0.8 observer"] -.-> Contract
+    NCP["optional NCP wire-1.0 observer"] -.-> Contract
     Real["future real capture"] -.-> Contract
     Contract --> Harness["offline harness"]
 

@@ -205,7 +205,9 @@ pub struct OfflineVldaPublicationReceipt {
     pub capture_integrity: String,
 }
 
-const PUBLICATION_RECEIPT_SCHEMA_VERSION: u32 = 1;
+/// Schema 1 receipts belong to retired wire-0.8 run logs. Schema 2 marks receipts
+/// whose run log carries this build's wire-1.0 NCP identity.
+pub(crate) const PUBLICATION_RECEIPT_SCHEMA_VERSION: u32 = 2;
 const MAX_PUBLICATION_RECEIPT_BYTES: usize = 64 * 1024;
 
 fn publication_receipt_path(dataset_path: &Path) -> PathBuf {
@@ -886,28 +888,30 @@ const REORDER_GRACE: i64 = 8;
 /// without unbounded growth from a hostile stream of novel epochs.
 const MAX_RETIRED_EPOCHS: usize = 64;
 
-/// Immutable identity of this legacy NCP consumer surface.
-const NCP_RELEASE_TAG: &str = "v0.8.0";
-const NCP_RELEASE_REVISION: &str = "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e";
-const NCP_RELEASE_WIRE: &str = "0.8";
-const NCP_RELEASE_COMPACT_HASH: &str = "d1b50a2d8a265276";
+/// Immutable identity of the NCP candidate this observer speaks: the untagged
+/// 1.0.0-rc.1 commit, wire 1.0. The commit is the candidate's identity until NCP
+/// cuts the v1.0.0 tag. Wire 0.8 is retired.
+const NCP_RELEASE_TAG: &str = "v1.0.0-rc.1";
+const NCP_RELEASE_REVISION: &str = "2819dae3b6338bb1df6d105ebb5b7433936a993d";
+const NCP_RELEASE_WIRE: &str = "1.0";
+const NCP_RELEASE_COMPACT_HASH: &str = "163acc57d8a62b66";
 
-fn validate_legacy_ncp_contract_identity(wire: &str, compact_hash: &str) -> anyhow::Result<()> {
+fn validate_pinned_ncp_contract_identity(wire: &str, compact_hash: &str) -> anyhow::Result<()> {
     if wire != NCP_RELEASE_WIRE {
         anyhow::bail!(
-            "ncp-observer is frozen at NCP {NCP_RELEASE_TAG} wire {NCP_RELEASE_WIRE}; resolved wire={wire}"
+            "ncp-observer is pinned to NCP {NCP_RELEASE_TAG} wire {NCP_RELEASE_WIRE}; resolved wire={wire}"
         );
     }
     if compact_hash != NCP_RELEASE_COMPACT_HASH {
         anyhow::bail!(
-            "ncp-observer is frozen at NCP {NCP_RELEASE_TAG} compact hash {NCP_RELEASE_COMPACT_HASH}; resolved compact_hash={compact_hash}"
+            "ncp-observer is pinned to NCP {NCP_RELEASE_TAG} compact hash {NCP_RELEASE_COMPACT_HASH}; resolved compact_hash={compact_hash}"
         );
     }
     Ok(())
 }
 
-fn ensure_legacy_ncp_contract_identity() -> anyhow::Result<()> {
-    validate_legacy_ncp_contract_identity(NCP_VERSION, CONTRACT_HASH)
+fn ensure_pinned_ncp_contract_identity() -> anyhow::Result<()> {
+    validate_pinned_ncp_contract_identity(NCP_VERSION, CONTRACT_HASH)
 }
 
 /// Deployment transport facts recorded in the canonical configuration event.
@@ -1645,7 +1649,7 @@ impl Observer {
 
     /// Attach a run-log so provenance events are emitted alongside the dataset.
     pub fn with_runlog(mut self, path: impl AsRef<Path>) -> anyhow::Result<Self> {
-        ensure_legacy_ncp_contract_identity()?;
+        ensure_pinned_ncp_contract_identity()?;
         if self.expected_session.is_none() {
             anyhow::bail!(
                 "expected session must be bound with with_expected_session before the run log"
@@ -3536,24 +3540,26 @@ mod tests {
     }
 
     #[test]
-    fn legacy_ncp_contract_identity_is_frozen() {
-        ensure_legacy_ncp_contract_identity().unwrap();
+    fn pinned_ncp_contract_identity_matches_the_build() {
+        ensure_pinned_ncp_contract_identity().unwrap();
         assert_eq!(NCP_VERSION, NCP_RELEASE_WIRE);
         assert_eq!(CONTRACT_HASH, NCP_RELEASE_COMPACT_HASH);
     }
 
     #[test]
-    fn legacy_ncp_wire_drift_fails_closed() {
+    fn retired_ncp_wire_fails_closed() {
         let error =
-            validate_legacy_ncp_contract_identity("1.0", NCP_RELEASE_COMPACT_HASH).unwrap_err();
-        assert!(error.to_string().contains("resolved wire=1.0"));
+            validate_pinned_ncp_contract_identity("0.8", NCP_RELEASE_COMPACT_HASH).unwrap_err();
+        assert!(error.to_string().contains("resolved wire=0.8"));
     }
 
     #[test]
-    fn legacy_ncp_compact_hash_drift_fails_closed() {
-        let error = validate_legacy_ncp_contract_identity(NCP_RELEASE_WIRE, "0000000000000000")
-            .unwrap_err();
-        assert!(error.to_string().contains("resolved compact_hash"));
+    fn ncp_compact_hash_drift_fails_closed() {
+        for retired in ["d1b50a2d8a265276", "0000000000000000"] {
+            let error =
+                validate_pinned_ncp_contract_identity(NCP_RELEASE_WIRE, retired).unwrap_err();
+            assert!(error.to_string().contains("resolved compact_hash"));
+        }
     }
 
     #[test]

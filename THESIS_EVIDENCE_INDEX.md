@@ -72,7 +72,7 @@ among these sources. They do not perform scientific or independent human review.
 | H2 | Synthetic fixed-horizon/IPCW/alarm arithmetic reference. | **Software fixture only; no H2 evidence.** |
 | H3 | Report-first estimator eligibility/abstention behavior and negative gate records. | **Not eligible.** Population is open/unfrozen. Measure is not adjudicated. The atom-estimator and continuous-application gates are blocked. High-dimensional MI/coherence is NO-GO. Source-target ancestry producer, consumer, and per-row receipt artifacts are unimplemented, so H3 cannot freeze. |
 | H4 | Reference-model attribution logging and deletion-ranking-sensitivity control. | **Exploratory software groundwork only; no causal or mechanistic faithfulness result.** |
-| NCP | Read-only wire-0.8 observer and deterministic local fault observatory. | **Experimental optional component; not live integration or scientific evidence.** |
+| NCP | Read-only wire-1.0 observer (NCP `1.0.0-rc.1` candidate) and deterministic local fault observatory. | **Experimental optional component; not live integration or scientific evidence.** |
 
 ## W1–W3 — supported decisions and linked fidelity
 
@@ -375,7 +375,7 @@ not evidence that no one accessed outcomes previously or elsewhere.
 ## Optional NCP evidence
 
 [`crates/ncp-observer`](crates/ncp-observer) is excluded from the default workspace and pinned to
-NCP wire 0.8. Its local proofs are:
+the NCP `1.0.0-rc.1` candidate (wire 1.0). Its local proofs are:
 
 ```bash
 cargo test --locked --manifest-path crates/ncp-observer/Cargo.toml

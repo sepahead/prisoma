@@ -147,7 +147,7 @@ world-model-reference:
       "$proof_dir/reference.jsonl" --save "$proof_dir/reference.rrd"
     test -s "$proof_dir/reference.rrd"
 
-# Deterministic, offline NCP wire-0.8 fault suite. Published artifacts must
+# Deterministic, offline NCP wire-1.0 fault suite. Published artifacts must
 # reconstruct exactly; explicit retry alone may clean writer-reserved crash scratch.
 ncp-fault-observatory out="outputs/ncp_fault_observatory":
     cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-fault-observatory -- --out-dir {{ quote(out) }}

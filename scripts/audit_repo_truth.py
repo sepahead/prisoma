@@ -57,12 +57,20 @@ CREBAIN_REVIEW_REVISION = "7f6b3bdf4d20aba1b351b3ceacb259bd123c93a6"
 ENGRAM_PLACEHOLDER_REVISION = "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd"
 PAPER2BRAIN_REVIEW_REVISION = "2648caf18d24075c4a36af81a6bb032bb551244e"
 PID_RS_UPSTREAM_REVISION = "7473e62acef6077c2c1147e09d5d1297f2a2874b"
+# Retired wire-0.8 line; current documents must still name it as retired history.
 NCP_LEGACY_TAG = "v0.8.0"
 NCP_LEGACY_VERSION = "0.8.0"
 NCP_LEGACY_REVISION = "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e"
 NCP_LEGACY_WIRE = "0.8"
 NCP_LEGACY_COMPACT_HASH = "d1b50a2d8a265276"
-NCP_CANDIDATE_REVISION = "1a04294c90c1b50eba06ae1c6afe9c951319250d"
+# The observer pins the untagged 1.0.0-rc.1 candidate at its exact commit.
+NCP_PINNED_TAG = "v1.0.0-rc.1"
+NCP_PINNED_VERSION = "1.0.0-rc.1"
+NCP_PINNED_REVISION = "2819dae3b6338bb1df6d105ebb5b7433936a993d"
+NCP_PINNED_WIRE = "1.0"
+NCP_PINNED_COMPACT_HASH = "163acc57d8a62b66"
+NCP_PINNED_SOURCE_URL = f"https://github.com/sepahead/NCP/tree/{NCP_PINNED_REVISION}"
+NCP_CANDIDATE_REVISION = NCP_PINNED_REVISION
 NCP_CANDIDATE_COMPACT_HASH = "163acc57d8a62b66"
 NCP_LEGACY_SOURCE_URL = f"https://github.com/sepahead/NCP/tree/{NCP_LEGACY_TAG}"
 NCP_CANDIDATE_SOURCE_URL = (
@@ -73,7 +81,7 @@ NCP_CANDIDATE_TASK_LEDGER_URL = (
     f"{NCP_CANDIDATE_REVISION}/evidence/implementation/task-ledger.v1.json"
 )
 ENGRAM_DESCRIPTOR_SHA256 = (
-    "006a6cc5fe46041fcc180d1890a36f821e8901768161952b143bbfc3c3fd70f9"
+    "e3092895d50e77f2c77b775ffe7a66db7168f61f34233a0a2e0fe7a52afa9f9b"
 )
 GOVERNANCE_SUCCESSOR_CI_BLOCKERS = (
     "M0_SUCCESSOR_DRAFT_UNFROZEN",
@@ -1617,11 +1625,11 @@ def _audit() -> int:
     else:
         ncp_revision = next(iter(ncp_revisions))
         expected_source = (
-            "git+https://github.com/sepahead/NCP?tag="
-            f"{NCP_LEGACY_TAG}#{NCP_LEGACY_REVISION}"
+            "git+https://github.com/sepahead/NCP?rev="
+            f"{NCP_PINNED_REVISION}#{NCP_PINNED_REVISION}"
         )
         for package in ncp_packages:
-            if package.get("version") != NCP_LEGACY_VERSION:
+            if package.get("version") != NCP_PINNED_VERSION:
                 problems.append(
                     f"ncp-observer locks {package.get('name')} at the wrong NCP version"
                 )
@@ -1643,14 +1651,14 @@ def _audit() -> int:
                     f"ncp-observer canonical configuration does not use ncp-core::{constant}"
                 )
         for exact_identity in (
-            NCP_LEGACY_TAG,
-            NCP_LEGACY_REVISION,
-            NCP_LEGACY_WIRE,
-            NCP_LEGACY_COMPACT_HASH,
+            NCP_PINNED_TAG,
+            NCP_PINNED_REVISION,
+            NCP_PINNED_WIRE,
+            NCP_PINNED_COMPACT_HASH,
         ):
             if exact_identity not in observer_source:
                 problems.append(
-                    "ncp-observer source does not freeze the exact legacy NCP identity "
+                    "ncp-observer source does not pin the exact NCP identity "
                     f"{exact_identity!r}"
                 )
 
@@ -1665,18 +1673,18 @@ def _audit() -> int:
         dependency = observer_dependencies.get(package_name)
         if dependency != {
             "git": "https://github.com/sepahead/NCP",
-            "tag": NCP_LEGACY_TAG,
+            "rev": NCP_PINNED_REVISION,
         }:
             problems.append(
-                f"ncp-observer {package_name} must remain frozen at {NCP_LEGACY_TAG}; "
-                "a different wire requires a separate consumer surface"
+                f"ncp-observer {package_name} must pin the exact NCP {NCP_PINNED_TAG} "
+                f"revision {NCP_PINNED_REVISION}"
             )
 
     ncp_consumer = _read_regular_text(ROOT / ".ncp-consumer", label=".ncp-consumer")
     for required_locator in (
-        "cargo_tag   crates/ncp-observer/Cargo.toml",
-        "cargo_lock  crates/ncp-observer/Cargo.lock",
-        "not native-1.0 or qualification evidence",
+        f"cargo_rev       crates/ncp-observer/Cargo.toml {NCP_PINNED_TAG} {NCP_PINNED_REVISION}",
+        f"cargo_lock_rev  crates/ncp-observer/Cargo.lock {NCP_PINNED_TAG} {NCP_PINNED_REVISION}",
+        "not qualification evidence",
     ):
         if required_locator not in ncp_consumer:
             problems.append(f".ncp-consumer omits {required_locator!r}")
@@ -1686,15 +1694,15 @@ def _audit() -> int:
         label="crates/pid-sim/src/offline_harness.rs",
     )
     for exact_identity in (
-        NCP_LEGACY_TAG,
-        NCP_LEGACY_REVISION,
-        NCP_LEGACY_WIRE,
-        NCP_LEGACY_COMPACT_HASH,
-        "has_frozen_legacy_ncp_config",
+        NCP_PINNED_TAG,
+        NCP_PINNED_REVISION,
+        NCP_PINNED_WIRE,
+        NCP_PINNED_COMPACT_HASH,
+        "has_pinned_ncp_config",
     ):
         if exact_identity not in offline_harness:
             problems.append(
-                "offline NCP receipt verification does not bind the legacy identity "
+                "offline NCP receipt verification does not bind the pinned identity "
                 f"{exact_identity!r}"
             )
 
@@ -1893,7 +1901,7 @@ def _audit() -> int:
             "preserved in-progress Paper2Brain migration",
             "targets candidate wire 1.0",
             "not an installed or qualified integration",
-            "no compatible live wire-0.8 publisher exists",
+            "no compatible live wire-1.0 publisher exists",
         ),
         "NCP_DEV_PROMPT.md": (
             "`sepahead/engram` repository remains a",
@@ -1916,7 +1924,7 @@ def _audit() -> int:
             "preserved in-progress Paper2Brain migration",
             "targets candidate wire 1.0",
             "not an installed or qualified integration",
-            "marks it incompatible with Prisoma wire 0.8",
+            "claims no compatibility",
         ),
         "crates/ncp-observer/Cargo.toml": (
             "no live Paper2Brain-to-Prisoma bridge exists",
@@ -2059,7 +2067,7 @@ def _audit() -> int:
             )
         expected_revisions = {
             "pid-rs": revision,
-            "NCP": "v0.8.0",
+            "NCP": NCP_PINNED_REVISION,
             "galadriel": "80506dd2ce52b33c3334c7d1760a8155c7631241",
             "crebain": CREBAIN_REVIEW_REVISION,
             "manwe": "6d73405bbf5365039ee1d0db9c466ed6346a9c57",
@@ -2087,17 +2095,17 @@ def _audit() -> int:
                 "ecosystem evidence overlay has a stale pid-rs upstream-head observation"
             )
         ncp_override = overrides.get("NCP", {})
-        if ncp_override.get("resolved_revision") != NCP_LEGACY_REVISION:
+        if ncp_override.get("resolved_revision") != NCP_PINNED_REVISION:
             problems.append(
-                "ecosystem evidence overlay omits the peeled NCP v0.8.0 commit"
+                "ecosystem evidence overlay omits the pinned NCP candidate commit"
             )
         if ncp_override.get("upstream_head_observed") != NCP_CANDIDATE_REVISION:
             problems.append(
                 "ecosystem evidence overlay has a stale NCP candidate-head observation"
             )
-        if ncp_override.get("source") != NCP_LEGACY_SOURCE_URL:
+        if ncp_override.get("source") != NCP_PINNED_SOURCE_URL:
             problems.append(
-                "ecosystem evidence overlay has a stale NCP immutable-release source"
+                "ecosystem evidence overlay has a stale NCP pinned-candidate source"
             )
         if ncp_override.get("upstream_source") != NCP_CANDIDATE_SOURCE_URL:
             problems.append(
@@ -2127,7 +2135,7 @@ def _audit() -> int:
             "NCP": (
                 "unreleased, release-blocked 1.0.0-rc.1",
                 f"compact proto contract hash {NCP_CANDIDATE_COMPACT_HASH}",
-                "different wire",
+                "wire 0.8 are retired",
                 "P01, P02, and P03 are OPEN, not dependency-ready, and NOT RUN",
                 "Prisoma observer-role qualification",
             ),
@@ -2153,7 +2161,7 @@ def _audit() -> int:
                 "preserved in-progress Paper2Brain migration",
                 "targets candidate wire 1.0",
                 "not an installed or qualified integration",
-                "target Engram wire 1.0 incompatible with Prisoma wire 0.8",
+                "the current descriptor declares both wires 1.0 and claims no compatibility",
                 "not Prisoma validation",
                 "starts no process and grants no authority",
                 "no live Paper2Brain-to-Prisoma producer",

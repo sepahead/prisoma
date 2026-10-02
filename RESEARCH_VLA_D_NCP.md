@@ -2,10 +2,10 @@
 
 **Author:** Sepehr Mahmoudian · **Original memo:** 1 July 2026 · **Reconciled:** 13 August 2026
 
-> **Repository facts synced 13 August 2026.** The observer pins immutable NCP `v0.8.0`, wire
-> 0.8. Official NCP main was observed at `1a04294c90c1b50eba06ae1c6afe9c951319250d`.
-> That commit is the incompatible, unreleased, release-blocked `1.0.0-rc.1` candidate on
-> wire 1.0. Its compact proto contract hash is `163acc57d8a62b66`. NCP ledger tasks
+> **Repository facts synced 2 October 2026.** The observer pins the unreleased,
+> release-blocked NCP `1.0.0-rc.1` candidate at its exact commit
+> `2819dae3b6338bb1df6d105ebb5b7433936a993d`, wire 1.0, with compact proto contract hash `163acc57d8a62b66`.
+> The earlier `v0.8.0` release and wire 0.8 are retired. NCP ledger tasks
 > `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and **NOT RUN**. `P03` covers
 > fault-observatory migration and Prisoma observer-role qualification. `pid-rs` remains at the
 > reviewed `796c11e` pin. Exp0 MI/coherence remains NO-GO.
@@ -390,20 +390,19 @@ continue with PID disabled. Flow and attribution remain exploratory companions.
 
 ## 4. How NCP fits
 
-The observer manifest pins the latest immutable NCP `v0.8.0` release, wire 0.8. NCP is an
+The observer manifest pins the NCP `1.0.0-rc.1` candidate at an exact commit, wire 1.0. NCP is an
 external Zenoh pub/sub protocol. Its three data planes can expose a conforming sensorimotor
 producer: perception (`SensorFrame`), action (`CommandFrame`), and neural observation
 (`ObservationFrame`).
 
-Official NCP main was observed at `1a04294c90c1b50eba06ae1c6afe9c951319250d` on
-2026-08-13. That commit is the unreleased, release-blocked `1.0.0-rc.1` candidate. It uses
-wire 1.0 and compact proto contract hash `163acc57d8a62b66`. Wire 1.0 is incompatible with
-this observer.
+The pinned commit `2819dae3b6338bb1df6d105ebb5b7433936a993d` is the unreleased, release-blocked
+`1.0.0-rc.1` candidate, with wire 1.0 and compact proto contract hash `163acc57d8a62b66`. The
+earlier `v0.8.0` release used wire 0.8, which is retired.
 NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and **NOT RUN**. `P03`
 covers fault-observatory migration and Prisoma observer-role qualification. Refined low-overhead
 architecture prose and the prepared-stream-monitor gap record are coordination-only. B01 remains
 `IN_PROGRESS` with no passing receipt. See the
-[verified NCP task ledger](https://github.com/sepahead/NCP/blob/1a04294c90c1b50eba06ae1c6afe9c951319250d/evidence/implementation/task-ledger.v1.json).
+[NCP task ledger at the pinned commit](https://github.com/sepahead/NCP/blob/2819dae3b6338bb1df6d105ebb5b7433936a993d/evidence/implementation/task-ledger.v1.json).
 
 The intended future producer is **Engram**, described as a NEST spiking network. The named public
 `sepahead/engram` repository remains a README-only placeholder. The executable Engram Neural Labs
@@ -412,7 +411,7 @@ Paper2Brain migration that targets candidate wire 1.0. It is not an installed or
 integration. Prisoma has a digest-locked, read-only headless-runtime descriptor for that host. Its
 generic adapter reads only describe, session, and status. This live status path is not NCP, an
 artifact validator, or a control path. The descriptor starts no process and grants no authority.
-The review found that no compatible live wire-0.8 publisher exists in the public surface at the
+The review found that no compatible live wire-1.0 publisher exists in the public surface at the
 2026-08-13 cutoff.
 
 The `ncp-observer` crate is therefore a producer-agnostic **read-only passive tap**. It drives nothing; the Agent Bridge is the only control plane. It maps NCP onto (V,L,D,A): V ← `SensorFrame` channels minus language/success; L ← a named `SensorFrame` channel (default `instruction`); absent-language ticks are excluded from the artifact and counted (`excluded_empty_l`), never zeroed; **D ← `ObservationFrame` record-port readouts = pre-motor neural state** (world-model status untested); and A ← `CommandFrame` channels. Wire 0.8 correlates the planes with the full driving-sensor `StreamPosition`: a sensor contributes its own `stream`, while `CommandFrame.source` and a plane-published `ObservationFrame.source` echo the same `{epoch, seq}`. The observer never joins on arrival time or bare `seq`. Every kept sample carries `l_source = "channel"` and exact `d_source = "source"`; a source-less pull/RPC observation or missing readout is dropped or excludes the tick instead of being paired by recency.
