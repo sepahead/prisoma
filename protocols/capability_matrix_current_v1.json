@@ -75,7 +75,7 @@
       "feature_id": "bridge.agent_control_plane",
       "feature": "Agent Bridge typed control plane",
       "status": "tested",
-      "exact_revision": "local-sha256:d7df5deab3768668cf9c9c08f16ee02517947cc2a640d077b08a7a0a249ae8e8",
+      "exact_revision": "local-sha256:ff5a8e67a71ca58be031887d62376b51130dbdd0b0619c87305db5768d82d5d3",
       "revision_inputs": [
         "crates/pid-bridge",
         "crates/pid-rerun",
@@ -88,7 +88,7 @@
       "evidence_artifacts": [
         {
           "path": "crates/pid-bridge",
-          "sha256": "4f47818dc60962b3fe2b32b787e2c9ed2bb6e455bb5f15a7ddf942fbec8ef87e"
+          "sha256": "121e4d5ce1c203196950b8754727e5b27acbc7860617bc398f7b98802c823554"
         },
         {
           "path": "crates/pid-rerun/src/runlog.rs",
@@ -130,7 +130,7 @@
       "feature_id": "bridge.crebain_sensor_execution",
       "feature": "Optional canonical CREBAIN sensor execution",
       "status": "tested",
-      "exact_revision": "local-sha256:d5154a919f718023b05c978871e3aff8746fbfd2e69cf430b167819d07534f83",
+      "exact_revision": "local-sha256:f14989a1ab055405aa9d95432b6eea28997606e66285b2c50f3c7e1c05accaba",
       "revision_inputs": [
         "crates/agent-bridge-python",
         "crates/pid-bridge",

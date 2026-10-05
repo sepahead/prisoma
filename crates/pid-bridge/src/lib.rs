@@ -1780,7 +1780,9 @@ mod tests {
             manifest["requested_capabilities"],
             json!(["status.read", "artifacts.read", "bridge.safe-read"])
         );
-        assert_eq!(manifest["ncp"]["wire"], "1.0");
+        // The frozen legacy Host API 1.1 descriptor, shared with Paper2Brain, predates the
+        // observer's move to wire 1.0 and still records Prisoma wire 0.8.
+        assert_eq!(manifest["ncp"]["wire"], "0.8");
         assert_eq!(manifest["ncp"]["engram_wire"], "1.0");
         assert_eq!(manifest["ncp"]["compatible"], false);
         assert_eq!(
