@@ -725,10 +725,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "fbdb8f3535dc16d22f396ace4bc6721d4df90144",
+        "git_blob_id": "35323e1050ca59e16b207a5d0c155a60a25cb0c8",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 262,
+        "line_count": 294,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "AGENTS.md",
         "public_surface": false,
@@ -736,20 +736,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "706fa61335a46f42f5c6448c9ede97edf2df4743d1cd994170fe66d9704433cc",
+        "sha256": "46e440deb3bbaa0339cbcd811c15f3fa916349693ac44e7ec829e979250b06ef",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "fbdb8f3535dc16d22f396ace4bc6721d4df90144"
+        "oid": "35323e1050ca59e16b207a5d0c155a60a25cb0c8"
       },
       "index": {
-        "bytes": 16866,
-        "content_sha256": "706fa61335a46f42f5c6448c9ede97edf2df4743d1cd994170fe66d9704433cc",
+        "bytes": 18872,
+        "content_sha256": "46e440deb3bbaa0339cbcd811c15f3fa916349693ac44e7ec829e979250b06ef",
         "mode": "100644",
-        "oid": "fbdb8f3535dc16d22f396ace4bc6721d4df90144"
+        "oid": "35323e1050ca59e16b207a5d0c155a60a25cb0c8"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -760,14 +760,14 @@
       },
       "path": "AGENTS.md",
       "working_tree": {
-        "bytes": 16866,
+        "bytes": 18872,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 262,
+        "line_count": 294,
         "link_target": null,
         "mode": "100644",
-        "sha256": "706fa61335a46f42f5c6448c9ede97edf2df4743d1cd994170fe66d9704433cc"
+        "sha256": "46e440deb3bbaa0339cbcd811c15f3fa916349693ac44e7ec829e979250b06ef"
       },
       "worktree_state": "unchanged"
     },
@@ -835,10 +835,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "ecc377cd5d784ccbc98391f051173d821d060916",
+        "git_blob_id": "1f9ad612582acbf0dde96bbda98fed9d656d6303",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 1429,
+        "line_count": 1433,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "CHANGELOG.md",
         "public_surface": true,
@@ -846,20 +846,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "50f65ca818c6f1d825ae93bb33e4a4deaf5490635fb48f84446cdffcfb376b76",
+        "sha256": "37e571e9845c187182935b95c1045dbbae587d071f46e5e9a01ccf1b5468b662",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "ecc377cd5d784ccbc98391f051173d821d060916"
+        "oid": "1f9ad612582acbf0dde96bbda98fed9d656d6303"
       },
       "index": {
-        "bytes": 132089,
-        "content_sha256": "50f65ca818c6f1d825ae93bb33e4a4deaf5490635fb48f84446cdffcfb376b76",
+        "bytes": 132464,
+        "content_sha256": "37e571e9845c187182935b95c1045dbbae587d071f46e5e9a01ccf1b5468b662",
         "mode": "100644",
-        "oid": "ecc377cd5d784ccbc98391f051173d821d060916"
+        "oid": "1f9ad612582acbf0dde96bbda98fed9d656d6303"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -870,14 +870,14 @@
       },
       "path": "CHANGELOG.md",
       "working_tree": {
-        "bytes": 132089,
+        "bytes": 132464,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 1429,
+        "line_count": 1433,
         "link_target": null,
         "mode": "100644",
-        "sha256": "50f65ca818c6f1d825ae93bb33e4a4deaf5490635fb48f84446cdffcfb376b76"
+        "sha256": "37e571e9845c187182935b95c1045dbbae587d071f46e5e9a01ccf1b5468b662"
       },
       "worktree_state": "unchanged"
     },
@@ -945,10 +945,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "6d3c25b05e4b3b236128cd111afdc30c6dbf8741",
+        "git_blob_id": "4f37003dbfd8553d4e45e5acf2f5e3dd6f07aef3",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 40,
+        "line_count": 25,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "CLAUDE.md",
         "public_surface": false,
@@ -956,20 +956,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "683e490aaea8b7d812c9aaf0d39161632f4ac95dc283a131a99c7e5382d27a40",
+        "sha256": "34d9235af059ce76c8e7fe47d556a055c777c3a845f7df5f1fa313f092db7243",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "6d3c25b05e4b3b236128cd111afdc30c6dbf8741"
+        "oid": "4f37003dbfd8553d4e45e5acf2f5e3dd6f07aef3"
       },
       "index": {
-        "bytes": 2067,
-        "content_sha256": "683e490aaea8b7d812c9aaf0d39161632f4ac95dc283a131a99c7e5382d27a40",
+        "bytes": 1635,
+        "content_sha256": "34d9235af059ce76c8e7fe47d556a055c777c3a845f7df5f1fa313f092db7243",
         "mode": "100644",
-        "oid": "6d3c25b05e4b3b236128cd111afdc30c6dbf8741"
+        "oid": "4f37003dbfd8553d4e45e5acf2f5e3dd6f07aef3"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -980,14 +980,14 @@
       },
       "path": "CLAUDE.md",
       "working_tree": {
-        "bytes": 2067,
+        "bytes": 1635,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 40,
+        "line_count": 25,
         "link_target": null,
         "mode": "100644",
-        "sha256": "683e490aaea8b7d812c9aaf0d39161632f4ac95dc283a131a99c7e5382d27a40"
+        "sha256": "34d9235af059ce76c8e7fe47d556a055c777c3a845f7df5f1fa313f092db7243"
       },
       "worktree_state": "unchanged"
     },
@@ -38153,12 +38153,12 @@
   "repository": "https://github.com/sepahead/prisoma",
   "schema_version": "prisoma.release-candidate/0.1.0",
   "source": {
-    "candidate_state_sha256": "cb451bb689a5c040527d2eeb0a4d212b7b29caa36cdd2b413a0331c6ef0fd3c0",
+    "candidate_state_sha256": "be0047026b6120fdfadbc793236da7f015d3a28601bbe05ac8928f5afdf15676",
     "clean": true,
     "explicit_source_arguments_required": true,
-    "head_commit": "974d2f59555a78aa7ad89b1fb284df2504bac8df",
-    "head_tree": "8a106044b37451fb637920151649dde8a0b16efc",
-    "index_entries_sha256": "8f5ae444b97f14da67d88de74ad6498c3e02f5392d225fe62c0fe4d828e83418",
+    "head_commit": "79d84aacd90023c2cb619339b2f06410d3c413f8",
+    "head_tree": "6abd0d09e7db4b9dbad7b2ae67741a22c54a3190",
+    "index_entries_sha256": "f30f6136676084c1c41dabfd1c8ee28b3dc207128e339011b9d2baec15e0b119",
     "recursive_gitlinks": [
       {
         "commit": "796c11e70f009634b853dc4ada6f565563d82f51",
@@ -38169,7 +38169,7 @@
       }
     ],
     "state": "clean_source_snapshot",
-    "worktree_entries_sha256": "cf30c86584830de513c99252145a1d2b24bf57cc6770a7511c42073b10c9fe46"
+    "worktree_entries_sha256": "9ab5774b51f16a678b231a89f08cdad044d50e6603c9d7449675cfc94937fa04"
   },
   "summary": {
     "clean": true,
