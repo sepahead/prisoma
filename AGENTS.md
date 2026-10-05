@@ -4,6 +4,18 @@ Prisoma develops auditable experiments for action-conditioned world models and e
 This file is the canonical operating contract for maintainers and coding agents.
 Every completion claim must identify the tested scope and remaining limits.
 
+## Authority and workflow
+
+The owner authorizes agents to commit, push, and merge to `main`.
+`main` has no branch protection. Run the applicable complete gate before each push.
+Prisoma commits are unsigned. The repository configuration sets `commit.gpgsign=false`.
+Keep commits focused. Do not add AI attribution or co-author trailers.
+Releases, tags, and repository settings remain owner actions.
+
+Preserve unrelated work and another agent's active scope.
+The shared checkout can hold another agent's uncommitted work.
+Use a separate worktree from `origin/main` for your change.
+
 ## Read before changing
 
 Read [README.md](README.md) first.
@@ -32,17 +44,19 @@ These documents remain requirements. This entrypoint does not replace their deta
 ## Working method
 
 1. Inspect the owning schema, implementation, tests, and evidence before editing.
-2. Inventory staged changes, unstaged changes, branches, and worktrees before recovery work.
-3. Preserve unrelated work and its staged state.
-4. Compare five to ten credible approaches before a material design decision.
-5. State assumptions, benefits, failure modes, and decisive controls for each approach.
-6. Use independent council review for separable, consequential decisions.
-7. Select the strongest compatible approach and record unresolved objections.
-8. Implement generic behavior from declared schemas and capabilities.
-9. Add a negative control for each new accept path.
-10. Add a positive control for each new rejection path.
-11. Run the applicable complete gate before publishing a small milestone.
-12. Report exact commands, outcomes, limitations, and retained failures.
+2. Question each assumption in the task and verify each fact against its primary source.
+3. Inventory staged changes, unstaged changes, branches, and worktrees before recovery work.
+4. Preserve unrelated work and its staged state.
+5. Classify each artifact you change with the classes in this file.
+6. Compare five to ten credible approaches before a material design decision.
+7. State assumptions, benefits, failure modes, and decisive controls for each approach.
+8. Use independent council review for separable, consequential decisions.
+9. Select the strongest compatible approach and record unresolved objections.
+10. Implement generic behavior from declared schemas and capabilities.
+11. Add a negative control for each new accept path.
+12. Add a positive control for each new rejection path.
+13. Run the applicable complete gate before publishing a small milestone.
+14. Report exact commands, outcomes, limitations, and retained failures.
 
 Review mathematics, experimental validity, authority, provenance, and operator understanding separately.
 A majority vote cannot override a failed scientific, security, or provenance requirement.
@@ -173,6 +187,25 @@ For H2, distinguish a complete-data proper score, an IPCW risk estimator, and a 
 Freeze the target, censoring, score, assumptions, uncertainty, and missingness together.
 Keep inactive diagnostic slots null and preserve the fresh-sample rule for an H3-to-H4 switch.
 
+## Artifact classes
+
+- **Frozen shared descriptor.** `integrations/engram/manifest.json` and `manifest.lock.json` are the
+  legacy Host API 1.1 descriptor. Paper2Brain holds the same bytes.
+  `LEGACY_FILES` in `integrations/engram/managed-observer/scripts/check-contract.py` pins their digests.
+  Keep their wire `0.8` declaration during an NCP repin. `crates/pid-bridge` asserts it.
+- **Immutable intake.** The reviewed v12.5 bundle under `docs/reviews/2026-07-12-grandplan-v12.5/`
+  and `release/0.9.0/review/intake.json` stay unchanged.
+- **Candidate identities.** `release/0.9.0/candidate/` describes one committed source state.
+  Commit the source change first. Then run
+  `uv run --no-sync python scripts/generate_candidate_release.py --print-source-state`.
+  Pass the printed arguments to the same generator, commit its output separately,
+  and run `just release-candidate-audit`.
+- **Generated projections.** `scripts/generate_capability_matrix.py --write` writes
+  `protocols/capability_matrix_current_v1.json` and `docs/CAPABILITY_MATRIX.md`; `--check` verifies them.
+  `just notices` writes the third-party notices; `just notices-check` verifies them.
+  Other projections in `protocols/` and `release/0.9.0/` have their own checked generators.
+- **Submodule.** The `pid-rs` gitlink is the PID pin. Change it only through an explicit adoption.
+
 ## Evidence and release
 
 Preserve the immutable v12.5 intake and current v13.0 scientific design.
@@ -244,9 +277,8 @@ The candidate audit binds a source capture. It is not evidence for a future comm
 Use CI's exact cargo-deny 0.20.2 for dependency checks.
 Record the advisory revision and its date. Use a private database path when a shared cache cannot satisfy the selected revision.
 Distinguish a scoped source milestone from a complete immutable operational release.
-Keep commits focused. Preserve unrelated work and do not add AI co-author trailers.
 
-## Preserved legacy compatibility
+## NCP and Engram boundaries
 
 The observer speaks NCP wire 1.0 at the unreleased, release-blocked `1.0.0-rc.1` candidate.
 It pins the candidate's exact commit `2819dae3b6338bb1df6d105ebb5b7433936a993d` (compact proto contract hash `163acc57d8a62b66`).

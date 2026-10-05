@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Rewrote the agent contract. `AGENTS.md` gains an authority-and-workflow section (agents may
+  commit, push, and merge to `main` after `just check`) and an artifact-classes section for the
+  frozen Engram descriptor, the immutable intake, the two-commit candidate refresh, and the
+  generated projections. `CLAUDE.md` imports `AGENTS.md` and keeps the audited NCP boundary.
 - Moved the read-only `ncp-observer` from NCP `v0.8.0` (wire 0.8) to the NCP `1.0.0-rc.1`
   candidate at commit `2819dae` (wire 1.0, compact hash `163acc57d8a62b66`). Wire 0.8 is retired.
   The build guard requires this exact revision and the reviewed `zenoh-transport` 1.9.0 security
