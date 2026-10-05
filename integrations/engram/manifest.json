@@ -60,7 +60,7 @@
     "produces": []
   },
   "ncp": {
-    "wire": "1.0",
+    "wire": "0.8",
     "engram_wire": "1.0",
     "compatible": false
   },
@@ -71,7 +71,7 @@
   "boundaries": [
     "The extension cannot actuate a simulator, vehicle, robot, or plant.",
     "PID application validity is blocked. PID results cannot authorize runtime control.",
-    "Prisoma NCP wire 1.0 and Engram candidate wire 1.0 share a wire, but no installed or qualified Engram producer exists, so no compatibility is claimed.",
+    "Prisoma NCP wire 0.8 is incompatible with Engram candidate wire 1.0.",
     "The canonical run log remains the source of truth. The Agent Bridge remains the only control plane."
   ]
 }

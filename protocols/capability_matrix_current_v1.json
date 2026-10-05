@@ -180,7 +180,7 @@
       "feature_id": "bridge.engram_pairing",
       "feature": "Engram operator-paste startup-secret pairing",
       "status": "tested",
-      "exact_revision": "local-sha256:9af8eca6ee59945b9296813d36e26d4e6259acccdd8783231f071bf841c0e0b9",
+      "exact_revision": "local-sha256:6b03367484f6b6be95dd3584dee61be2718ecf2306b51bd22141c55f0e820836",
       "revision_inputs": [
         "crates/pid-sim",
         "integrations/engram",
@@ -200,11 +200,11 @@
         },
         {
           "path": "integrations/engram/manifest.json",
-          "sha256": "3f4cc7b876963238aff619a09c44c5a86efbc19d1c08e366ea60ab96663bf43e"
+          "sha256": "62de91fd80ac2aac2a02f98ca6c241794e823bf2fa66a3e015ae9067b540da65"
         },
         {
           "path": "integrations/engram/README.md",
-          "sha256": "3ca71f754472451d4d47d1e5e0e218d21dce2a99d5b15af1a3aea4607f9b032f"
+          "sha256": "8a2f922999b11257c59e61b0bee26587c37478fa76803cd92cdcbdbca668680d"
         }
       ],
       "known_limitations": "Pairing proves possession of one operator-pasted startup secret. It does not authenticate a user, actor, process, build, commit, or transport. A secret can be forwarded or stolen. The profile has no authorization, TLS, credential custody, redaction, remote-security assessment, or independent wall-clock deadline. Eight failed connections latch one launch closed. No live Engram producer, NCP translation, artifact importer, or authority path exists.",
@@ -337,7 +337,7 @@
       "feature_id": "ecosystem.evidence_ledger",
       "feature": "Current E0-E5 ecosystem evidence overlay",
       "status": "tested",
-      "exact_revision": "local-sha256:e270757e8e79818350576f78ebfbd58212429d5b48c6327eea2073268f271ed0",
+      "exact_revision": "local-sha256:57f9dfc6abd30fabb5f719af9080d50749fcab9647e7adbbcbc87d3fad73840b",
       "revision_inputs": [
         "protocols/ecosystem_evidence_current_v1.json",
         "docs/reviews/2026-07-12-grandplan-v12.5/prisoma_ecosystem_evidence_2026-07-12.csv",
@@ -348,7 +348,7 @@
       "evidence_artifacts": [
         {
           "path": "protocols/ecosystem_evidence_current_v1.json",
-          "sha256": "d25bbad23656e6118fe7b15f26b4163c2bca3666bca7589f1f7fd17d1c065c8a"
+          "sha256": "12ff99e65d345658087ee71e61d34e63d7809d7cf952780e9ddb5921ddade3c0"
         },
         {
           "path": "docs/reviews/2026-07-12-grandplan-v12.5/prisoma_ecosystem_evidence_2026-07-12.csv",
@@ -753,7 +753,7 @@
       "feature_id": "governance.world_model_claim_ledger",
       "feature": "Machine-checkable W1-W3 claim-boundary ledger",
       "status": "tested",
-      "exact_revision": "local-sha256:da560ade7b43461f437be03bbf3ac4e9413a86c60e8e032e5881f3404067f46d",
+      "exact_revision": "local-sha256:3eab6325271fe30d9db6ab58f74b4bb4aa3e654fc9ec20dc9c1d5244213bf7fd",
       "revision_inputs": [
         "grandplan.md",
         "protocols/world_model_claim_registry_v1.json",
@@ -769,7 +769,7 @@
         },
         {
           "path": "scripts/audit_repo_truth.py",
-          "sha256": "31a4f81fcc024017d18c5c9e140b7998c61610c2ac8fb4cb7a69d39e908ec799"
+          "sha256": "f4190b7f99849706013dbc22101c3d373c11d112ad5cbff2a1a1b1feead9cf53"
         },
         {
           "path": "tests/python/test_repo_truth_hardening.py",

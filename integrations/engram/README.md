@@ -206,11 +206,14 @@ The `prisoma.canonical-run-log.v2` renderer is a structural preview.
 It is not Prisoma validation, replay evidence, NCP, a closed loop, or control
 authority.
 
-Prisoma pins the unreleased, release-blocked NCP `1.0.0-rc.1` candidate at its exact commit
-`2819dae3b6338bb1df6d105ebb5b7433936a993d` (wire 1.0; compact proto contract hash `163acc57d8a62b66`).
-The earlier `v0.8.0` release and wire 0.8 are retired. The manifest declares Prisoma wire 1.0
-and target Engram wire 1.0 and claims no compatibility, because no installed or qualified
-Engram producer exists. NCP's provider inventory records a
+Prisoma's read-only observer pins the unreleased, release-blocked NCP `1.0.0-rc.1` candidate at
+its exact commit `2819dae3b6338bb1df6d105ebb5b7433936a993d` (wire 1.0; compact proto contract hash
+`163acc57d8a62b66`). The earlier `v0.8.0` release and wire 0.8 are retired for the observer. The
+manifest in this directory is the frozen legacy Host API 1.1 bridge descriptor, byte-locked with
+Paper2Brain. It still declares target Engram wire 1.0 and marks it incompatible with Prisoma wire
+0.8, because it predates the observer's move to wire 1.0; it changes only together with
+Paper2Brain's copy.
+NCP's provider inventory records a
 preserved in-progress Paper2Brain migration that targets candidate wire 1.0. It is not an
 installed or qualified integration. No translation path exists.
 NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and **NOT RUN**.

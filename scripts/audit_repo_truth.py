@@ -81,7 +81,7 @@ NCP_CANDIDATE_TASK_LEDGER_URL = (
     f"{NCP_CANDIDATE_REVISION}/evidence/implementation/task-ledger.v1.json"
 )
 ENGRAM_DESCRIPTOR_SHA256 = (
-    "e3092895d50e77f2c77b775ffe7a66db7168f61f34233a0a2e0fe7a52afa9f9b"
+    "006a6cc5fe46041fcc180d1890a36f821e8901768161952b143bbfc3c3fd70f9"
 )
 GOVERNANCE_SUCCESSOR_CI_BLOCKERS = (
     "M0_SUCCESSOR_DRAFT_UNFROZEN",
@@ -1924,7 +1924,7 @@ def _audit() -> int:
             "preserved in-progress Paper2Brain migration",
             "targets candidate wire 1.0",
             "not an installed or qualified integration",
-            "claims no compatibility",
+            "marks it incompatible with Prisoma wire 0.8",
         ),
         "crates/ncp-observer/Cargo.toml": (
             "no live Paper2Brain-to-Prisoma bridge exists",
@@ -2161,7 +2161,8 @@ def _audit() -> int:
                 "preserved in-progress Paper2Brain migration",
                 "targets candidate wire 1.0",
                 "not an installed or qualified integration",
-                "the current descriptor declares both wires 1.0 and claims no compatibility",
+                "target Engram wire 1.0 incompatible with Prisoma wire 0.8",
+                "frozen legacy descriptor predates the observer's move to wire 1.0",
                 "not Prisoma validation",
                 "starts no process and grants no authority",
                 "no live Paper2Brain-to-Prisoma producer",

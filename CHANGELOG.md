@@ -11,10 +11,10 @@
   receipt metadata did not change. Wire 1.0 adds a nullable observation `receipt` and a nullable
   command `authority`. Removal of those two fields and the version change reproduces every
   wire-0.8 digest.
-- Updated the offline harness, the Engram descriptor (wire 1.0, no compatibility claim), the
-  truth audit, the ecosystem overlay, the capability catalog and matrix, and the current docs to
-  the new pin. NCP tasks P01, P02, and P03 stay OPEN. This change is not observer-role
-  qualification.
+- Updated the offline harness, the truth audit, the ecosystem overlay, the capability catalog
+  and matrix, and the current docs to the new pin. The frozen legacy Host API 1.1 Engram
+  descriptor and its lock keep their byte-locked bytes, which Paper2Brain shares. NCP tasks P01,
+  P02, and P03 stay OPEN. This change is not observer-role qualification.
 - Added an ASD-STE100 Issue 9 writing policy to the contributor guidance. The policy uses
   “STE-aligned” language and preserves technical, scientific, legal, generated, and immutable
   content boundaries.
