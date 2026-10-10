@@ -236,9 +236,9 @@
       "content_bindings": [
         {
           "bytes": 62110,
-          "inventory_entry_sha256": "fbc0b2f335cdbb347f978addd8e991f0b5178d4fa8f3e3f304b6886b6702ac6b",
+          "inventory_entry_sha256": "a92a92ecdde51e151345b4409bf9cfbec732ca7755795b98038ebd929f928bbb",
           "path": "protocols/capability_matrix_current_v1.json",
-          "sha256": "5bbaf15ae146f2c8bd6e22ef23cebfccf49b33291e65cc7c2ea1f9a2e5faf41d"
+          "sha256": "f461636f599c46cf7503648ce6e51743d3c2484022d46a1f603b3a33e66fd6b3"
         },
         {
           "bytes": 21113,
@@ -577,7 +577,7 @@
   "record_type": "candidate_claim_to_evidence_ledger",
   "release_version": "0.9.0",
   "schema_version": "prisoma.release-candidate/0.1.0",
-  "source_state_sha256": "be0047026b6120fdfadbc793236da7f015d3a28601bbe05ac8928f5afdf15676",
+  "source_state_sha256": "5cc43249978bf73612df3f27b4ef76b30b9c2cbe8ff972e8d48e6bdb639748b1",
   "status_contract": {
     "scientific_statuses": [
       "blocked_not_established",
