@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a figure to the E1 native evidence record that places both paired bootstrap intervals
+  against the useful margin. It embeds its fonts and has an opaque background.
 - Rewrote the agent contract. `AGENTS.md` gains an authority-and-workflow section (agents may
   commit, push, and merge to `main` after `just check`) and an artifact-classes section for the
   frozen Engram descriptor, the immutable intake, the two-commit candidate refresh, and the
