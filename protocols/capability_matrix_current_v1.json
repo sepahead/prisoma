@@ -34,7 +34,7 @@
       "feature_id": "analysis.estimate_abstention",
       "feature": "Report-first PID estimate eligibility and abstention",
       "status": "tested",
-      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:cb8f684bc7b64a2d4d0c95fd4e7e0fbc127a2a221a09f95b8729a50be6df92bc",
+      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:db67d552f66a9891f748850c36718a703bc4a5c08b9a05534a8c7b474826a184",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -75,7 +75,7 @@
       "feature_id": "bridge.agent_control_plane",
       "feature": "Agent Bridge typed control plane",
       "status": "tested",
-      "exact_revision": "local-sha256:ff5a8e67a71ca58be031887d62376b51130dbdd0b0619c87305db5768d82d5d3",
+      "exact_revision": "local-sha256:99fd3c3a56377aa145ed6838e14711e82ee71338973684bc47068c15f7440430",
       "revision_inputs": [
         "crates/pid-bridge",
         "crates/pid-rerun",
@@ -130,7 +130,7 @@
       "feature_id": "bridge.crebain_sensor_execution",
       "feature": "Optional canonical CREBAIN sensor execution",
       "status": "tested",
-      "exact_revision": "local-sha256:e11dd5046a8bd064ce714258e1293d3395173044f41acbd026a16b7d91857ecc",
+      "exact_revision": "local-sha256:df770360ae3e121bd75141aa91948682fa3a7acaefb1094151a5ac10e98f1f40",
       "revision_inputs": [
         "crates/agent-bridge-python",
         "crates/pid-bridge",
@@ -180,7 +180,7 @@
       "feature_id": "bridge.engram_pairing",
       "feature": "Engram operator-paste startup-secret pairing",
       "status": "tested",
-      "exact_revision": "local-sha256:6b03367484f6b6be95dd3584dee61be2718ecf2306b51bd22141c55f0e820836",
+      "exact_revision": "local-sha256:903e66cc23b11b7c6ca34d7e5095cdf5fc9b3701b77578741bf01aa6b04b50fa",
       "revision_inputs": [
         "crates/pid-sim",
         "integrations/engram",
@@ -218,7 +218,7 @@
       "feature_id": "capture.offline_vlda_harness",
       "feature": "Offline (V,L,D,A) artifact-to-run-log harness",
       "status": "tested",
-      "exact_revision": "local-sha256:ba591350382bc095816589c29ca1c1201d929846cb26b4fd939dfa33e975c7eb",
+      "exact_revision": "local-sha256:fd5ea92610bf6cdb5f6bdf7a1ff76a45a0bbd22d33c68c92764ef77ea9d12cce",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -255,7 +255,7 @@
       "feature_id": "capture.safe_reference_adapter",
       "feature": "SAFE canonical-bundle reference adapter",
       "status": "tested",
-      "exact_revision": "local-sha256:878a25782bebc4a6951d85438910f672e7b2c7bbf4c4f98ca9f3450d35714d22",
+      "exact_revision": "local-sha256:9585576c9762cfc30172b200bd678fccb7c4dbad97b49c9f7239007cc31e9e01",
       "revision_inputs": [
         "experiments/safe_adapter",
         "tests/python/test_safe_adapter.py",
@@ -295,7 +295,7 @@
       "feature_id": "docs.capability_matrix",
       "feature": "Generated content-bound capability matrix",
       "status": "tested",
-      "exact_revision": "local-sha256:2111b2ccdf2d9fcdeb1193db7c44f800170497bfc7d31c83fbbc3d2be5d64427",
+      "exact_revision": "local-sha256:706f7759f6acdb56d7a89235b4c2c62b128c460cd1a5c6f6d5dd0bb520b14b72",
       "revision_inputs": [
         "protocols/capability_catalog_v1.json",
         "scripts/generate_capability_matrix.py",
@@ -337,7 +337,7 @@
       "feature_id": "ecosystem.evidence_ledger",
       "feature": "Current E0-E5 ecosystem evidence overlay",
       "status": "tested",
-      "exact_revision": "local-sha256:57f9dfc6abd30fabb5f719af9080d50749fcab9647e7adbbcbc87d3fad73840b",
+      "exact_revision": "local-sha256:b13c38e437af4ed8f8fee6afa70db42b6235976ae420f8db260ee9ff5e473804",
       "revision_inputs": [
         "protocols/ecosystem_evidence_current_v1.json",
         "docs/reviews/2026-07-12-grandplan-v12.5/prisoma_ecosystem_evidence_2026-07-12.csv",
@@ -397,7 +397,7 @@
       "feature_id": "experiment.h1_common_preflight",
       "feature": "H1 pre-treatment lineage and diagnostic-noninterference preflight",
       "status": "tested",
-      "exact_revision": "local-sha256:ba591350382bc095816589c29ca1c1201d929846cb26b4fd939dfa33e975c7eb",
+      "exact_revision": "local-sha256:fd5ea92610bf6cdb5f6bdf7a1ff76a45a0bbd22d33c68c92764ef77ea9d12cce",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -433,7 +433,7 @@
       "feature_id": "experiment.h1_protocol_a_reference",
       "feature": "Deterministic H1 Protocol-A scoring reference",
       "status": "tested",
-      "exact_revision": "local-sha256:ba591350382bc095816589c29ca1c1201d929846cb26b4fd939dfa33e975c7eb",
+      "exact_revision": "local-sha256:fd5ea92610bf6cdb5f6bdf7a1ff76a45a0bbd22d33c68c92764ef77ea9d12cce",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -527,7 +527,7 @@
       "feature_id": "experiment.h2_reference",
       "feature": "Deterministic H2 fixed-horizon/IPCW/alarm arithmetic reference",
       "status": "tested",
-      "exact_revision": "local-sha256:ba591350382bc095816589c29ca1c1201d929846cb26b4fd939dfa33e975c7eb",
+      "exact_revision": "local-sha256:fd5ea92610bf6cdb5f6bdf7a1ff76a45a0bbd22d33c68c92764ef77ea9d12cce",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -563,7 +563,7 @@
       "feature_id": "experiment.h4_attribution_reference",
       "feature": "Deletion ranking-sensitivity attribution reference (exploratory)",
       "status": "tested",
-      "exact_revision": "local-sha256:a4cb0ceb0a9ef7a09da7851c4da21d3fa822ad2461994ee25c93e0e47f7583e9",
+      "exact_revision": "local-sha256:f0624b74b2f0a94e89c6d76fa601da6fdc904c9336759c8d6eca3d467e402f8d",
       "revision_inputs": [
         "experiments/attribution",
         "tests/python/test_attribution.py",
@@ -634,7 +634,7 @@
       "feature_id": "experiment.world_model_reference",
       "feature": "Native exact-fork world-model decision-contract reference",
       "status": "tested",
-      "exact_revision": "local-sha256:6813c482443d102c637531d532bf74439c5666062478bb471dcedf6f7d3ad67a",
+      "exact_revision": "local-sha256:8e7581f6fe327220558eb39c5216cc613b3f34c07293ebdd168f133a0cf209eb",
       "revision_inputs": [
         "crates/pid-sim/src/world_model.rs",
         "crates/pid-sim/src/bin/world_model_reference.rs",
@@ -673,7 +673,7 @@
       "feature_id": "governance.m0_research_ledgers",
       "feature": "Machine-checkable M0 research-governance honesty scaffolds",
       "status": "tested",
-      "exact_revision": "local-sha256:78a3d65842f9aea63bc18280e0ee3ebbc3d0d892b84d585e11ebba3ec7e9d0e2",
+      "exact_revision": "local-sha256:47882cbd1d0f3e67513362c5c07dd9fcb9ed34e38db078e74e8ca9667bbf85cf",
       "revision_inputs": [
         "grandplan.md",
         "protocols/m0_preregistration_skeleton_v1.json",
@@ -753,7 +753,7 @@
       "feature_id": "governance.world_model_claim_ledger",
       "feature": "Machine-checkable W1-W3 claim-boundary ledger",
       "status": "tested",
-      "exact_revision": "local-sha256:3eab6325271fe30d9db6ab58f74b4bb4aa3e654fc9ec20dc9c1d5244213bf7fd",
+      "exact_revision": "local-sha256:958d1355b568bddfb7b098e09c351190acaa1b667ab5133d81f59672e656c1d2",
       "revision_inputs": [
         "grandplan.md",
         "protocols/world_model_claim_registry_v1.json",
@@ -849,7 +849,7 @@
       "feature_id": "observer.engram_managed_read_only",
       "feature": "Read-only Engram Host API 2 managed observer",
       "status": "tested",
-      "exact_revision": "local-sha256:d436ba0f6bf8fc4fdf726bf29cb22a9990e217ade4df60ae11972f754f84c80b",
+      "exact_revision": "local-sha256:e964314dd708b582e5d57bfa65ce3042b7d17108777eea89601e035ca6a06312",
       "revision_inputs": [
         "crates/engram-managed-observer",
         "integrations/engram/managed-observer",
@@ -887,7 +887,7 @@
       "feature_id": "observer.ncp_fault_observatory",
       "feature": "Deterministic NCP wire-1.0 protocol-fault observatory",
       "status": "tested",
-      "exact_revision": "NCP@2819dae3b6338bb1df6d105ebb5b7433936a993d; local-sha256:4efd1577d7d33c54cd7dd7fc60a00d08c6dd68bb95ae8b81bd36ae5a3cf0c632",
+      "exact_revision": "NCP@2819dae3b6338bb1df6d105ebb5b7433936a993d; local-sha256:440c00943edfd02762725a2e1159e335eca19e6e6371a4fff28878fa9fd9949c",
       "revision_inputs": [
         "crates/ncp-observer",
         "pid-rs",
@@ -921,7 +921,7 @@
       "feature_id": "observer.ncp_read_only",
       "feature": "Read-only NCP wire-1.0 observer",
       "status": "tested",
-      "exact_revision": "NCP@2819dae3b6338bb1df6d105ebb5b7433936a993d; local-sha256:4efd1577d7d33c54cd7dd7fc60a00d08c6dd68bb95ae8b81bd36ae5a3cf0c632",
+      "exact_revision": "NCP@2819dae3b6338bb1df6d105ebb5b7433936a993d; local-sha256:440c00943edfd02762725a2e1159e335eca19e6e6371a4fff28878fa9fd9949c",
       "revision_inputs": [
         "crates/ncp-observer",
         "pid-rs",
@@ -963,7 +963,7 @@
       "feature_id": "pid.estimator_core",
       "feature": "Pinned pid-rs 0.9.0 post-tag review-source estimator core",
       "status": "tested",
-      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:e97ac9ab93d458020ad7bc20b4845cf03ada5404da597987c2e0a4010263951c",
+      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:9b3fcfed3452b87126222cdf8d2968ed121fb12132f1efe06b2a7b23d0ce8116",
       "revision_inputs": [
         "pid-rs",
         ".gitmodules",
@@ -1138,7 +1138,7 @@
       "feature_id": "replay.canonical_runlog",
       "feature": "Canonical run-log validation, replay, manifest, and sidecars",
       "status": "tested",
-      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:cb8f684bc7b64a2d4d0c95fd4e7e0fbc127a2a221a09f95b8729a50be6df92bc",
+      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:db67d552f66a9891f748850c36718a703bc4a5c08b9a05534a8c7b474826a184",
       "revision_inputs": [
         "pid-rs",
         ".gitmodules",
@@ -1178,7 +1178,7 @@
       "feature_id": "sim.rapier_backend",
       "feature": "Rapier3D-f64 manipulation backend",
       "status": "tested",
-      "exact_revision": "rapier3d-f64@0.34.0#sha256:4351e821e5db9464a22d59f3e7903ab5759f7c1241bb82f042486494e5178ecf; local-sha256:d4bc6fab634788c69a922d419499c7770ab0838522c932e890d2362be72a9dd3",
+      "exact_revision": "rapier3d-f64@0.34.0#sha256:4351e821e5db9464a22d59f3e7903ab5759f7c1241bb82f042486494e5178ecf; local-sha256:66615bb99baa05f38435e3c1c1a08636d8d9b22792a94c4f00dd3e7546beb2ec",
       "revision_inputs": [
         "crates/pid-sim",
         "Cargo.toml",
@@ -1243,7 +1243,7 @@
       "feature_id": "viewer.rerun_adapter",
       "feature": "Run-log-to-Rerun validating adapter",
       "status": "tested",
-      "exact_revision": "re_log_encoding@0.34.1#sha256:8a5df35e1e32e783014827a362bf68fb97f9b122240ad731511207fb8fceec48; re_sdk@0.34.1#sha256:3e426edaa5b4aae7338893282b53e671afc02770601d054f4754bc42ec43ff29; re_sdk_types@0.34.1#sha256:dcbecb95e90d133d4721715412f24b333895f56373fe0ebce99ecdf0aa0b9bc2; local-sha256:988f61d854dc49bab5654eab52a277acaaec79326866e471a83fdf4ce396ab31",
+      "exact_revision": "re_log_encoding@0.34.1#sha256:8a5df35e1e32e783014827a362bf68fb97f9b122240ad731511207fb8fceec48; re_sdk@0.34.1#sha256:3e426edaa5b4aae7338893282b53e671afc02770601d054f4754bc42ec43ff29; re_sdk_types@0.34.1#sha256:dcbecb95e90d133d4721715412f24b333895f56373fe0ebce99ecdf0aa0b9bc2; local-sha256:8cb96ca0172221de268969c61e71c1ac5ea70db7563eaa4c27cd1b659bd2fa5a",
       "revision_inputs": [
         "crates/pid-rerun",
         "crates/pid-sim",

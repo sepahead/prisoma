@@ -40,6 +40,8 @@ The canonical research and engineering specification is [grandplan.md](grandplan
 | Capability or scientific-status projection | Owning catalog in `protocols/`, its generator, and its audit |
 
 These documents remain requirements. This entrypoint does not replace their detailed contracts.
+[`agent-index.json`](agent-index.json) restates the gates, artifacts, and ecosystem relations of this file for tools.
+Update it when a gate or a named path changes, then run `uv run --no-sync python scripts/check_agent_index.py`.
 
 ## Working method
 

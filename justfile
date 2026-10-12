@@ -64,6 +64,7 @@ docs-audit:
     uv run --no-sync python scripts/audit_docset_claims.py --all-tracked-markdown
     uv run --no-sync python scripts/audit_markdown_links.py
     uv run --no-sync python scripts/audit_repo_truth.py
+    uv run --no-sync python scripts/check_agent_index.py
 
 # Machine-checked abstract invariants and required countermodels. These prove only
 # the stated SMT abstractions; see formal/README.md for the refinement boundary.

@@ -1,0 +1,152 @@
+{
+  "schema": "sepahead.agent-index.v1",
+  "repository": "sepahead/prisoma",
+  "summary": "Prisoma: a world-model and PID research platform with exact candidate identities, observers for native and modular NCP capture, and an application bridge. AGENTS.md is the operating contract; this index restates its operational facts for tools.",
+  "entry_documents": [
+    {
+      "path": "AGENTS.md",
+      "role": "operating contract for agents"
+    },
+    {
+      "path": "README.md",
+      "role": "overview"
+    },
+    {
+      "path": "grandplan.md",
+      "role": "canonical research and engineering specification"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "role": "complete commands and contribution rules"
+    },
+    {
+      "path": "justfile",
+      "role": "executable command registry"
+    },
+    {
+      "path": "PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md",
+      "role": "PID method, route and publication contract"
+    },
+    {
+      "path": "protocols/capability_catalog_v1.json",
+      "role": "owning capability catalog"
+    },
+    {
+      "path": "SECURITY.md",
+      "role": "security policy"
+    }
+  ],
+  "delivery": {
+    "default_branch": "main",
+    "merge": "Commit the source change in a separate worktree from origin/main, refresh the candidate identities in a second commit, run the applicable gates, then push to main.",
+    "signing": "unsigned (commit.gpgsign=false)",
+    "attribution": "no AI attribution or co-author trailers",
+    "owner_only": [
+      "release",
+      "tag",
+      "repository setting change"
+    ]
+  },
+  "gates": [
+    {
+      "id": "environment",
+      "when": "before any gate",
+      "command": "env -u CONDA_PREFIX uv sync --locked --group ui --python 3.11",
+      "cost": "fast"
+    },
+    {
+      "id": "docs",
+      "when": "documentation changes",
+      "command": "just docs-audit",
+      "cost": "fast"
+    },
+    {
+      "id": "python-lint",
+      "when": "a Python file changes",
+      "command": "just python-lint",
+      "cost": "fast"
+    },
+    {
+      "id": "agent-index",
+      "when": "agent-index.json or a path it names changes",
+      "command": "uv run --no-sync python scripts/check_agent_index.py",
+      "cost": "fast"
+    },
+    {
+      "id": "capability-matrix",
+      "when": "a capability catalog or the application bridge changes",
+      "command": "uv run --no-sync python scripts/generate_capability_matrix.py --check",
+      "cost": "fast"
+    },
+    {
+      "id": "notices",
+      "when": "a dependency changes",
+      "command": "just notices-check",
+      "cost": "fast"
+    },
+    {
+      "id": "candidate-identities",
+      "when": "after the source commit and the candidate refresh commit",
+      "command": "just release-candidate-audit",
+      "cost": "medium"
+    },
+    {
+      "id": "complete-local-gate",
+      "when": "before publication",
+      "command": "just check",
+      "cost": "full"
+    }
+  ],
+  "generated": [
+    {
+      "path": "release/0.9.0/candidate/",
+      "regenerate": "commit the source change, run uv run --no-sync python scripts/generate_candidate_release.py --print-source-state, pass the printed arguments to the same generator and commit its output separately"
+    },
+    {
+      "path": "protocols/capability_matrix_current_v1.json",
+      "regenerate": "uv run --no-sync python scripts/generate_capability_matrix.py --write"
+    },
+    {
+      "path": "docs/CAPABILITY_MATRIX.md",
+      "regenerate": "uv run --no-sync python scripts/generate_capability_matrix.py --write"
+    }
+  ],
+  "frozen": [
+    {
+      "path": "docs/reviews/2026-07-12-grandplan-v12.5/",
+      "reason": "immutable reviewed v12.5 intake bundle"
+    },
+    {
+      "path": "release/0.9.0/review/intake.json",
+      "reason": "immutable release-review intake"
+    },
+    {
+      "path": "pid-rs",
+      "reason": "submodule gitlink that pins PID; change it only through an explicit adoption"
+    }
+  ],
+  "shared": [
+    {
+      "path": "integrations/engram/manifest.json",
+      "reason": "legacy Host API 1.1 descriptor with its lock; Paper2Brain holds the same bytes and check-contract.py pins their digests"
+    }
+  ],
+  "ecosystem": [
+    {
+      "repository": "sepahead/NCP",
+      "relation": "observer migrated to the exact 1.0.0-rc.1 candidate 2819dae"
+    },
+    {
+      "repository": "sepahead/pid-rs",
+      "relation": "submodule that pins the PID implementation"
+    },
+    {
+      "repository": "sepahead/Paper2Brain",
+      "relation": "Engram Host API observation and the shared legacy descriptor"
+    },
+    {
+      "repository": "sepahead/crebain",
+      "relation": "canonical sensor execution for the application bridge"
+    }
+  ]
+}

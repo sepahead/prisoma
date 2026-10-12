@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added `agent-index.json`, a machine-readable index of the gates, generated, frozen,
+  and shared artifacts, and ecosystem relations in `AGENTS.md`.
+  `scripts/check_agent_index.py` fails when a named path or script is missing, a gate
+  identifier repeats, or a machine-specific path appears; `just docs-audit` runs it.
 - Added a figure to the E1 native evidence record that places both paired bootstrap intervals
   against the useful margin. It embeds its fonts and has an opaque background.
 - Rewrote the agent contract. `AGENTS.md` gains an authority-and-workflow section (agents may
