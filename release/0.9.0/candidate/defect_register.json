@@ -23,7 +23,7 @@
       "resolution_rule": "use a reviewed successor schema to bind a clean exact candidate commit to authenticated successful post-push main CI evidence",
       "reviewer": null,
       "source_snapshot": {
-        "head_commit": "471dfdeefc83e531d58d9eb1ff28594c95b9f7c9",
+        "head_commit": "528320a2109d66b8c12c517ff5c2cc5b772e4ad3",
         "kind": "clean_committed_snapshot"
       },
       "status": "open",
@@ -141,7 +141,7 @@
   "record_type": "candidate_defect_register",
   "release_version": "0.9.0",
   "schema_version": "prisoma.release-candidate/0.1.0",
-  "source_state_sha256": "133fbf1df7e43602bef85c43f6911f86beeb29c7c7489dc2ad2af409fb41472c",
+  "source_state_sha256": "44f5e5981ad440a0550fe8ee577680ff7e5d627528064d9d7a96f5d244f636f0",
   "status_contract": {
     "closure_rule": "Schema 0.1 cannot mitigate or close defects; a successor schema must bind the exact resolution rule to authenticated evidence and reviewed residual risk",
     "priorities": [
