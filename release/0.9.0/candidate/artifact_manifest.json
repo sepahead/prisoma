@@ -3,35 +3,35 @@
     {
       "bytes": 25507,
       "path": "claim_evidence_ledger.json",
-      "sha256": "67b1801457c69f35efd628f2daac1090339921cc44217f3b1aa04080889e8b95"
+      "sha256": "66e89453ad988d8142de6ed1ff1e19c48c8b90961c718032b198faea204c900f"
     },
     {
       "bytes": 5677,
       "path": "defect_register.json",
-      "sha256": "cdd5ed723496a32422e4cef6cfab178341247bd2f4d30265cb12aa5bde4f92ba"
+      "sha256": "ab6508074455865d05f24303cf9276e527c73b8b44008365836979164e2feea1"
     },
     {
       "bytes": 7158,
       "path": "draft_release_manifest.json",
-      "sha256": "642f149e2487c89f48335cc0aaa155f3d78674d6e5ecb965249096d826365ac8"
+      "sha256": "bacb1096657749ed382d424170d29b9f7902e32ae2ab3eeb60246d8fe494dd52"
     },
     {
       "bytes": 8502,
       "path": "evidence_receipts.json",
-      "sha256": "0b64b2e37eebb0db411957a1e6eef8f06034f751a0a34a9b85806a08c8a817da"
+      "sha256": "7cd6c3feab8b0d23594e2a60ca3722408b53356d1b25a9e2f3527692bbed4bfe"
     },
     {
       "bytes": 1332958,
       "path": "source_inventory.json",
-      "sha256": "55d3b0e72c1c1c96e940c316b40f561006fcdfbc60e153582557e01bb9b7aa62"
+      "sha256": "e72bb20c7572f58151b9f756f750c393d92395e0f9c4a1c26affa39c976422e7"
     },
     {
       "bytes": 5080203,
       "path": "task_lens_ledger.json",
-      "sha256": "c305a373ad364b9aa880ac75389e869b2d078d940a52ce5f21d41609d3ac114e"
+      "sha256": "02774325de5fe6780d9c430a8da702bd9641bedd07100e1ce37c14214611b8e5"
     }
   ],
-  "candidate_state_sha256": "44f5e5981ad440a0550fe8ee577680ff7e5d627528064d9d7a96f5d244f636f0",
+  "candidate_state_sha256": "5f4130348662bfd7c7c6e4408d44b996d9eb916fa9684947eb62aa8ff5076387",
   "project": "prisoma",
   "published": false,
   "record_type": "candidate_artifact_manifest",

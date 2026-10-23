@@ -94,9 +94,9 @@
       "content_bindings": [
         {
           "bytes": 100052,
-          "inventory_entry_sha256": "616fdf9bc7372c33c99b8363733d5a0a4077a806ee9170b81034e33d786e3af1",
+          "inventory_entry_sha256": "8d3adc832eb95d38ec77a38a947225e19e8243e3537209b07acfb61bb27cf716",
           "path": "Cargo.lock",
-          "sha256": "ee29d1e24d974ee93fba065013b16e315fa4fe010471bb2cbb9d36ce6528f889"
+          "sha256": "2537c1e39d48478040706a73e11c33b423eae3445ea999331f1e51b2e7dc361c"
         },
         {
           "bytes": 2121,
@@ -236,9 +236,9 @@
       "content_bindings": [
         {
           "bytes": 62110,
-          "inventory_entry_sha256": "7cd8b36af212fa89510fe7f6be5acec9aa82190da1b528d307840b2377b8f7cb",
+          "inventory_entry_sha256": "b15ae394a9d578270eb725a36773709fc55fd5869ae29a881c8e5981d26ed7bb",
           "path": "protocols/capability_matrix_current_v1.json",
-          "sha256": "1643e19720c12a1b38684243b21e601d03508233e63d5b9276dec953cd395245"
+          "sha256": "fd5393bda38dba67f5024f13bfd045f683d49bb11d851e35928f3858b4eed135"
         },
         {
           "bytes": 21113,
@@ -577,7 +577,7 @@
   "record_type": "candidate_claim_to_evidence_ledger",
   "release_version": "0.9.0",
   "schema_version": "prisoma.release-candidate/0.1.0",
-  "source_state_sha256": "44f5e5981ad440a0550fe8ee577680ff7e5d627528064d9d7a96f5d244f636f0",
+  "source_state_sha256": "5f4130348662bfd7c7c6e4408d44b996d9eb916fa9684947eb62aa8ff5076387",
   "status_contract": {
     "scientific_statuses": [
       "blocked_not_established",
