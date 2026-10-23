@@ -35,6 +35,10 @@ ignore = [
     # 1.0.0-rc.1 candidate records the same temporary exception. Remove when a Zenoh
     # release drops it.
     "RUSTSEC-2025-0134",
+    # unsafe-libyaml — unmaintained (no vulnerability), reached only through serde_yaml in
+    # zenoh-config 1.9.0 in the observer graph. The advisory has no fixed release; NCP records
+    # the same exception. Remove when a Zenoh release drops serde_yaml.
+    "RUSTSEC-2024-0449",
 ]
 
 [licenses]

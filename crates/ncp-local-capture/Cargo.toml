@@ -13,7 +13,7 @@ publish = false
 resolver = "2"
 
 [dependencies]
-ncp-local = { version = "=1.0.0", git = "https://github.com/sepahead/NCP", rev = "de751d499b5e07d1c95a072e08255083d77cb38b" }
+ncp-local = { version = "=1.0.1", git = "https://github.com/sepahead/NCP", rev = "99e9adce147fe5bc770d2dcfe5f21cbd2274efeb" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 libc = "0.2"

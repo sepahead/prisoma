@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Moved the native capture crate `crates/ncp-local-capture` to the released `ncp-local` 1.0.1
+  SDK at commit `99e9adce147fe5bc770d2dcfe5f21cbd2274efeb`, the NCP tag `sdk-v1.0.1`. The SDK
+  patch release keeps every byte on the wire and every public interface. The dated M1 evidence
+  keeps its recorded 1.0.0 wheel.
+- Updated the TLS stack for new RustSec advisories. The root lock raises `rustls` to 0.23.46
+  and `rustls-webpki` to 0.103.16. The `ncp-observer` lock also raises `quinn-proto` to
+  0.11.19, which moves `rustls-platform-verifier` to 0.7.1 and `rand` to 0.10. This fixes
+  RUSTSEC-2026-0338 to -0342, -0346 to -0349, and -0381 to -0383. `deny.toml` records the
+  unmaintained `unsafe-libyaml` 0.2.11 (RUSTSEC-2024-0449), which reaches only the observer graph
+  through `serde_yaml` in `zenoh-config` 1.9.0 and has no fixed release. All five cargo-deny
+  0.20.2 checks pass at advisory revision `640bf5a9` (2026-10-22).
 - Added `agent-index.json`, a machine-readable index of the gates, generated, frozen,
   and shared artifacts, and ecosystem relations in `AGENTS.md`.
   `scripts/check_agent_index.py` fails when a named path or script is missing, a gate
