@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- The root lock raises `ctutils` from 0.4.2 to 0.4.4 (RUSTSEC-2026-0385) and `tokio` from
+  1.52.3 to 1.54.1 (RUSTSEC-2026-0386); the ncp-observer lock raises `tokio` likewise. Only
+  these packages change. The capability matrix is regenerated for the changed locks.
+
 - Moved the native capture crate `crates/ncp-local-capture` to the released `ncp-local` 1.0.1
   SDK at commit `99e9adce147fe5bc770d2dcfe5f21cbd2274efeb`, the NCP tag `sdk-v1.0.1`. The SDK
   patch release keeps every byte on the wire and every public interface. The dated M1 evidence
