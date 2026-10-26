@@ -335,16 +335,15 @@ The slogan bundles three different hypotheses:
 Evidence for one hypothesis cannot establish the others. Most current low-overhead results test
 the second hypothesis. They remove prediction heads or future generation at deployment.
 
-The theme predates the supplied post. A
-[June 2026 X reply](https://x.com/NGO275/status/2063522926390128676) attributes the slogan to the
-need to predict action consequences. An
+The theme predates the supplied post. A public reply posted on 7 June 2026 attributed the slogan to
+the need to predict action consequences. An
 [NVIDIA technical explainer](https://developer.nvidia.com/blog/pretrained-to-imagine-fine-tuned-to-act-the-rise-of-world-action-models/)
 instead defines the split by pretraining backbone: VLM for VLA and video or world model for WAM.
 These are research programs and taxonomy choices. They are not a controlled comparison or field
 consensus. NVIDIA also uses VLA language for current products while describing a WAM architecture
 for a later generation.
 
-The supplied [X post](https://x.com/CyberRobooo/status/2086999365789601933) is a discovery lead.
+The supplied social-media post of 11 August 2026 is a discovery lead.
 Its numbers point to the [Dyna-2 company report](https://www.dyna.co/dyna-2).
 
 Dyna reports a 1.55-fold pooled mean-success ratio across seven tasks and three checkpoints. It

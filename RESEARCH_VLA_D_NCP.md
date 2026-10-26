@@ -177,7 +177,8 @@ that blending cannot repair. Its online comparison has three tasks and five tria
 method–task cell. The timing lesson is directly relevant. The reported method ordering is not a
 universal deployment result.
 
-The supplied X post is a discovery lead, not an independent source [100]. Dyna reports a
+A supplied social-media post of 11 August 2026 was a discovery lead, not a source [100]; its
+numbers point to the Dyna-2 report [99]. Dyna reports a
 1.55-fold pooled success ratio over seven tasks and three checkpoints [99]. That internal
 Dyna-2-versus-Dyna-1 comparison matches data, training hyperparameters, and three starting
 checkpoints per architecture. The architectures still differ, and the ratio pools trials and
@@ -628,7 +629,7 @@ but untested. No universal intrinsic-dimension cutoff establishes eligibility.
 [97] MiraBench: Evaluating Action-Conditioned Reliability in Robotic World Models — https://arxiv.org/abs/2605.29360
 [98] Hallucination in World Models Is Predictable and Preventable — https://arxiv.org/abs/2606.27326
 [99] Dyna-2 technical report — https://www.dyna.co/dyna-2
-[100] Supplied X discovery lead for Dyna-2 — https://x.com/CyberRobooo/status/2086999365789601933
+[100] Not cited: a social-media post of 11 August 2026, supplied as a discovery lead for Dyna-2. Posts can be deleted or edited and can present opinions as facts; the figures come from [99].
 [101] XEWorld: Can Action-Conditioned World Models Generalize to Unseen Robot Embodiments? — https://arxiv.org/abs/2608.05799
 [102] PhyLatent: Learning Dynamics-Relevant Representations for JEPA World Models — https://arxiv.org/abs/2608.05720
 [103] Is Forward Prediction Enough? Physical State Grounding for JEPA World Models — https://arxiv.org/abs/2608.06799

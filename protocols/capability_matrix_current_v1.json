@@ -1067,7 +1067,7 @@
       "feature_id": "proposal.m4_predictive_policy_qualification",
       "feature": "M4 Max action-conditioned world-model qualification",
       "status": "specified",
-      "exact_revision": "local-sha256:c970cfd9c565dd346bdea11a9dec725e564ab1ee063b74cbd8d2f8ed21886f0e",
+      "exact_revision": "local-sha256:5fd4745485a907535aa29f621fb9e5ae081e12394c6c78b657838e9f5f43db08",
       "revision_inputs": [
         "docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md",
         "grandplan.md",
@@ -1080,7 +1080,7 @@
       "evidence_artifacts": [
         {
           "path": "docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md",
-          "sha256": "8c3bf06ef650652e13adc0945fa950b71ae1c69106ea103a4b7d3a4a1d90b7d2"
+          "sha256": "814bec4414e25ca843ce58177121da866dfa971014ebed0a8b4a719f244e4315"
         },
         {
           "path": "grandplan.md",
@@ -1088,7 +1088,7 @@
         },
         {
           "path": "RESEARCH_VLA_D_NCP.md",
-          "sha256": "0d9b48474c7f9a54cdcda3ee004baa6d44ecb403c9b13921494cdd4214a0122a"
+          "sha256": "16686754a95ce40dbc3915c85ed95427be096dd14b5f03352bf591870a7377bd"
         },
         {
           "path": "protocols/world_model_claim_registry_v1.json",

@@ -47,6 +47,9 @@ Update it when a gate or a named path changes, then run `uv run --no-sync python
 
 1. Inspect the owning schema, implementation, tests, and evidence before editing.
 2. Question each assumption in the task and verify each fact against its primary source.
+   Do not cite social-media posts: they can be deleted or edited and can present opinions as
+   facts, which biases readers and agents. State the substance in your own words with its date,
+   cite the primary source, and neither link the post nor name its author.
 3. Inventory staged changes, unstaged changes, branches, and worktrees before recovery work.
 4. Preserve unrelated work and its staged state.
 5. Classify each artifact you change with the classes in this file.
