@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Replaced the NCP 1 local capture (`crates/ncp-local-capture`, `ncp-local` 1.0.1) with the NCP 2
+  loop capture, `crates/ncp-loop-capture`, on the NCP 2 Rust core `sepahead-ncp-core` 2.0.0 at NCP
+  commit `3b51a1b41f729e2a7d9d1978a77e81958e62e8b7`. It imports one run of CREBAIN's
+  `crebain-ncp-loop`: it checks every transcript with the NCP 2 verifier and the causal chain from
+  each world observation through the controller responses to the next world step, and only then
+  writes a new journal (mode 0600, no replacement, quota checked first) whose records are chained
+  by digest; `verify` checks a journal without the run. Seven tests use two recorded CREBAIN
+  runs and cover a changed transcript byte, a mismatched manifest, an existing journal, a
+  symbolic link, the quota, and changed journals. `just ncp-loop-capture-check`, the CI step,
+  and cargo-deny follow the new crate; `assets/ncp-loop-capture.svg` replaces the old diagram.
+
 - The root lock raises `ctutils` from 0.4.2 to 0.4.4 (RUSTSEC-2026-0385) and `tokio` from
   1.52.3 to 1.54.1 (RUSTSEC-2026-0386); the ncp-observer lock raises `tokio` likewise. Only
   these packages change. The capability matrix is regenerated for the changed locks.

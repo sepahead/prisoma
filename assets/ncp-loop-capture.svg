@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 470" role="img" aria-labelledby="title desc">
+<title id="title">Prisoma capture of an NCP 2 closed-loop run</title>
+<desc id="desc">A CREBAIN loop run holds a manifest and one NCP 2 transcript for each session. The import checks every transcript with the NCP 2 verifier, then checks the causal chain from each world observation through the controller responses to the next world step, and only then writes a new journal whose records are chained by digest. A separate verification checks a journal without the run.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#35506d"/></marker><style>text{font-family:Arial,Helvetica,sans-serif;fill:#172b45}.title{font-size:26px;font-weight:700}.label{font-size:19px;font-weight:700}.body{font-size:16px}.small{font-size:15px}.box{fill:white;stroke:#aec0d2;stroke-width:2}.flow{fill:none;stroke:#35506d;stroke-width:2.5;marker-end:url(#arrow)}</style></defs>
+<rect width="1100" height="470" rx="20" fill="#f3f6fa"/>
+<text class="title" x="38" y="48">Prisoma · NCP 2 loop capture</text>
+<text class="body" x="38" y="78">Check the whole run first · then write one journal · verify it later without the run</text>
+<rect class="box" x="38" y="110" width="226" height="210" rx="12"/>
+<text class="label" x="58" y="146">1. Loop run</text><text class="body" x="58" y="181">manifest.json</text><text class="body" x="58" y="210">One transcript for</text><text class="body" x="58" y="234">each world and</text><text class="body" x="58" y="258">each controller</text><text class="small" x="58" y="298">Written by crebain-ncp-loop</text>
+<rect class="box" x="300" y="110" width="226" height="210" rx="12"/>
+<text class="label" x="320" y="146">2. Transcripts</text><text class="body" x="320" y="181">NCP 2 verifier:</text><text class="body" x="320" y="210">digests, order,</text><text class="body" x="320" y="234">and hash chain</text><text class="body" x="320" y="258">Every response ok</text><text class="small" x="320" y="298">Contracts as in the manifest</text>
+<rect class="box" x="562" y="110" width="226" height="210" rx="12"/>
+<text class="label" x="582" y="146">3. Causal chain</text><text class="body" x="582" y="181">Observation, then</text><text class="body" x="582" y="210">controller response,</text><text class="body" x="582" y="234">then world step</text><text class="body" x="582" y="258">Each response once</text><text class="small" x="582" y="298">State digests continue</text>
+<rect class="box" x="824" y="110" width="238" height="210" rx="12"/>
+<text class="label" x="844" y="146">4. Journal</text><text class="body" x="844" y="181">New file, mode 0600</text><text class="body" x="844" y="210">Header, one record</text><text class="body" x="844" y="234">per step, and finish</text><text class="body" x="844" y="258">Chained by digest</text><text class="small" x="844" y="298">Quota checked first</text>
+<path class="flow" d="M266 215 H298"/>
+<path class="flow" d="M528 215 H560"/>
+<path class="flow" d="M790 215 H822"/>
+<rect class="box" x="38" y="350" width="1024" height="86" rx="12"/>
+<text class="label" x="58" y="383">verify JOURNAL</text>
+<text class="body" x="58" y="412">Checks every record digest, the chain, the order of the steps, and the finish record. The records are not signed.</text>
+</svg>

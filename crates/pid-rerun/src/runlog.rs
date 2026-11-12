@@ -130,12 +130,10 @@ fn parse_npy_f64(bytes: &[u8]) -> Result<(Vec<f64>, Vec<usize>)> {
     }
 
     let mut values = Vec::with_capacity(count);
-    for chunk in bytes[data_start..].chunks_exact(size_of::<f64>()) {
-        let value = f64::from_le_bytes(
-            chunk
-                .try_into()
-                .context("internal NumPy chunk length mismatch")?,
-        );
+    // The length check above leaves no remainder after the whole chunks.
+    let (chunks, _) = bytes[data_start..].as_chunks::<{ size_of::<f64>() }>();
+    for chunk in chunks {
+        let value = f64::from_le_bytes(*chunk);
         if !value.is_finite() {
             bail!("NumPy relevance values must all be finite");
         }

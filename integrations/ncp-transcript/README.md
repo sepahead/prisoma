@@ -206,7 +206,7 @@ A later truncation, missing terminal record, or file change still invalidates th
 The caller owns any frame bytes it retains.
 
 This format is `prisoma.ncp.transcript.v1`.
-The earlier [local causal journal](../../crates/ncp-local-capture/README.md) retains its separate compatibility contract.
+The [NCP 2 loop capture](../../crates/ncp-loop-capture/README.md) records CREBAIN's NCP 2 closed-loop runs; it replaces the earlier NCP 1 local causal journal.
 Neither format replaces the canonical schema-2 Agent Bridge run log.
 
 ## Observed evidence

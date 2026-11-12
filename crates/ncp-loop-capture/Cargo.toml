@@ -1,21 +1,22 @@
 [package]
-name = "prisoma-ncp-local-capture"
-version = "0.1.0"
+name = "prisoma-ncp-loop-capture"
+version = "0.2.0"
 authors = ["Sepehr Mahmoudian"]
 edition = "2021"
 rust-version = "1.93"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/sepahead/prisoma"
-description = "Bounded native local NCP causal capture and read-only journal verification"
+description = "Bounded capture of NCP 2 closed-loop transcripts into a verifiable journal"
 publish = false
 
 [workspace]
 resolver = "2"
 
 [dependencies]
-ncp-local = { version = "=1.0.1", git = "https://github.com/sepahead/NCP", rev = "99e9adce147fe5bc770d2dcfe5f21cbd2274efeb" }
+ncp = { package = "sepahead-ncp-core", git = "https://github.com/sepahead/NCP", rev = "3b51a1b41f729e2a7d9d1978a77e81958e62e8b7", version = "=2.0.0" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
+sha2 = "0.11"
 libc = "0.2"
 
 [lints.rust]

@@ -30,7 +30,7 @@ The canonical research and engineering specification is [grandplan.md](grandplan
 | LeWM loading, candidates, CEM, or MPS | [LeWM owner](docs/lewm/README.md), [design](experiments/lewm/DESIGN.md), and [mathematics](docs/lewm/MATHEMATICS.md) |
 | PID method, route, support, or interpretation | [PID method contract](PID_METHOD_SELECTION_AND_PUBLICATION_CONTRACT.md), grandplan section 7, and [findings](findings.md) |
 | PID data from world-model outputs | [PID handoff](docs/lewm/PID_HANDOFF.md) and the target-specific ancestry rules |
-| Native local NCP capture | [Capture contract](crates/ncp-local-capture/README.md) |
+| NCP 2 loop capture | [Capture contract](crates/ncp-loop-capture/README.md) |
 | Modular NCP transcript | [Transcript contract](integrations/ncp-transcript/README.md) and [design](integrations/ncp-transcript/DESIGN.md) |
 | Python Agent Bridge or canonical CREBAIN sensor execution | [Application bridge](integrations/agent-bridge/README.md) and [execution guide](integrations/agent-bridge/GUIDE.md) |
 | Legacy NCP wire observer | [Observer contract](crates/ncp-observer/README.md) and [NCP development notes](NCP_DEV_PROMPT.md) |
@@ -268,7 +268,7 @@ Use these additional gates when their surfaces change:
 | --- | --- |
 | Documentation | `just docs-audit` |
 | Candidate artifacts | `just release-candidate-audit`, after exact source capture and regeneration |
-| Native NCP capture | `just ncp-local-capture-check` |
+| NCP 2 loop capture | `just ncp-loop-capture-check` |
 | Modular NCP transcript | `just ncp-transcript-check <isolated-python>` after package installation, and `just formal` |
 | Python application bridge | `just application-bridge-check <isolated-python>`, excluded-crate supply-chain checks, installed wheel/source-distribution checks, and the applicable native case |
 | Legacy wire observer | `just ncp-observer-test` |
