@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Moved the NCP 2 loop capture, `crates/ncp-loop-capture`, to revision 3 of the NCP 2
+  specification: the Rust core `sepahead-ncp-core` 2.0.0 at NCP commit
+  `9f58e7a0bebfde8033abad64e07999d77e8b315f`. The capture reads the single report of the
+  version 2 transcript verifier and requires a complete client session; a transcript of version
+  2 must also end with its end record. Two new runs of CREBAIN's revision 3 loop host
+  (`loop-1x1-v2`, `loop-2x3-v2`, version 2 transcripts) join the two revision 2 runs (version 1
+  transcripts), which the capture still reads, and a new test refuses a version 2 transcript
+  without its end record.
+
 - Replaced the NCP 1 local capture (`crates/ncp-local-capture`, `ncp-local` 1.0.1) with the NCP 2
   loop capture, `crates/ncp-loop-capture`, on the NCP 2 Rust core `sepahead-ncp-core` 2.0.0 at NCP
   commit `3b51a1b41f729e2a7d9d1978a77e81958e62e8b7`. It imports one run of CREBAIN's

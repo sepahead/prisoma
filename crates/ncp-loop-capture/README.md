@@ -36,7 +36,7 @@ Both exit with status 1 and a reason on standard error when a check fails.
 
 Every check completes before the journal exists:
 
-- Each transcript passes the NCP 2 transcript verifier (frame digests, sequence numbers, and the hash chain) and holds one client session whose every request got an `ok` response.
+- Each transcript passes the NCP 2 transcript verifier (frame digests, sequence numbers, acknowledgements, and the hash chain) and holds one complete client session whose every request got an `ok` response. A transcript of version 2 must end with its end record; the capture also reads transcripts of version 1, from hosts of NCP 2 revision 2.
 - Each session opens the application and the contract identity that the manifest names: `crebain.body` for worlds and `crebain.controller` for controllers.
 - Each controller answers steps 1 to N in order for its own drones and echoes each step, state digest, and drone list.
 - Each world step starts from the state digest of the world's previous observation.

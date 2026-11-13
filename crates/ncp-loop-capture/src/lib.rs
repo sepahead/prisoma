@@ -147,22 +147,35 @@ fn exchanges(
     if bytes.len() as u64 > MAX_TRANSCRIPT_BYTES {
         return fail(format!("{name}: larger than {MAX_TRANSCRIPT_BYTES} bytes"));
     }
-    let sessions = verify(path).map_err(|error| CaptureError(format!("{name}: {error}")))?;
-    let (session, report) = match sessions.iter().next() {
-        Some(entry) if sessions.len() == 1 => entry,
-        _ => {
+    let report = verify(path, None).map_err(|error| CaptureError(format!("{name}: {error}")))?;
+    // A transcript of version 2 ends with an end record; version 1 has none.
+    if !report.ok() || (report.version >= 2 && !report.closed) {
+        return fail(format!(
+            "{name}: the transcript does not verify: {:?}",
+            report.problems
+        ));
+    }
+    let session = match report.sessions.as_slice() {
+        [session] => session,
+        sessions => {
             return fail(format!(
                 "{name}: {} sessions instead of one",
                 sessions.len()
             ))
         }
     };
-    if report.role != "client" || !report.problems.is_empty() {
-        return fail(format!("{name}: session {session}: {:?}", report.problems));
+    if session.role != "client" || !session.complete {
+        return fail(format!(
+            "{name}: session {} is not a complete client session",
+            session.session
+        ));
     }
     let mut list = Vec::new();
     let mut pending: Option<Decoded> = None;
-    for record in read(path).map_err(|error| CaptureError(format!("{name}: {error}")))? {
+    for record in read(path)
+        .map_err(|error| CaptureError(format!("{name}: {error}")))?
+        .records
+    {
         let decoded = decode(record.frame, MAX_BOUND)
             .map_err(|error| CaptureError(format!("{name}: {error}")))?;
         match (record.kind, pending.take()) {

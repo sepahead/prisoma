@@ -36,7 +36,14 @@ fn copy(name: &str) -> PathBuf {
 
 #[test]
 fn both_runs_import_and_their_journals_verify() {
-    for (name, worlds, controllers) in [("loop-1x1", 1, 1), ("loop-2x3", 2, 3)] {
+    // The runs of NCP 2 revision 2 wrote transcripts of version 1; those of revision 3, with
+    // the suffix -v2, write version 2. The capture reads both.
+    for (name, worlds, controllers) in [
+        ("loop-1x1", 1, 1),
+        ("loop-2x3", 2, 3),
+        ("loop-1x1-v2", 1, 1),
+        ("loop-2x3-v2", 2, 3),
+    ] {
         let journal = scratch(name).join("journal.jsonl");
         let report = import(&fixture(name), &journal, MAX_CAPTURE_BYTES).expect("import");
         assert_eq!(
@@ -213,4 +220,16 @@ fn a_changed_journal_fails_verification() {
     }
     fs::write(&journal, &original).unwrap();
     verify_journal(&journal).expect("positive control: the original verifies");
+}
+
+#[test]
+fn a_version_2_transcript_without_its_end_record_is_refused() {
+    // A recorder that stopped early leaves no end record; the capture refuses the run.
+    let run = copy("loop-1x1-v2");
+    let path = run.join("world-0.ncpt");
+    let bytes = fs::read(&path).unwrap();
+    fs::write(&path, &bytes[..bytes.len() - 1]).unwrap();
+    let journal = scratch("cut").join("journal.jsonl");
+    assert!(import(&run, &journal, MAX_CAPTURE_BYTES).is_err());
+    assert!(!journal.exists(), "no journal for a refused run");
 }
