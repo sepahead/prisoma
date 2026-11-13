@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Moved the NCP 2 loop capture, `crates/ncp-loop-capture`, to revision 4 of the NCP 2
+  specification: the Rust core `sepahead-ncp-core` 2.0.0 at NCP commit
+  `2e24ef5b89feb3f1e4f4972e290201d93e2d0a8d`. Revision 4 states transcript verification exactly (section 10.3): two different
+  responses to one admitted request now fail, and a verifier given a key refuses a transcript
+  without one. The capture needs no change, and the four recorded CREBAIN runs verify as before.
+
 - Moved the NCP 2 loop capture, `crates/ncp-loop-capture`, to revision 3 of the NCP 2
   specification: the Rust core `sepahead-ncp-core` 2.0.0 at NCP commit
   `9f58e7a0bebfde8033abad64e07999d77e8b315f`. The capture reads the single report of the
