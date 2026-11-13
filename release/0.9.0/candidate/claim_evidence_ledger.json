@@ -577,7 +577,7 @@
   "record_type": "candidate_claim_to_evidence_ledger",
   "release_version": "0.9.0",
   "schema_version": "prisoma.release-candidate/0.1.0",
-  "source_state_sha256": "52518b24b4564b24fccc31f1576cdbdb514bdf9e106e4f284589f2e462de26d1",
+  "source_state_sha256": "41897ad69db8dd2bd5eb9046411d64c4f4bb6215c30b03eb579e4b4d14f7b8e5",
   "status_contract": {
     "scientific_statuses": [
       "blocked_not_established",
