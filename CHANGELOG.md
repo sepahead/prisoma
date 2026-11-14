@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- New advisories: the root lock raises `arrow-buffer`, `arrow-data`, and `arrow-schema` from 58.3.0
+  to 58.4.1 (RUSTSEC-2026-0442, out-of-bounds reads through RunEndEncoded arrays) and `rustix`
+  from 1.1.4 to 1.1.6 (RUSTSEC-2026-0486, unsound `xattr` functions); `crates/ncp-observer`
+  raises `quinn-udp` from 0.5.14 to 0.5.16 (RUSTSEC-2026-0538); `crates/agent-bridge-python`
+  moves its exact `rustix` pin to 1.1.6. Only these versions and checksums change in the locks.
+
 - Moved the NCP 2 loop capture, `crates/ncp-loop-capture`, to revision 4 of the NCP 2
   specification: the Rust core `sepahead-ncp-core` 2.0.0 at NCP commit
   `2e24ef5b89feb3f1e4f4972e290201d93e2d0a8d`. Revision 4 states transcript verification exactly (section 10.3): two different

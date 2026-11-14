@@ -1,0 +1,10 @@
+README.md
+pyproject.toml
+src/prisoma_ncp_transcript/__init__.py
+src/prisoma_ncp_transcript/transcript.py
+src/prisoma_ncp_transcript.egg-info/PKG-INFO
+src/prisoma_ncp_transcript.egg-info/SOURCES.txt
+src/prisoma_ncp_transcript.egg-info/dependency_links.txt
+src/prisoma_ncp_transcript.egg-info/requires.txt
+src/prisoma_ncp_transcript.egg-info/top_level.txt
+tests/test_transcript.py

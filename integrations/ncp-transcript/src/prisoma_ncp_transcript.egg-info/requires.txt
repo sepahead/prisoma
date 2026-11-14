@@ -1,0 +1,1 @@
+ncp-local @ git+https://github.com/sepahead/NCP.git@c0465d40f1f2b9df2caf9793183d11e65ac9ec74#subdirectory=local/python
